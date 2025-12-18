@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { SoapClient } from './soapClient';
+import * as fs from 'fs';
+import * as path from 'path';
+import axios from 'axios';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "dirty-soap" is now active!');
@@ -59,42 +62,136 @@ class SoapPanel {
         this._panel.webview.onDidReceiveMessage(
             async message => {
                 switch (message.command) {
+                    case 'getLocalWsdls':
+                        try {
+                            const workspaceFolders = vscode.workspace.workspaceFolders;
+                            this._soapClient['log']('Getting local WSDLs. Workspace folders:', workspaceFolders);
+
+                            let wsdlDir = '';
+                            if (workspaceFolders) {
+                                wsdlDir = path.join(workspaceFolders[0].uri.fsPath, 'wsdl_files');
+                                this._soapClient['log']('Using workspace directory:', wsdlDir);
+                            } else {
+                                // Fallback: Use extension's installed directory (robust for packaged extensions)
+                                wsdlDir = path.join(this._extensionUri.fsPath, 'wsdl_files');
+                                this._soapClient['log']('No workspace folders found. Using extension directory:', wsdlDir);
+                            }
+
+                            if (fs.existsSync(wsdlDir)) {
+                                const files = fs.readdirSync(wsdlDir).filter(file => file.endsWith('.wsdl') || file.endsWith('.xml'));
+                                this._soapClient['log']('Files found:', files);
+                                this._panel.webview.postMessage({ command: 'localWsdls', files });
+                            } else {
+                                this._soapClient['log']('Directory does not exist:', wsdlDir);
+                                this._panel.webview.postMessage({ command: 'localWsdls', files: [] });
+                            }
+                        } catch (error: any) {
+                            console.error('Error getting local wsdls:', error); // Keep console error for devtools
+                            this._soapClient['log']('Error getting local wsdls:', error);
+                            this._panel.webview.postMessage({ command: 'localWsdls', files: [] });
+                        }
+                        return;
                     case 'loadWsdl':
                         try {
-                            const services = await this._soapClient.parseWsdl(message.url);
+                            let urlToLoad = message.url;
+                            let localWsdlDir: string | undefined;
+
+                            if (message.isLocal) {
+                                const workspaceFolders = vscode.workspace.workspaceFolders;
+                                if (workspaceFolders) {
+                                    urlToLoad = path.join(workspaceFolders[0].uri.fsPath, 'wsdl_files', message.url);
+                                } else {
+                                    urlToLoad = path.join(this._extensionUri.fsPath, 'wsdl_files', message.url);
+                                }
+                                // If local, enable local import resolution from the same directory
+                                localWsdlDir = path.dirname(urlToLoad);
+                            }
+
+                            this._soapClient['log']('Loading WSDL from:', urlToLoad);
+                            const services = await this._soapClient.parseWsdl(urlToLoad, localWsdlDir);
                             this._panel.webview.postMessage({ command: 'wsdlParsed', services });
                         } catch (error: any) {
                             const errorMessage = error instanceof Error ? error.message : String(error);
                             this._panel.webview.postMessage({ command: 'error', message: errorMessage });
                         }
                         return;
+                    case 'downloadWsdl':
+                        try {
+                            const workspaceFolders = vscode.workspace.workspaceFolders;
+                            let wsdlDir = '';
+                            if (workspaceFolders) {
+                                wsdlDir = path.join(workspaceFolders[0].uri.fsPath, 'wsdl_files');
+                            } else {
+                                wsdlDir = path.join(this._extensionUri.fsPath, 'wsdl_files');
+                            }
+
+                            if (!fs.existsSync(wsdlDir)) {
+                                fs.mkdirSync(wsdlDir, { recursive: true });
+                            }
+
+                            this._soapClient['log']('Starting download for:', message.url);
+
+                            // Helper to download recursively
+                            const visited = new Set<string>();
+                            const downloadRecursive = async (url: string, destDir: string) => {
+                                if (visited.has(url)) return;
+                                visited.add(url);
+
+                                try {
+                                    this._soapClient['log'](`Downloading: ${url}`);
+                                    const response = await axios.get(url, { responseType: 'text' });
+                                    const content = response.data;
+
+                                    // Extract filename
+                                    let filename = url.split('/').pop()?.split('?')[0];
+                                    if (!filename) filename = 'downloaded.wsdl';
+
+                                    const filePath = path.join(destDir, filename);
+                                    fs.writeFileSync(filePath, content);
+                                    this._soapClient['log'](`Saved to: ${filePath}`);
+
+                                    // Find imports (naive regex for WSDL/XSD imports)
+                                    // Matches schemaLocation="http..." or location="http..."
+                                    const regex = /(?:schemaLocation|location)\s*=\s*["'](http[^"']+)["']/g;
+                                    let match;
+
+                                    while ((match = regex.exec(content)) !== null) {
+                                        const importUrl = match[2];
+                                        // Save imports to 'imports' subdirectory to keep main list clean
+                                        const importsDir = path.join(wsdlDir, 'imports'); // Always relative to root wsdlDir
+                                        if (!fs.existsSync(importsDir)) {
+                                            fs.mkdirSync(importsDir);
+                                        }
+                                        await downloadRecursive(importUrl, importsDir);
+                                    }
+                                } catch (e: any) {
+                                    this._soapClient['log'](`Error downloading ${url}: ${e.message}`);
+                                    // Don't fail the whole process, just log
+                                }
+                            };
+
+                            await downloadRecursive(message.url, wsdlDir);
+
+                            this._soapClient['log']('Download complete.');
+                            // Refresh local files list
+                            // Wait a bit or reused logic?
+                            // Call logic for 'getLocalWsdls' essentially
+                            if (fs.existsSync(wsdlDir)) {
+                                const files = fs.readdirSync(wsdlDir).filter(file => file.endsWith('.wsdl') || file.endsWith('.xml'));
+                                this._panel.webview.postMessage({ command: 'localWsdls', files });
+                            }
+
+                        } catch (error: any) {
+                            const errorMessage = error instanceof Error ? error.message : String(error);
+                            this._panel.webview.postMessage({ command: 'error', message: `Download failed: ${errorMessage}` });
+                        }
+                        return;
+
                     case 'cancelRequest':
                         this._soapClient.cancelRequest();
                         return;
                     case 'executeRequest':
                         try {
-                            // Helper to parse XML to JSON args if needed, but for now let's assume valid XML string is passed 
-                            // actually soap lib usually takes JSON args.
-                            // If user edits XML directly, we might need a way to send raw XML.
-                            // The soap library supports client.Method(xmlString, cb) if using specific options, but usually expects object.
-                            // PROPOSAL: For this generic explorer, passing raw XML is hard with node-soap without manually handling it.
-                            // ALTERNATIVE: Use a lower level request or try to parse the XML back to JSON.
-                            // Let's assume for MVP we just use the raw XML if possible or simplistic JSON.
-
-                            // A better approach for "Bruno-like" is allowing user to edit the BODY XML.
-                            // node-soap allows passing xml as string to specific methods?
-                            // Actually node-soap `client.Method(args, cb)` -> args is JS object.
-
-                            // Let's implement a "raw" execution using extension's fetch or http/https lib if we want full XML control?
-                            // OR: node-soap `client.lastRequest` access.
-
-                            // Let's stick to Parsing the User's XML to an Object? No that's hard.
-                            // node-soap has `client.MyFunction(xml, function(err, result) ...)` if xml is a string it might work? 
-                            // let's try passing the args as the parsed XML string or just the string.
-
-                            // Re-reading node-soap docs: "args argument can be a JavaScript object or a JSON string or an XML string".
-                            // So we can pass the XML string from the editor directly!
-
                             const result = await this._soapClient.executeRequest(message.url, message.operation, message.xml);
                             this._panel.webview.postMessage({ command: 'response', result });
                         } catch (error: any) {

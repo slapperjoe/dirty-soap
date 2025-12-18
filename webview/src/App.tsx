@@ -84,6 +84,9 @@ const OperationItem = styled.div<{ active: boolean }>`
 
 function App() {
     const [wsdlUrl, setWsdlUrl] = useState('http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL');
+    const [inputType, setInputType] = useState<'url' | 'file'>('url');
+    const [localFiles, setLocalFiles] = useState<string[]>([]);
+    const [selectedFile, setSelectedFile] = useState('');
     const [services, setServices] = useState<SoapService[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -106,19 +109,32 @@ function App() {
                     setError(message.message);
                     setLoading(false);
                     break;
+                case 'localWsdls':
+                    setLocalFiles(message.files);
+                    if (message.files.length > 0 && !selectedFile) {
+                        setSelectedFile(message.files[0]);
+                    }
+                    break;
             }
         };
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [selectedFile]);
+
+    useEffect(() => {
+        if (inputType === 'file') {
+            vscode.postMessage({ command: 'getLocalWsdls' });
+        }
+    }, [inputType]);
 
     const loadWsdl = () => {
         setLoading(true);
         setError(null);
         vscode.postMessage({
             command: 'loadWsdl',
-            url: wsdlUrl
+            url: inputType === 'url' ? wsdlUrl : selectedFile,
+            isLocal: inputType === 'file'
         });
     };
 
@@ -127,7 +143,7 @@ function App() {
         setLoading(true);
         vscode.postMessage({
             command: 'executeRequest',
-            url: wsdlUrl,
+            url: inputType === 'url' ? wsdlUrl : selectedFile, // pass relevant ID/URL
             operation: selectedOperation?.name,
             xml: xml
         });
@@ -140,20 +156,77 @@ function App() {
         });
     };
 
+    const downloadWsdl = () => {
+        setLoading(true);
+        setError(null);
+        vscode.postMessage({
+            command: 'downloadWsdl',
+            url: wsdlUrl
+        });
+    };
+
     return (
         <Container>
             <Sidebar>
                 {/* ... Sidebar content unchanged ... */}
                 <SidebarHeader>
                     <div style={{ marginBottom: 5, fontWeight: 'bold' }}>Dirty SOAP</div>
-                    <Input
-                        value={wsdlUrl}
-                        onChange={(e) => setWsdlUrl(e.target.value)}
-                        placeholder="WSDL URL"
-                    />
-                    <Button onClick={loadWsdl} disabled={loading}>
-                        {loading ? 'Loading...' : 'Load WSDL'}
-                    </Button>
+
+                    <div style={{ display: 'flex', marginBottom: 8, gap: 10 }}>
+                        <label>
+                            <input
+                                type="radio"
+                                checked={inputType === 'url'}
+                                onChange={() => setInputType('url')}
+                            /> URL
+                        </label>
+                        <label>
+                            <input
+                                type="radio"
+                                checked={inputType === 'file'}
+                                onChange={() => setInputType('file')}
+                            /> File
+                        </label>
+                    </div>
+
+                    {inputType === 'url' ? (
+                        <Input
+                            value={wsdlUrl}
+                            onChange={(e) => setWsdlUrl(e.target.value)}
+                            placeholder="WSDL URL"
+                        />
+                    ) : (
+                        <select
+                            style={{ width: '100%', marginBottom: 8, padding: 4, background: 'var(--vscode-input-background)', color: 'var(--vscode-input-foreground)', border: '1px solid var(--vscode-input-border)' }}
+                            value={selectedFile}
+                            onChange={(e) => setSelectedFile(e.target.value)}
+                        >
+                            {localFiles.length === 0 ? <option value="">No files found</option> : null}
+                            {localFiles.map(file => (
+                                <option key={file} value={file}>{file}</option>
+                            ))}
+                        </select>
+                    )}
+
+                    {inputType === 'url' ? (
+                        <div style={{ display: 'flex', gap: 5 }}>
+                            <Button onClick={loadWsdl} disabled={loading} style={{ flex: 2 }}>
+                                {loading ? 'Loading...' : 'Load WSDL'}
+                            </Button>
+                            <Button
+                                onClick={downloadWsdl}
+                                disabled={loading}
+                                title="Download WSDL and imports to local files"
+                                style={{ flex: 1, backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)' }}
+                            >
+                                ⇩
+                            </Button>
+                        </div>
+                    ) : (
+                        <Button onClick={loadWsdl} disabled={loading}>
+                            {loading ? 'Loading...' : 'Load WSDL'}
+                        </Button>
+                    )}
                 </SidebarHeader>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {services.map((service, i) => (

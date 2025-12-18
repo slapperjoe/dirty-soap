@@ -1,0 +1,337 @@
+<WL5G3N2:definitions xmlns:WL5G3N0="http://schemas.xmlsoap.org/ws/2004/09/policy"
+    xmlns:WL5G3N1="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
+    xmlns:WL5G3N2="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:WL5G3N3="http://socialservices.gov.au/ebm/AssessmentReferral"
+    xmlns:WL5G3N4="http://socialservices.gov.au/Common"
+    xmlns:WL5G3N5="http://socialservices.gov.au/AgedCare/AssessmentReferral"
+    xmlns:WL5G3N6="http://schemas.xmlsoap.org/wsdl/soap12/"
+    xmlns:WL5G3N7="http://schemas.xmlsoap.org/wsdl/soap/" name="AssessmentReferral" targetNamespace="http://socialservices.gov.au/AgedCare/AssessmentReferral">
+    <WL5G3N0:Policy WL5G3N1:Id="wss10_saml20_token_service_policy">
+        <sp:SupportingTokens xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+            <wsp:Policy xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy">
+                <sp:SamlToken sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/AlwaysToRecipient">
+                    <wsp:Policy>
+                        <sp:WssSamlV20Token11/>
+                    </wsp:Policy>
+                </sp:SamlToken>
+            </wsp:Policy>
+        </sp:SupportingTokens>
+    </WL5G3N0:Policy>
+    <WL5G3N2:types>
+        <xsd:schema xmlns:WL5G3N0="http://schemas.xmlsoap.org/wsdl/"
+            xmlns:WL5G3N1="http://socialservices.gov.au/Common"
+            xmlns:WL5G3N2="http://socialservices.gov.au/ebm/AssessmentReferral"
+            xmlns:WL5G3N3="http://socialservices.gov.au/AgedCare/AssessmentReferral"
+            xmlns:WL5G3N4="http://schemas.xmlsoap.org/wsdl/soap12/"
+            xmlns:WL5G3N5="http://schemas.xmlsoap.org/wsdl/soap/"
+            xmlns:common="http://socialservices.gov.au/Common"
+            xmlns:ebm="http://socialservices.gov.au/ebm/AssessmentReferral"
+            xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+            xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/"
+            xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/"
+            xmlns:tns="http://socialservices.gov.au/AgedCare/AssessmentReferral"
+            xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+            <xsd:import namespace="http://socialservices.gov.au/ebm/AssessmentReferral" schemaLocation="http://acg-r02-bld-osb.myac.gov.au:80/AgedCare/AssessmentReferral?SCHEMA%2FAgedCare.Models%2FResources%2FInternal%2FSchemas%2FMessagingObjects%2FReferral%2FAgedCare.AssessmentReferral"/>
+            <xsd:import namespace="http://socialservices.gov.au/Common" schemaLocation="http://acg-r02-bld-osb.myac.gov.au:80/AgedCare/AssessmentReferral?SCHEMA%2FAgedCare.Models%2FResources%2FInternal%2FSchemas%2FCommon%2FCommon.Header"/>
+            <xsd:import namespace="http://socialservices.gov.au/Common" schemaLocation="http://acg-r02-bld-osb.myac.gov.au:80/AgedCare/AssessmentReferral?SCHEMA%2FAgedCare.Models%2FResources%2FInternal%2FSchemas%2FCommon%2FCommon.Fault"/>
+            <xsd:import namespace="http://socialservices.gov.au/Common" schemaLocation="http://acg-r02-bld-osb.myac.gov.au:80/AgedCare/AssessmentReferral?SCHEMA%2FAgedCare.Models%2FResources%2FInternal%2FSchemas%2FCommon%2FCommon.BusinessMessage"/>
+        </xsd:schema>
+    </WL5G3N2:types>
+    <WL5G3N2:message name="AcceptReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:AcceptReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ProcessReferrals_Out">
+        <WL5G3N2:part name="parameters" element="WL5G3N4:ProcessedTransactionListResponse"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="Fault">
+        <WL5G3N2:part name="fault" element="WL5G3N4:Fault"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="RejectReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:RejectReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="RejectReferrals_Out">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:RejectReferralsResponse"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="CloseOtherReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:CloseOtherReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="TransferReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:TransferReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="AssignReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:AssignReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="UnAssignReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:UnAssignReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListIncomingReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListIncomingReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListReferrals_Out">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListReferralsResponse"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListAcceptedReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListAcceptedReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListAssessmentReferrals_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListAssessmentReferralsRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListReferralsHistory_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListReferralsHistoryRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListAssessorsForAssignment_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListAssessorsForAssignmentRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="ListAssessorsForAssignment_Out">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:ListAssessorsForAssignmentResponse"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="SelfReferral_In">
+        <WL5G3N2:part name="parameters" element="WL5G3N3:SelfReferralRequest"/>
+    </WL5G3N2:message>
+    <WL5G3N2:message name="Header">
+        <WL5G3N2:part name="header" element="WL5G3N4:Header"/>
+    </WL5G3N2:message>
+    <WL5G3N2:portType name="IAssessmentReferralService">
+        <WL5G3N2:operation name="AcceptReferrals">
+            <WL5G3N2:input name="AcceptReferrals_DataIn" message="WL5G3N5:AcceptReferrals_In"/>
+            <WL5G3N2:output name="AcceptReferrals_DataOut" message="WL5G3N5:ProcessReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="RejectReferrals">
+            <WL5G3N2:input name="RejectReferrals_DataIn" message="WL5G3N5:RejectReferrals_In"/>
+            <WL5G3N2:output name="RejectReferrals_DataOut" message="WL5G3N5:RejectReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="CloseOtherReferrals">
+            <WL5G3N2:input name="CloseOtherReferrals_DataIn" message="WL5G3N5:CloseOtherReferrals_In"/>
+            <WL5G3N2:output name="CloseOtherReferrals_DataOut" message="WL5G3N5:ProcessReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="TransferReferrals">
+            <WL5G3N2:input name="TransferReferrals_DataIn" message="WL5G3N5:TransferReferrals_In"/>
+            <WL5G3N2:output name="TransferReferrals_DataOut" message="WL5G3N5:ProcessReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="AssignReferrals">
+            <WL5G3N2:input name="AssignReferrals_DataIn" message="WL5G3N5:AssignReferrals_In"/>
+            <WL5G3N2:output name="AssignReferrals_DataOut" message="WL5G3N5:ProcessReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="UnAssignReferrals">
+            <WL5G3N2:input name="UnAssignReferrals_DataIn" message="WL5G3N5:UnAssignReferrals_In"/>
+            <WL5G3N2:output name="UnAssignReferrals_DataOut" message="WL5G3N5:ProcessReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListIncomingReferrals">
+            <WL5G3N2:input name="ListIncomingReferrals_DataIn" message="WL5G3N5:ListIncomingReferrals_In"/>
+            <WL5G3N2:output name="ListReferrals_DataOut" message="WL5G3N5:ListReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListAcceptedReferrals">
+            <WL5G3N2:input name="ListAcceptedReferrals_DataIn" message="WL5G3N5:ListAcceptedReferrals_In"/>
+            <WL5G3N2:output name="ListReferrals_DataOut" message="WL5G3N5:ListReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListAssessmentReferrals">
+            <WL5G3N2:input name="ListAssessmentReferrals_DataIn" message="WL5G3N5:ListAssessmentReferrals_In"/>
+            <WL5G3N2:output name="ListReferrals_DataOut" message="WL5G3N5:ListReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListReferralsHistory">
+            <WL5G3N2:input name="ListReferralsHistory_DataIn" message="WL5G3N5:ListReferralsHistory_In"/>
+            <WL5G3N2:output name="ListReferrals_DataOut" message="WL5G3N5:ListReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListAssessorsForAssignment">
+            <WL5G3N2:input name="ListAssessorsForAssignment_DataIn" message="WL5G3N5:ListAssessorsForAssignment_In"/>
+            <WL5G3N2:output name="ListAssessorsForAssignment_DataOut" message="WL5G3N5:ListAssessorsForAssignment_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="SelfReferral">
+            <WL5G3N2:input name="SelfReferral_DataIn" message="WL5G3N5:SelfReferral_In"/>
+            <WL5G3N2:output name="SelfReferral_DataOut" message="WL5G3N5:ProcessReferrals_Out"/>
+            <WL5G3N2:fault name="Fault" message="WL5G3N5:Fault"/>
+        </WL5G3N2:operation>
+    </WL5G3N2:portType>
+    <WL5G3N2:binding name="AssessmentReferralBinding" type="WL5G3N5:IAssessmentReferralService">
+        <WL5G3N6:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <WL5G3N0:Policy>
+            <WL5G3N0:PolicyReference URI="#wss10_saml20_token_service_policy"/>
+        </WL5G3N0:Policy>
+        <WL5G3N2:operation name="AcceptReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/AcceptReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="RejectReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/RejectReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="CloseOtherReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/CloseOtherReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="TransferReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/TransferReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="AssignReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/AssignReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="UnAssignReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/UnAssignReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListIncomingReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/ListIncomingReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListAcceptedReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/ListAcceptedReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListAssessmentReferrals">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/ListAssessmentReferrals" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListReferralsHistory">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/ListReferralsHistory" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="ListAssessorsForAssignment">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/ListAssessorsForAssignment" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+        <WL5G3N2:operation name="SelfReferral">
+            <WL5G3N6:operation style="document" soapAction="http://socialservices.gov.au/AgedCare/AssessmentReferral/SelfReferral" soapActionRequired="false"/>
+            <WL5G3N2:input>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:input>
+            <WL5G3N2:output>
+                <WL5G3N6:body use="literal"/>
+                <WL5G3N6:header message="WL5G3N5:Header" part="header" use="literal"/>
+            </WL5G3N2:output>
+            <WL5G3N2:fault name="Fault">
+                <WL5G3N7:fault name="Fault" use="literal"/>
+            </WL5G3N2:fault>
+        </WL5G3N2:operation>
+    </WL5G3N2:binding>
+    <WL5G3N2:service name="AssessmentReferralService">
+        <WL5G3N2:documentation>OSB Service</WL5G3N2:documentation>
+        <WL5G3N2:port name="AssessmentReferral" binding="WL5G3N5:AssessmentReferralBinding">
+            <WL5G3N6:address location="http://acg-r02-bld-osb.myac.gov.au:80/AgedCare/AssessmentReferral"/>
+        </WL5G3N2:port>
+    </WL5G3N2:service>
+</WL5G3N2:definitions>
