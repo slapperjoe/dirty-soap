@@ -61,7 +61,8 @@ export class SoapClient {
 
         // Check if we are in "Raw XML" mode (args is string)
         if (typeof args === 'string' && args.trim().startsWith('<')) {
-            return this.executeRawRequest(operation, args, headers);
+            // Treat the passed 'url' as the target endpoint override
+            return this.executeRawRequest(operation, args, headers, url);
         }
 
         return new Promise((resolve, reject) => {
@@ -75,6 +76,11 @@ export class SoapClient {
             if (headers) {
                 this.client.addSoapHeader(headers);
             }
+
+            // node-soap doesn't easily support overriding endpoint per-request in this mode without changing client options
+            // But we mostly use Raw XML mode. 
+            // If we need to support it here, we'd need to set client.setEndpoint(url) but that persists.
+            // For now, only applying to Raw logic.
 
             const req = method(args, (err: any, result: any, rawResponse: any, soapHeader: any, rawRequest: any) => {
                 this.currentRequest = null;
@@ -98,24 +104,27 @@ export class SoapClient {
         });
     }
 
-    private async executeRawRequest(operation: string, xml: string, headers: any): Promise<any> {
+    private async executeRawRequest(operation: string, xml: string, headers: any, endpointOverride?: string): Promise<any> {
         if (!this.client) {
             throw new Error("Client not initialized");
         }
 
         // 1. Find Endpoint
-        let endpoint = '';
+        let endpoint = endpointOverride || '';
         const definitions = (this.client as any).wsdl.definitions;
-        for (const serviceName in definitions.services) {
-            const service = definitions.services[serviceName];
-            for (const portName in service.ports) {
-                const port = service.ports[portName];
-                if (port.location) {
-                    endpoint = port.location;
-                    break;
+
+        if (!endpoint) {
+            for (const serviceName in definitions.services) {
+                const service = definitions.services[serviceName];
+                for (const portName in service.ports) {
+                    const port = service.ports[portName];
+                    if (port.location) {
+                        endpoint = port.location;
+                        break;
+                    }
                 }
+                if (endpoint) break;
             }
-            if (endpoint) break;
         }
 
         if (!endpoint) {

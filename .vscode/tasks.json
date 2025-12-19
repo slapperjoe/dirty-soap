@@ -33,6 +33,20 @@
             "group": "build",
             "label": "npm: compile-webview",
             "detail": "compile the webview"
+        },
+        {
+            "type": "npm",
+            "script": "desktop:build",
+            "group": "build",
+            "label": "Tauri Build",
+            "detail": "Build the Desktop App (Tauri)"
+        },
+        {
+            "type": "npm",
+            "script": "desktop:dev",
+            "group": "test",
+            "label": "Tauri Dev",
+            "detail": "Run Desktop App in Dev Mode"
         }
     ]
 }

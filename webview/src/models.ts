@@ -57,4 +57,5 @@ export interface SoapUIProject {
     interfaces: SoapUIInterface[];
     expanded?: boolean;
     fileName?: string;
+    id?: string;
 }

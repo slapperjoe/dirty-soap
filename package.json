@@ -32,9 +32,14 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "desktop:dev": "npx tauri dev",
+    "desktop:build": "npx tauri build",
+    "build:sidecar": "npx esbuild src/sidecar.ts --bundle --platform=node --target=node16 --outfile=out/sidecar-bundled.js && npx pkg out/sidecar-bundled.js --target node16-win-x64 --output src-tauri/binaries/sidecar-x86_64-pc-windows-msvc.exe",
+    "dev:webview": "cd webview && npm run dev"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.2.5",
@@ -46,6 +51,7 @@
     "eslint": "^8.41.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
+    "pkg": "^5.8.1",
     "typescript": "^5.1.3"
   },
   "dependencies": {

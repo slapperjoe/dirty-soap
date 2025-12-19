@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { RequestEditor } from './RequestEditor';
-import { ResponseViewer } from './ResponseViewer';
-import { Layout, ListOrdered, Play, Loader2, RotateCcw, Code as CodeIcon, AlignLeft } from 'lucide-react';
+import { Layout, ListOrdered, Play, Loader2, RotateCcw, AlignLeft } from 'lucide-react';
 import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
@@ -117,7 +115,6 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     selectedRequest, selectedOperation, response, loading, layoutMode, showLineNumbers, splitRatio, isResizing,
     onExecute, onCancel, onUpdateRequest, onReset, onToggleLayout, onToggleLineNumbers, onStartResizing, defaultEndpoint
 }) => {
-    const [useMonaco, setUseMonaco] = React.useState(false);
     const [alignAttributes, setAlignAttributes] = React.useState(false);
 
     if (!selectedRequest) {
@@ -206,22 +203,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 <span style={{ opacity: 0.8 }}>Size: {selectedRequest.request ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</span>
                             </div>
                         </div>
-                        {useMonaco ? (
-                            <MonacoRequestEditor
-                                value={selectedRequest.request}
-                                onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
-                                readOnly={loading}
-                                language="xml"
-                            />
-                        ) : (
-                            <RequestEditor
-                                operation={selectedOperation}
-                                initialXml={selectedRequest.request}
-                                onChange={(xml) => onUpdateRequest({ ...selectedRequest, request: xml })}
-                                showLineNumbers={showLineNumbers}
-                                onExecute={onExecute}
-                            />
-                        )}
+                        <MonacoRequestEditor
+                            value={selectedRequest.request}
+                            onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
+                            readOnly={loading}
+                            language="xml"
+                        />
                     </div>
 
                     {/* Resizer */}
@@ -277,27 +264,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 </div>
                             )}
                         </div>
-                        {useMonaco ? (
-                            <MonacoResponseViewer
-                                value={response ? (alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : (response.rawResponse || '')) : ''}
-                                showLineNumbers={showLineNumbers}
-                            />
-                        ) : (
-                            <ResponseViewer
-                                response={response ? { ...response, rawResponse: alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : response.rawResponse } : null}
-                                error={response?.error}
-                                loading={loading}
-                                showLineNumbers={showLineNumbers}
-                            />
-                        )}
+                        <MonacoResponseViewer
+                            value={response ? (alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : (response.rawResponse || '')) : ''}
+                            showLineNumbers={showLineNumbers}
+                        />
                     </div>
                 </div>
             </div>
 
             <MainFooter>
-                <IconButton onClick={() => setUseMonaco(!useMonaco)} active={useMonaco} title="Toggle Editor Mode (Monaco)">
-                    <CodeIcon size={16} />
-                </IconButton>
                 <IconButton onClick={onToggleLineNumbers} active={showLineNumbers} title="Toggle Line Numbers">
                     <ListOrdered size={16} />
                 </IconButton>

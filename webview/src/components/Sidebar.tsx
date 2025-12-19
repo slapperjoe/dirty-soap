@@ -143,6 +143,7 @@ interface SidebarProps {
 
     handleContextMenu: (e: React.MouseEvent, type: string, data: any, isExplorer?: boolean) => void;
     deleteConfirm: string | null;
+    backendConnected: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -157,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     selectedOperation, setSelectedOperation,
     selectedRequest, setSelectedRequest,
     setResponse,
-    handleContextMenu, deleteConfirm
+    handleContextMenu, deleteConfirm, backendConnected
 }) => {
 
     const renderInterfaceList = (interfaces: SoapUIInterface[], isExplorer: boolean) => (
@@ -252,6 +253,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <SectionHeader onClick={toggleExplorerExpand}>
                     <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                         {explorerExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} WSDL Explorer
+                        <div style={{
+                            width: 8, height: 8, borderRadius: '50%',
+                            backgroundColor: backendConnected ? '#4caf50' : '#f44336',
+                            marginLeft: 10
+                        }} title={backendConnected ? "Backend Connected" : "Backend Disconnected"}></div>
                     </SectionTitle>
                     {exploredInterfaces.length > 0 && (
                         <>
@@ -352,8 +358,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </div>
                 {projects.map((proj, pIdx) => (
-                    <div key={pIdx}>
-                        <SectionHeader onClick={() => toggleProjectExpand(proj.name)}>
+                    <div key={proj.id || pIdx}>
+                        <SectionHeader
+                            onClick={() => toggleProjectExpand(proj.name)}
+                            onContextMenu={(e) => handleContextMenu(e, 'project', proj)}
+                        >
                             <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                                 {(proj as any).expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Project: {(proj as any).fileName || proj.name}
                             </SectionTitle>

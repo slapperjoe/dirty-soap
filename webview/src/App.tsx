@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
-import { vscode } from './vscode';
+import { bridge } from './utils/bridge';
 import { Sidebar } from './components/Sidebar';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
 import { SchemaViewer } from './components/SchemaViewer';
@@ -113,8 +113,10 @@ function App() {
     const [selectedRequest, setSelectedRequest] = useState<SoapUIRequest | null>(null);
 
     // Data
+    // Data
     const [response, setResponse] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [backendConnected, setBackendConnected] = useState(false);
 
     // UI State
     const [explorerExpanded, setExplorerExpanded] = useState(true);
@@ -139,20 +141,27 @@ function App() {
 
     // Initial Load
     useEffect(() => {
-        const state = vscode.getState();
+        const state = bridge.getState();
         if (state) {
             setProjects(state.projects || []);
             setExploredInterfaces(state.exploredInterfaces || []);
             setExplorerExpanded(state.explorerExpanded ?? true);
             setWsdlUrl(state.wsdlUrl || '');
             if (state.lastSelectedProject) setSelectedProjectName(state.lastSelectedProject);
-            // We don't restore exact request selection deeply to avoid complications, but could.
         }
+
+        // Test Backend Connection
+        bridge.sendMessage({ command: 'echo', message: 'ping' });
+        // Retry every 5 seconds if not connected
+        const interval = setInterval(() => {
+            bridge.sendMessage({ command: 'echo', message: 'ping' });
+        }, 5000);
+        return () => clearInterval(interval);
     }, []);
 
     // Save State
     useEffect(() => {
-        vscode.setState({
+        bridge.setState({
             projects,
             exploredInterfaces,
             explorerExpanded,
@@ -163,8 +172,7 @@ function App() {
 
     // VS Code Messages
     useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            const message = event.data;
+        const handleMessage = (message: any) => {
             switch (message.command) {
                 case 'wsdlParsed':
                     // Convert raw SoapService to SoapUIInterface
@@ -248,6 +256,10 @@ function App() {
                     // Replace projects or merge? Usually replace workspace
                     setProjects(message.projects.map((p: any) => ({ ...p, expanded: true })));
                     break;
+                case 'echoResponse':
+                    console.log("Backend Connected:", message.message);
+                    setBackendConnected(true);
+                    break;
                 case 'localWsdls':
                     // handled by quick pick in sidebar logic? NO, Sidebar invokes pickLocalWsdl
                     // The extension shows a QuickPick?
@@ -258,8 +270,8 @@ function App() {
                     break;
             }
         };
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
+
+        return bridge.onMessage(handleMessage);
     }, [wsdlUrl]);
 
     // Resizing Logic
@@ -292,14 +304,14 @@ function App() {
     // Handlers
     const loadWsdl = () => {
         if (inputType === 'url' && wsdlUrl) {
-            vscode.postMessage({ command: 'loadWsdl', url: wsdlUrl, isLocal: false });
+            bridge.sendMessage({ command: 'loadWsdl', url: wsdlUrl, isLocal: false });
         } else if (inputType === 'file' && selectedFile) {
-            vscode.postMessage({ command: 'loadWsdl', url: selectedFile, isLocal: true });
+            bridge.sendMessage({ command: 'loadWsdl', url: selectedFile, isLocal: true });
         }
     };
 
     const pickLocalWsdl = () => {
-        vscode.postMessage({ command: 'selectLocalWsdl' });
+        bridge.sendMessage({ command: 'selectLocalWsdl' });
     };
 
     const executeRequest = (xml: string) => {
@@ -312,13 +324,14 @@ function App() {
             // Or rely on WSDL loaded state?
             // `SoapClient` logic uses parsed client OR downloads.
             // We pass definition URL.
-            const url = selectedInterface?.definition || wsdlUrl;
-            vscode.postMessage({ command: 'executeRequest', url, operation: selectedOperation.name, xml });
+            // Prioritize the request-specific endpoint, then the interface definition, then the WSDL URL
+            const url = selectedRequest?.endpoint || selectedInterface?.definition || wsdlUrl;
+            bridge.sendMessage({ command: 'executeRequest', url, operation: selectedOperation.name, xml });
         }
     };
 
     const cancelRequest = () => {
-        vscode.postMessage({ command: 'cancelRequest' });
+        bridge.sendMessage({ command: 'cancelRequest' });
         setLoading(false);
     };
 
@@ -408,7 +421,7 @@ function App() {
     };
 
     const saveProject = (proj: SoapUIProject) => {
-        vscode.postMessage({ command: 'saveProject', project: proj });
+        bridge.sendMessage({ command: 'saveProject', project: proj });
     };
 
     const closeProject = (name: string) => {
@@ -428,10 +441,15 @@ function App() {
         }
     };
 
-    const saveWorkspace = () => vscode.postMessage({ command: 'saveWorkspace', projects });
-    const openWorkspace = () => vscode.postMessage({ command: 'openWorkspace' });
-    const loadProject = () => vscode.postMessage({ command: 'loadProject' });
-    const addProject = () => setProjects(prev => [...prev, { name: `Project ${prev.length + 1}`, interfaces: [], expanded: true }]);
+    const saveWorkspace = () => bridge.sendMessage({ command: 'saveWorkspace', projects });
+    const openWorkspace = () => bridge.sendMessage({ command: 'openWorkspace' });
+    const loadProject = () => bridge.sendMessage({ command: 'loadProject' });
+    const addProject = () => {
+        console.log("Adding Project, prev count:", projects.length);
+        const name = `Project ${projects.length + 1}`;
+        console.log("New Name:", name);
+        setProjects(prev => [...prev, { name: name, interfaces: [], expanded: true, id: Date.now().toString() }]);
+    };
 
 
     // Expand Toggles
@@ -545,7 +563,7 @@ function App() {
             // Simplified: only support on Operation or assume we can find it.
             // For now support on Operation.
             if (contextMenu.type === 'operation') {
-                vscode.postMessage({ command: 'getSampleSchema', operationName: contextMenu.data.name });
+                bridge.sendMessage({ command: 'getSampleSchema', operationName: contextMenu.data.name });
             }
             closeContextMenu();
         }
@@ -594,6 +612,7 @@ function App() {
                 setResponse={setResponse}
                 handleContextMenu={handleContextMenu}
                 deleteConfirm={deleteConfirm}
+                backendConnected={backendConnected}
             />
 
             <WorkspaceLayout
