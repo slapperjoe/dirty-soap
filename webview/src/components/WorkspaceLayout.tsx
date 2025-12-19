@@ -2,9 +2,11 @@ import React from 'react';
 import styled from 'styled-components';
 import { RequestEditor } from './RequestEditor';
 import { ResponseViewer } from './ResponseViewer';
-import { Layout, ListOrdered, Play, Loader2, RotateCcw, Code as CodeIcon } from 'lucide-react';
+import { Layout, ListOrdered, Play, Loader2, RotateCcw, Code as CodeIcon, AlignLeft } from 'lucide-react';
 import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
+import { MonacoResponseViewer } from './MonacoResponseViewer';
+import { formatXml } from '../utils/xmlFormatter';
 
 const Content = styled.div`
   flex: 1;
@@ -116,6 +118,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     onExecute, onCancel, onUpdateRequest, onReset, onToggleLayout, onToggleLineNumbers, onStartResizing, defaultEndpoint
 }) => {
     const [useMonaco, setUseMonaco] = React.useState(false);
+    const [alignAttributes, setAlignAttributes] = React.useState(false);
 
     if (!selectedRequest) {
         return (
@@ -187,6 +190,22 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         height: 'auto',
                         width: 'auto'
                     }}>
+                        <div style={{
+                            padding: '5px 10px',
+                            backgroundColor: 'var(--vscode-editor-background)',
+                            borderBottom: '1px solid var(--vscode-panel-border)',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexShrink: 0
+                        }}>
+                            <span>Request: {selectedOperation?.name} - {selectedRequest.name}</span>
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                <span style={{ opacity: 0.8 }}>Lines: {selectedRequest.request ? selectedRequest.request.split('\n').length : 0}</span>
+                                <span style={{ opacity: 0.8 }}>Size: {selectedRequest.request ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</span>
+                            </div>
+                        </div>
                         {useMonaco ? (
                             <MonacoRequestEditor
                                 value={selectedRequest.request}
@@ -258,12 +277,19 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 </div>
                             )}
                         </div>
-                        <ResponseViewer
-                            response={response}
-                            error={response?.error}
-                            loading={loading}
-                            showLineNumbers={showLineNumbers}
-                        />
+                        {useMonaco ? (
+                            <MonacoResponseViewer
+                                value={response ? (alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : (response.rawResponse || '')) : ''}
+                                showLineNumbers={showLineNumbers}
+                            />
+                        ) : (
+                            <ResponseViewer
+                                response={response ? { ...response, rawResponse: alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : response.rawResponse } : null}
+                                error={response?.error}
+                                loading={loading}
+                                showLineNumbers={showLineNumbers}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -274,6 +300,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                 </IconButton>
                 <IconButton onClick={onToggleLineNumbers} active={showLineNumbers} title="Toggle Line Numbers">
                     <ListOrdered size={16} />
+                </IconButton>
+                <IconButton onClick={() => {
+                    const newValue = !alignAttributes;
+                    setAlignAttributes(newValue);
+                    if (selectedRequest.request) {
+                        onUpdateRequest({ ...selectedRequest, request: formatXml(selectedRequest.request, newValue) });
+                    }
+                }} active={alignAttributes} title="Toggle Attribute Alignment">
+                    <AlignLeft size={16} />
                 </IconButton>
                 <IconButton onClick={onToggleLayout} title="Toggle Layout (Vertical/Horizontal)">
                     <Layout size={16} />
