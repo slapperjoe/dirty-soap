@@ -4,6 +4,7 @@ import { Layout, ListOrdered, Play, Loader2, RotateCcw, AlignLeft } from 'lucide
 import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
+import ReactMarkdown from 'react-markdown';
 import { MonacoSingleLineInput } from './MonacoSingleLineInput';
 import { formatXml } from '../utils/xmlFormatter';
 
@@ -12,6 +13,19 @@ const Content = styled.div`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+`;
+
+const MarkdownContainer = styled.div`
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid var(--vscode-panel-border);
+    
+    h1, h2, h3 { border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 5px; margin-top: 1.5em; }
+    p { margin-bottom: 1px; }
+    ul { padding-left: 20px; }
+    code { background: var(--vscode-textCodeBlock-background); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+    pre { background: var(--vscode-textCodeBlock-background); padding: 10px; border-radius: 5px; overflow-x: auto; }
+    pre code { background: transparent; padding: 0; }
 `;
 
 const Toolbar = styled.div`
@@ -106,19 +120,31 @@ interface WorkspaceLayoutProps {
     onToggleLineNumbers: () => void;
     onStartResizing: () => void;
     defaultEndpoint?: string;
+    changelog?: string;
+
+    // Config
+    config?: any;
+    onChangeEnvironment?: (env: string) => void;
 }
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     selectedRequest, selectedOperation, response, loading, layoutMode, showLineNumbers, splitRatio, isResizing,
-    onExecute, onCancel, onUpdateRequest, onReset, onToggleLayout, onToggleLineNumbers, onStartResizing, defaultEndpoint
+    onExecute, onCancel, onUpdateRequest, onReset, onToggleLayout, onToggleLineNumbers, onStartResizing, defaultEndpoint,
+    changelog,
+    config, onChangeEnvironment
 }) => {
     const [alignAttributes, setAlignAttributes] = React.useState(false);
 
     if (!selectedRequest) {
         return (
-            <div style={{ padding: 20, flex: 1 }}>
+            <div style={{ padding: 20, flex: 1, overflow: 'auto', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)' }}>
                 <h1>Welcome to Dirty SOAP</h1>
                 <p>Load a WSDL to see available operations.</p>
+                {changelog && (
+                    <MarkdownContainer>
+                        <ReactMarkdown>{changelog}</ReactMarkdown>
+                    </MarkdownContainer>
+                )}
             </div>
         );
     }
@@ -169,11 +195,25 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                             <Loader2 size={14} className="spin" /> Cancel
                         </ToolbarButton>
                     ) : (
-                        <div style={{ display: 'flex', gap: 10, marginLeft: 10 }}>
-                            <ToolbarButton onClick={() => onExecute(selectedRequest.request)} title="Run Request" style={{ color: 'var(--vscode-testing-iconPassed)' }}>
-                                <Play size={14} /> Run
-                            </ToolbarButton>
-                        </div>
+                        <ToolbarButton onClick={() => onExecute(selectedRequest.request)} title="Run Request" style={{ color: 'var(--vscode-testing-iconPassed)' }}>
+                            <Play size={14} /> Run
+                        </ToolbarButton>
+                    )}
+
+                    <div style={{ width: 1, height: 20, background: 'var(--vscode-panel-border)', margin: '0 5px' }} />
+
+                    {/* Environment Selector */}
+                    {config && config.environments && (
+                        <ToolbarSelect
+                            value={config.activeEnvironment}
+                            onChange={(e) => onChangeEnvironment && onChangeEnvironment(e.target.value)}
+                            title="Active Environment"
+                            style={{ minWidth: 100 }}
+                        >
+                            {Object.keys(config.environments).map(env => (
+                                <option key={env} value={env}>{env}</option>
+                            ))}
+                        </ToolbarSelect>
                     )}
                 </Toolbar>
 
@@ -273,7 +313,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
 
             <MainFooter>
                 <IconButton onClick={onToggleLineNumbers} active={showLineNumbers} title="Toggle Line Numbers">
@@ -292,6 +332,6 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                     <Layout size={16} />
                 </IconButton>
             </MainFooter>
-        </Content>
+        </Content >
     );
 };

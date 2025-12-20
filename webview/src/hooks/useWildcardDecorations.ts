@@ -30,6 +30,10 @@ export const useWildcardDecorations = (editor: any, monaco: Monaco | null, value
                 const startPos = model.getPositionAt(match.index);
                 const endPos = model.getPositionAt(match.index + match[0].length);
 
+                // Check if it's an environment wildcard or shortcuts
+                const content = match[0];
+                const isEnv = content === '{{env}}' || content === '{{url}}';
+
                 matches.push({
                     range: new monaco.Range(
                         startPos.lineNumber,
@@ -39,9 +43,9 @@ export const useWildcardDecorations = (editor: any, monaco: Monaco | null, value
                     ),
                     options: {
                         isWholeLine: false,
-                        className: 'wildcard-tag-decoration',
-                        inlineClassName: 'wildcard-tag-text',
-                        hoverMessage: { value: 'Wildcard Tag' }
+                        className: isEnv ? 'environment-tag-decoration' : 'wildcard-tag-decoration',
+                        inlineClassName: isEnv ? 'environment-tag-text' : 'wildcard-tag-text',
+                        hoverMessage: { value: isEnv ? 'Environment Variable' : 'Dynamic Wildcard' }
                     }
                 });
             }

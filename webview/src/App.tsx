@@ -3,8 +3,26 @@ import styled from 'styled-components';
 import { bridge } from './utils/bridge';
 import { Sidebar } from './components/Sidebar';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
+
 import { SchemaViewer } from './components/SchemaViewer';
+import { SettingsEditorModal } from './components/SettingsEditorModal';
 import { SoapUIInterface, SoapUIProject, SoapUIOperation, SoapUIRequest, SoapSchemaNode } from './models';
+
+// TS might complain about importing from outside src if not careful. 
+// Ideally we define types in shared folder. 
+// For now, let's redefine Interface or use 'any'.
+interface DirtySoapConfigWeb {
+    version: number;
+    ui: {
+        layoutMode: 'vertical' | 'horizontal';
+        showLineNumbers: boolean;
+        alignAttributes: boolean;
+        splitRatio: number;
+    };
+    activeEnvironment: string;
+    environments: Record<string, any>;
+    globals: Record<string, string>;
+}
 import { X } from 'lucide-react';
 
 const Container = styled.div`
@@ -126,6 +144,8 @@ function App() {
     const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+    const startTimeRef = useRef<number>(0);
+
     // Layout
     const [layoutMode, setLayoutMode] = useState<'vertical' | 'horizontal'>('vertical');
     const [showLineNumbers, setShowLineNumbers] = useState(true);
@@ -137,10 +157,18 @@ function App() {
     const [renameState, setRenameState] = useState<{ active: boolean, type: string, data: any, value: string } | null>(null);
     const [sampleModal, setSampleModal] = useState<{ open: boolean, schema: SoapSchemaNode | null, operationName: string }>({ open: false, schema: null, operationName: '' });
 
-    const startTimeRef = useRef<number>(0);
+
+    // Settings
+    const [config, setConfig] = useState<DirtySoapConfigWeb | null>(null);
+    const [rawConfig, setRawConfig] = useState<string>('');
+    const [showSettings, setShowSettings] = useState(false);
+    const [changelog, setChangelog] = useState<string>('');
 
     // Initial Load
     useEffect(() => {
+        // Request settings on load
+        bridge.sendMessage({ command: 'getSettings' });
+
         const state = bridge.getState();
         if (state) {
             setProjects(state.projects || []);
@@ -159,15 +187,22 @@ function App() {
         return () => clearInterval(interval);
     }, []);
 
-    // Save State
+    // Save State & Autosave
     useEffect(() => {
-        bridge.setState({
+        const state = {
             projects,
             exploredInterfaces,
             explorerExpanded,
             wsdlUrl,
             lastSelectedProject: selectedProjectName
-        });
+        };
+        bridge.setState(state);
+
+        // Autosave to file (debounced)
+        const timer = setTimeout(() => {
+            bridge.sendMessage({ command: 'autoSaveWorkspace', content: JSON.stringify(state) });
+        }, 2000);
+        return () => clearTimeout(timer);
     }, [projects, exploredInterfaces, explorerExpanded, wsdlUrl, selectedProjectName]);
 
     // VS Code Messages
@@ -266,7 +301,32 @@ function App() {
                     // Ext code: `vscode.window.showOpenDialog`.
                     // The `localWsdls` command in extension was: postMessage({ command: 'localWsdls', files }).
                     // BUT Sidebar logic calls `selectLocalWsdl` which shows dialog.
+                    // BUT Sidebar logic calls `selectLocalWsdl` which shows dialog.
                     // The `localWsdls` logic in extension seems unused or fallback.
+                    break;
+                case 'settingsUpdate':
+                    setConfig(message.config);
+                    setRawConfig(message.raw);
+                    if (message.config.ui) {
+                        if (message.config.ui.layoutMode) setLayoutMode(message.config.ui.layoutMode);
+                        if (message.config.ui.showLineNumbers !== undefined) setShowLineNumbers(message.config.ui.showLineNumbers);
+                        if (message.config.ui.splitRatio) setSplitRatio(message.config.ui.splitRatio);
+                    }
+                    break;
+                case 'restoreAutosave':
+                    if (message.content) {
+                        try {
+                            const savedState = JSON.parse(message.content);
+                            setProjects(savedState.projects || []);
+                            setExploredInterfaces(savedState.exploredInterfaces || []);
+                            setExplorerExpanded(savedState.explorerExpanded ?? true);
+                            setWsdlUrl(savedState.wsdlUrl || '');
+                            if (savedState.lastSelectedProject) setSelectedProjectName(savedState.lastSelectedProject);
+                        } catch (e) { console.error("Failed to restore autosave", e); }
+                    }
+                    break;
+                case 'changelog':
+                    setChangelog(message.content);
                     break;
             }
         };
@@ -276,7 +336,12 @@ function App() {
 
     // Resizing Logic
     const startResizing = useCallback(() => setIsResizing(true), []);
-    const stopResizing = useCallback(() => setIsResizing(false), []);
+    const stopResizing = useCallback(() => {
+        setIsResizing(false);
+        if (config?.ui) {
+            bridge.sendMessage({ command: 'saveUiState', ui: { ...config.ui, splitRatio: splitRatio } });
+        }
+    }, [config, splitRatio]);
     const resize = useCallback((e: MouseEvent) => {
         if (isResizing) {
             let newRatio = 0.5;
@@ -613,6 +678,7 @@ function App() {
                 handleContextMenu={handleContextMenu}
                 deleteConfirm={deleteConfirm}
                 backendConnected={backendConnected}
+                onOpenSettings={() => setShowSettings(true)}
             />
 
             <WorkspaceLayout
@@ -629,10 +695,29 @@ function App() {
                 onUpdateRequest={handleRequestUpdate}
                 onReset={handleResetRequest}
                 defaultEndpoint={selectedInterface?.definition || wsdlUrl}
-                onToggleLayout={() => setLayoutMode(m => m === 'vertical' ? 'horizontal' : 'vertical')}
-                onToggleLineNumbers={() => setShowLineNumbers(s => !s)}
+                onToggleLayout={() => {
+                    const newMode = layoutMode === 'vertical' ? 'horizontal' : 'vertical';
+                    setLayoutMode(newMode);
+                    bridge.sendMessage({ command: 'saveUiState', ui: { ...config?.ui, layoutMode: newMode } });
+                }}
+                onToggleLineNumbers={() => {
+                    const newState = !showLineNumbers;
+                    setShowLineNumbers(newState);
+                    bridge.sendMessage({ command: 'saveUiState', ui: { ...config?.ui, showLineNumbers: newState } });
+                }}
                 onStartResizing={startResizing}
+                config={config}
+                onChangeEnvironment={(env) => bridge.sendMessage({ command: 'updateActiveEnvironment', envName: env })}
+                changelog={changelog}
             />
+
+            {showSettings && (
+                <SettingsEditorModal
+                    rawConfig={rawConfig}
+                    onClose={() => setShowSettings(false)}
+                    onSave={(content) => bridge.sendMessage({ command: 'saveSettings', raw: true, content })}
+                />
+            )}
 
             {/* Context Menu */}
             {contextMenu && (

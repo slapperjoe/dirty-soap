@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ChevronRight, ChevronDown, Plus, Trash2, Globe, FileCode, Play, Save, FolderOpen, FolderPlus } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Globe, FileCode, Play, Save, FolderOpen, FolderPlus, Settings } from 'lucide-react';
 import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapUIProject } from '../models';
 
 // Styled Components
@@ -144,6 +144,9 @@ interface SidebarProps {
     handleContextMenu: (e: React.MouseEvent, type: string, data: any, isExplorer?: boolean) => void;
     deleteConfirm: string | null;
     backendConnected: boolean;
+
+    // Settings
+    onOpenSettings?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -158,7 +161,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     selectedOperation, setSelectedOperation,
     selectedRequest, setSelectedRequest,
     setResponse,
-    handleContextMenu, deleteConfirm, backendConnected
+    handleContextMenu, deleteConfirm, backendConnected,
+    onOpenSettings
 }) => {
 
     const renderInterfaceList = (interfaces: SoapUIInterface[], isExplorer: boolean) => (
@@ -385,6 +389,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                     </div>
                 ))}
+            </div>
+
+            {/* Settings Footer */}
+            <div style={{ padding: '10px', borderTop: '1px solid var(--vscode-sideBarSectionHeader-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <HeaderButton onClick={onOpenSettings} title="Settings" style={{ width: '100%', justifyContent: 'center', padding: 5, border: '1px solid var(--vscode-button-border)' }}>
+                    <Settings size={14} style={{ marginRight: 5 }} /> Settings
+                </HeaderButton>
             </div>
         </SidebarContainer>
     );

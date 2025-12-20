@@ -8,7 +8,7 @@
     "url": "https://github.com/Dev1/dirty-soap"
   },
   "license": "MIT",
-  "version": "0.0.1",
+  "version": "0.2.2",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -36,7 +36,12 @@
     "desktop:dev": "npx tauri dev",
     "desktop:build": "npx tauri build",
     "build:sidecar": "npx esbuild src/sidecar.ts --bundle --platform=node --target=node16 --outfile=out/sidecar-bundled.js && npx pkg out/sidecar-bundled.js --target node16-win-x64 --output src-tauri/binaries/sidecar-x86_64-pc-windows-msvc.exe",
-    "dev:webview": "cd webview && npm run dev"
+    "dev:webview": "cd webview && npm run dev",
+    "version-bump": "npm version patch --no-git-tag-version && node scripts/update_changelog.js",
+    "prepare": "npx simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm run version-bump && git add package.json package-lock.json CHANGELOG.md"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6",
@@ -52,11 +57,15 @@
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
     "pkg": "^5.8.1",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^5.1.3"
   },
   "dependencies": {
+    "@types/uuid": "^10.0.0",
     "axios": "^1.13.2",
     "fast-xml-parser": "^5.3.3",
-    "soap": "^1.0.0"
+    "jsonc-parser": "^3.3.1",
+    "soap": "^1.0.0",
+    "uuid": "^13.0.0"
   }
 }

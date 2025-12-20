@@ -6,36 +6,36 @@
 
   --vscode-editor-background: #1e1e1e;
   --vscode-editor-foreground: #d4d4d4;
-  
+
   --vscode-sideBar-background: #252526;
   --vscode-sideBar-foreground: #cccccc;
   --vscode-sideBarSectionHeader-border: rgba(204, 204, 204, 0.2);
-  
+
   --vscode-list-hoverBackground: #2a2d2e;
   --vscode-list-activeSelectionBackground: #37373d;
   --vscode-list-activeSelectionForeground: #ffffff;
-  
+
   --vscode-button-background: #0e639c;
   --vscode-button-foreground: #ffffff;
   --vscode-button-hoverBackground: #1177bb;
   --vscode-button-border: transparent;
-  
+
   --vscode-toolbar-hoverBackground: rgba(90, 93, 94, 0.31);
   --vscode-icon-foreground: #c5c5c5;
-  
+
   --vscode-input-background: #3c3c3c;
   --vscode-input-foreground: #cccccc;
   --vscode-input-border: #3c3c3c;
   --vscode-focusBorder: #007fd4;
-  
+
   --vscode-panel-border: #80808059;
-  
+
   --vscode-menu-background: #3c3c3c;
   --vscode-menu-foreground: #cccccc;
   --vscode-menu-border: #454545;
   --vscode-menu-selectionBackground: #094771;
   --vscode-menu-selectionForeground: #ffffff;
-  
+
   --vscode-descriptionForeground: #8b949e;
   --vscode-errorForeground: #f48771;
 }
@@ -57,12 +57,44 @@ body {
   width: 10px;
   height: 10px;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #424242;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #4f4f4f;
 }
+
 ::-webkit-scrollbar-track {
   background: #1e1e1e;
+}
+
+/* Wildcard Highlighting */
+.wildcard-tag-decoration {
+  background-color: rgba(255, 105, 180, 0.2);
+  /* HotPink */
+  border: 1px solid var(--vscode-editorBracketHighlight-foreground4);
+  border-radius: 4px;
+}
+
+.wildcard-tag-text {
+  font-weight: bold;
+  color: #ff69b4 !important;
+  /* HotPink */
+  font-style: italic;
+}
+
+.environment-tag-decoration {
+  background-color: rgba(0, 127, 212, 0.2);
+  /* VS Code Blue */
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 4px;
+}
+
+.environment-tag-text {
+  font-weight: bold;
+  color: #007fd4 !important;
+  /* VS Code Blue */
+  font-style: italic;
 }

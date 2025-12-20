@@ -41,20 +41,7 @@ export const MonacoRequestEditor: React.FC<MonacoRequestEditorProps> = ({
     return (
         <EditorContainer>
             <style>
-                {`
-                .wildcard-tag-decoration {
-                    background-color: rgba(255, 105, 180, 0.2); /* HotPink */
-                    border: 1px solid var(--vscode-editorBracketHighlight-foreground4); /* Often a magenta/pink color */
-                    border-radius: 12px;
-                    margin-left: 2px;
-                    margin-right: 2px;
-                }
-                .wildcard-tag-text {
-                    font-weight: bold;
-                    color: #ff69b4 !important; /* HotPink */
-                    font-style: italic;
-                }
-                `}
+                {/* Styles moved to index.css */}
             </style>
             <Editor
                 height="100%"

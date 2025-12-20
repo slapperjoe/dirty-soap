@@ -3,6 +3,13 @@
     "tasks": [
         {
             "type": "npm",
+            "script": "version-bump",
+            "group": "none",
+            "label": "Version Bump",
+            "detail": "Bump patch version and update changelog"
+        },
+        {
+            "type": "npm",
             "script": "compile",
             "group": {
                 "kind": "build",
