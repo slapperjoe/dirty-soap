@@ -1,11 +1,14 @@
-const { defineConfig } = require('vite');
-const react = require('@vitejs/plugin-react');
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
-module.exports = defineConfig({
+// https://vitejs.dev/config/
+export default defineConfig({
     plugins: [react()],
     base: './',
     build: {
         outDir: '../webview-build',
+        minify: true,
+        sourcemap: true,
         rollupOptions: {
             output: {
                 entryFileNames: `assets/[name].js`,
@@ -14,4 +17,4 @@ module.exports = defineConfig({
             }
         }
     }
-});
+})

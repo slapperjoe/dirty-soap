@@ -4,6 +4,7 @@ import { Layout, ListOrdered, Play, Loader2, RotateCcw, AlignLeft } from 'lucide
 import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
+import { MonacoSingleLineInput } from './MonacoSingleLineInput';
 import { formatXml } from '../utils/xmlFormatter';
 
 const Content = styled.div`
@@ -34,6 +35,8 @@ const ToolbarButton = styled.button`
   gap: 5px;
   border-radius: 2px;
   white-space: nowrap;
+  height: 26px;
+  box-sizing: border-box;
   &:hover {
     background: var(--vscode-button-hoverBackground);
   }
@@ -43,18 +46,7 @@ const ToolbarButton = styled.button`
   }
 `;
 
-const ToolbarInput = styled.input`
-    background-color: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    padding: 4px;
-    flex: 1;
-    outline: none;
-    min-width: 150px;
-    &:focus {
-        border-color: var(--vscode-focusBorder);
-    }
-`;
+
 
 const ToolbarSelect = styled.select`
     background-color: var(--vscode-dropdown-background);
@@ -62,6 +54,8 @@ const ToolbarSelect = styled.select`
     border: 1px solid var(--vscode-dropdown-border);
     padding: 4px;
     outline: none;
+    height: 26px;
+    box-sizing: border-box;
     &:focus {
         border-color: var(--vscode-focusBorder);
     }
@@ -83,6 +77,9 @@ const IconButton = styled.button<{ active?: boolean }>`
     cursor: pointer;
     padding: 3px;
     border-radius: 3px;
+    height: 26px;
+    width: 26px;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -141,13 +138,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         <option value="GET">GET</option>
                     </ToolbarSelect>
 
+
                     {/* URL */}
-                    <ToolbarInput
-                        value={selectedRequest.endpoint || defaultEndpoint || ''}
-                        onChange={(e) => onUpdateRequest({ ...selectedRequest, endpoint: e.target.value })}
-                        placeholder="Endpoint URL"
-                        title="Endpoint URL"
-                    />
+                    <div style={{ flex: 1, minWidth: '150px' }}>
+                        <MonacoSingleLineInput
+                            value={selectedRequest.endpoint || defaultEndpoint || ''}
+                            onChange={(val) => onUpdateRequest({ ...selectedRequest, endpoint: val })}
+                            placeholder="Endpoint URL"
+                        />
+                    </div>
 
                     {/* Content Type */}
                     <ToolbarSelect
@@ -199,12 +198,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         }}>
                             <span>Request: {selectedOperation?.name} - {selectedRequest.name}</span>
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                <span style={{ opacity: 0.8 }}>Lines: {selectedRequest.request ? selectedRequest.request.split('\n').length : 0}</span>
-                                <span style={{ opacity: 0.8 }}>Size: {selectedRequest.request ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</span>
+                                <span style={{ opacity: 0.8 }}>Lines: {typeof selectedRequest.request === 'string' ? selectedRequest.request.split('\n').length : 0}</span>
+                                <span style={{ opacity: 0.8 }}>Size: {typeof selectedRequest.request === 'string' ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</span>
                             </div>
                         </div>
                         <MonacoRequestEditor
-                            value={selectedRequest.request}
+                            value={selectedRequest.request || ''}
                             onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
                             readOnly={loading}
                             language="xml"
@@ -212,63 +211,67 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                     </div>
 
                     {/* Resizer */}
-                    <div
-                        onMouseDown={onStartResizing}
-                        style={{
-                            width: layoutMode === 'horizontal' ? 5 : '100%',
-                            height: layoutMode === 'vertical' ? 5 : '100%',
-                            cursor: layoutMode === 'horizontal' ? 'col-resize' : 'row-resize',
-                            backgroundColor: isResizing ? 'var(--vscode-focusBorder)' : 'var(--vscode-widget-shadow)',
-                            zIndex: 10,
-                            flex: '0 0 auto',
-                            transition: 'background-color 0.2s'
-                        }}
-                    />
+                    {(response || loading) && (
+                        <div
+                            onMouseDown={onStartResizing}
+                            style={{
+                                width: layoutMode === 'horizontal' ? 5 : '100%',
+                                height: layoutMode === 'vertical' ? 5 : '100%',
+                                cursor: layoutMode === 'horizontal' ? 'col-resize' : 'row-resize',
+                                backgroundColor: isResizing ? 'var(--vscode-focusBorder)' : 'var(--vscode-widget-shadow)',
+                                zIndex: 10,
+                                flex: '0 0 auto',
+                                transition: 'background-color 0.2s'
+                            }}
+                        />
+                    )}
 
                     {/* Response Section */}
-                    <div style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderLeft: layoutMode === 'horizontal' ? '1px solid var(--vscode-panel-border)' : 'none',
-                        borderTop: layoutMode === 'vertical' ? '1px solid var(--vscode-panel-border)' : 'none',
-                    }}>
+                    {(response || loading) && (
                         <div style={{
-                            padding: '5px 10px',
-                            backgroundColor: 'var(--vscode-editor-background)',
-                            borderBottom: '1px solid var(--vscode-panel-border)',
-                            fontWeight: 'bold',
+                            flex: 1,
+                            overflow: 'hidden',
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexShrink: 0
+                            flexDirection: 'column',
+                            borderLeft: layoutMode === 'horizontal' ? '1px solid var(--vscode-panel-border)' : 'none',
+                            borderTop: layoutMode === 'vertical' ? '1px solid var(--vscode-panel-border)' : 'none',
                         }}>
-                            <span>Response</span>
-                            {response && (
-                                <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                    <span style={{ opacity: 0.8 }}>Lines: {response.lineCount || 0}</span>
-                                    <span style={{ opacity: 0.8 }}>Time: {(response.duration || 0).toFixed(1)}s</span>
-                                    <span style={{ opacity: 0.8 }}>Size: {(response.rawResponse ? response.rawResponse.length / 1024 : 0).toFixed(2)} KB</span>
-                                    {response.headers && response.headers['content-type'] && (
-                                        <span title="Content-Type" style={{ opacity: 0.8, borderLeft: '1px solid var(--vscode-panel-border)', paddingLeft: '10px' }}>
-                                            {response.headers['content-type'].split(';')[0]}
+                            <div style={{
+                                padding: '5px 10px',
+                                backgroundColor: 'var(--vscode-editor-background)',
+                                borderBottom: '1px solid var(--vscode-panel-border)',
+                                fontWeight: 'bold',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexShrink: 0
+                            }}>
+                                <span>Response</span>
+                                {response && (
+                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.8 }}>Lines: {response.lineCount || 0}</span>
+                                        <span style={{ opacity: 0.8 }}>Time: {(response.duration || 0).toFixed(1)}s</span>
+                                        <span style={{ opacity: 0.8 }}>Size: {typeof response.rawResponse === 'string' ? (response.rawResponse.length / 1024).toFixed(2) : 0} KB</span>
+                                        {response.headers && response.headers['content-type'] && (
+                                            <span title="Content-Type" style={{ opacity: 0.8, borderLeft: '1px solid var(--vscode-panel-border)', paddingLeft: '10px' }}>
+                                                {response.headers['content-type'].split(';')[0]}
+                                            </span>
+                                        )}
+                                        <span style={{
+                                            color: response.success ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)',
+                                            marginLeft: 10
+                                        }}>
+                                            {response.success ? '200 OK' : 'Error'}
                                         </span>
-                                    )}
-                                    <span style={{
-                                        color: response.success ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)',
-                                        marginLeft: 10
-                                    }}>
-                                        {response.success ? '200 OK' : 'Error'}
-                                    </span>
-                                </div>
-                            )}
+                                    </div>
+                                )}
+                            </div>
+                            <MonacoResponseViewer
+                                value={response ? (alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : (response.rawResponse || '')) : ''}
+                                showLineNumbers={showLineNumbers}
+                            />
                         </div>
-                        <MonacoResponseViewer
-                            value={response ? (alignAttributes && response.rawResponse ? formatXml(response.rawResponse, true) : (response.rawResponse || '')) : ''}
-                            showLineNumbers={showLineNumbers}
-                        />
-                    </div>
+                    )}
                 </div>
             </div>
 

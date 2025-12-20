@@ -1,5 +1,6 @@
 
 export function formatXml(xml: string, alignAttributes: boolean = false): string {
+    if (typeof xml !== 'string') return '';
     // Basic indentation (2 spaces)
     // If alignAttributes is true: Attributes on new lines vertically aligned.
     // If alignAttributes is false: Attributes on same line (Compact/Standard).
