@@ -23,20 +23,21 @@ const header = `## [${version}] - ${date}`;
 // Fetch git logs
 let changes = '';
 try {
-    // Try to find the last tag to diff against
-    let lastTag = '';
+    // Find the last commit that modified package.json
+    // This serves as the "Previous Release" anchor if tags aren't used.
+    let lastAnchor = '';
     try {
-        lastTag = execSync('git describe --tags --abbrev=0 2>nul').toString().trim();
-        // If the current version is the same as the last tag (re-running script), find the one before?
-        // For now, simpler: just get log.
+        lastAnchor = execSync('git log -n 1 --format="%H" -- package.json').toString().trim();
     } catch (e) {
-        // No tags found
+        // No history for package.json
     }
 
-    if (lastTag) {
-        changes = execSync(`git log ${lastTag}..HEAD --pretty=format:"- %s"`).toString();
+    if (lastAnchor) {
+        // Get commits since that anchor
+        // If lastAnchor is HEAD (e.g. we just committed), this might be empty, but usually we run this BEFORE committing the bump.
+        changes = execSync(`git log ${lastAnchor}..HEAD --pretty=format:"- %s"`).toString();
     } else {
-        // Fallback if no tags: get last 10 commits?
+        // Fallback: get last 10 commits
         changes = execSync('git log -n 10 --pretty=format:"- %s"').toString();
     }
 } catch (e) {

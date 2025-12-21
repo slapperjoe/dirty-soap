@@ -8,7 +8,7 @@
     "url": "https://github.com/Dev1/dirty-soap"
   },
   "license": "MIT",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -41,7 +41,7 @@
     "prepare": "npx simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm run version-bump && git add package.json package-lock.json CHANGELOG.md"
+    "pre-commit": ""
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6",
