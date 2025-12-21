@@ -103,6 +103,8 @@ export class WebviewController {
                 vscode.window.showInformationMessage(`Workspace loaded from ${uris[0].fsPath}`);
             }
         } catch (e: any) {
+            this._soapClient.log(`Error loading project: ${e.message}`);
+            if (e.stack) this._soapClient.log(e.stack);
             vscode.window.showErrorMessage(`Failed to load project: ${e.message}`);
         }
     }
@@ -139,6 +141,8 @@ export class WebviewController {
                 vscode.window.showInformationMessage(`Workspace loaded from ${uris[0].fsPath}`);
             }
         } catch (e: any) {
+            this._soapClient.log(`Error loading workspace: ${e.message}`);
+            if (e.stack) this._soapClient.log(e.stack);
             vscode.window.showErrorMessage(`Failed to load workspace: ${e.message}`);
         }
     }

@@ -64,7 +64,15 @@ export class ProjectStorage {
     }
 
     public async loadProject(filePath: string): Promise<SoapUIProject> {
-        const xmlContent = fs.readFileSync(filePath, 'utf8');
+        this.log(`Loading project from: ${filePath}`);
+        let xmlContent = '';
+        try {
+            xmlContent = fs.readFileSync(filePath, 'utf8');
+        } catch (e: any) {
+            this.log(`Failed to read file ${filePath}: ${e.message}`);
+            throw e;
+        }
+
         const parser = new XMLParser({
             ignoreAttributes: false,
             attributeNamePrefix: "@_",
@@ -76,6 +84,9 @@ export class ProjectStorage {
         const projectRoot = result["con:soapui-project"];
 
         if (!projectRoot) {
+            this.log(`Invalid SoapUI project structure. Root 'con:soapui-project' not found in ${filePath}`);
+            // Check what WAS parsed?
+            this.log(`Parsed keys: ${Object.keys(result).join(', ')}`);
             throw new Error("Invalid SoapUI project file");
         }
 
@@ -187,8 +198,9 @@ export class ProjectStorage {
                         const project = await this.loadProject(projectPath);
                         (project as any).fileName = projectPath;
                         projects.push(project);
-                    } catch (e) {
-                        // Log error? 
+                    } catch (e: any) {
+                        this.log(`Error loading project from ${projectPath}: ${e.message}`);
+                        if (e.stack) this.log(e.stack);
                     }
                 }
             }
