@@ -29,6 +29,7 @@ export class ProjectStorage {
                 "@_name": project.name,
                 "@_soapui-version": "5.7.0",
                 "@_xmlns:con": "http://eviware.com/soapui/config",
+                "@_xmlns:dirty": "http://github.com/Dev1/dirty-soap",
                 "con:interface": project.interfaces.map(iface => ({
                     "@_name": iface.name,
                     "@_type": iface.type || "wsdl",
@@ -51,7 +52,8 @@ export class ProjectStorage {
                                 "@_mediaType": req.contentType || "text/xml",
                                 "@_method": req.method || "POST",
                                 "#text": req.request
-                            }
+                            },
+                            "dirty:requestContent": req.request // Save raw content here too
                         }))
                     }))
                 }))
@@ -118,6 +120,11 @@ export class ProjectStorage {
                         contentType: req["con:request"] && req["con:request"]["@_mediaType"],
                         method: req["con:request"] && req["con:request"]["@_method"],
                         request: (() => {
+                            // Check for dirty:requestContent first
+                            const dirtyContent = req["dirty:requestContent"];
+                            if (dirtyContent) return dirtyContent;
+
+                            const r = req["con:request"];
                             if (!r) return "";
                             let content = "";
                             if (Array.isArray(r)) {
