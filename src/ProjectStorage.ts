@@ -90,8 +90,14 @@ export class ProjectStorage {
             throw new Error("Invalid SoapUI project file");
         }
 
+        let name = projectRoot["@_name"];
+        // If name looks like a path (contains slashes) or is empty, use filename
+        if (!name || name.includes('/') || name.includes('\\')) {
+            name = path.basename(filePath, path.extname(filePath));
+        }
+
         const project: SoapUIProject = {
-            name: projectRoot["@_name"],
+            name: name,
             interfaces: []
         };
 
@@ -112,18 +118,17 @@ export class ProjectStorage {
                         contentType: req["con:request"] && req["con:request"]["@_mediaType"],
                         method: req["con:request"] && req["con:request"]["@_method"],
                         request: (() => {
-                            const r = req["con:request"];
                             if (!r) return "";
+                            let content = "";
                             if (Array.isArray(r)) {
-                                return r[0]["#text"] || r[0];
+                                content = r[0]["#text"] || r[0];
+                            } else if (typeof r === 'object' && r["#text"]) {
+                                content = r["#text"];
+                            } else if (typeof r === 'string') {
+                                content = r;
                             }
-                            if (typeof r === 'object' && r["#text"]) {
-                                return r["#text"];
-                            }
-                            if (typeof r === 'string') {
-                                return r;
-                            }
-                            return "";
+                            // Strip \r (and potentially literal '\r' if user sees them as text)
+                            return content ? content.replace(/\\r/g, '').replace(/\r/g, '') : "";
                         })()
                     })) : []
                 })) : []
