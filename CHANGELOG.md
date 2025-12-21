@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.2.12] - 2025-12-21
+### Auto-Generated Changes
+- feat: Add namespace for dirty-soap and save raw request content in ProjectStorage
+
 ## [0.2.11] - 2025-12-21
 ### Auto-Generated Changes
 - feat: Improve project name handling and request content processing in ProjectStorage
