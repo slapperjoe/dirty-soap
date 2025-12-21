@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [0.2.11] - 2025-12-21
+### Auto-Generated Changes
+- feat: Improve project name handling and request content processing in ProjectStorage
+- feat: Enhance project reference loading in ProjectStorage for compatibility with multiple SoapUI formats
+- feat: Enhance error logging for project and workspace loading in ProjectStorage and WebviewController
+
 ## [0.2.7] - 2025-12-21
 ### Auto-Generated Changes
 - feat: Implement `WorkspaceLayout` component with integrated Monaco editors, wildcard support, and updated documentation for new features and settings.
