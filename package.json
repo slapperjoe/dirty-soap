@@ -8,7 +8,7 @@
     "url": "https://github.com/Dev1/dirty-soap"
   },
   "license": "MIT",
-  "version": "0.2.7",
+  "version": "0.2.9",
   "engines": {
     "vscode": "^1.80.0"
   },

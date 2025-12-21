@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [0.2.7] - 2025-12-21
+### Auto-Generated Changes
+- feat: Implement `WorkspaceLayout` component with integrated Monaco editors, wildcard support, and updated documentation for new features and settings.
+- feat: Update CHANGELOG for version 0.2.4 with new features and enhancements
+- feat: Update CHANGELOG for version 0.2.4 with new features and enhancements
+- feat: Add Wildcard System for dynamic values in requests and enhance settings management
+- feat: Refactor codebase by removing unused components, integrating MonacoSingleLineInput, and adding ErrorBoundary for improved error handling
+- feat: Implement sidecar process for handling SOAP requests and responses
+- feat: Add MonacoResponseViewer and enhance WorkspaceLayout with XML formatting options
+- feat: Add MonacoRequestEditor component with syntax highlighting and decoration support
+- feat: Implement WSDL Parser and Schema Viewer
+
 ## [0.2.6] - 2025-12-21
 ### Auto-Generated Changes
 - feat: Update CHANGELOG for version 0.2.4 with new features and enhancements
