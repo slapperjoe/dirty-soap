@@ -48,6 +48,7 @@ export class ProjectStorage {
                         "@_anonymous": "optional",
                         "con:call": op.requests.map(req => ({
                             "@_name": req.name,
+                            "con:endpoint": req.endpoint, // Save endpoint
                             "con:request": {
                                 "@_mediaType": req.contentType || "text/xml",
                                 "@_method": req.method || "POST",
@@ -123,6 +124,7 @@ export class ProjectStorage {
                     action: op["@_action"],
                     requests: op["con:call"] ? (Array.isArray(op["con:call"]) ? op["con:call"] : [op["con:call"]]).map((req: any) => ({
                         name: req["@_name"],
+                        endpoint: req["con:endpoint"], // Load endpoint
                         contentType: (req["con:request"] && req["con:request"]["@_mediaType"]) || "application/soap+xml",
                         method: req["con:request"] && req["con:request"]["@_method"],
                         request: (() => {

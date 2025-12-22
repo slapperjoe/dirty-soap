@@ -167,7 +167,23 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                                 editor.trigger('keyboard', 'editor.action.clipboardCopyAction', null);
                             });
                             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
-                                editor.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
+                                // Explicitly read from clipboard and insert
+                                navigator.clipboard.readText()
+                                    .then(text => {
+                                        const selection = editor.getSelection();
+                                        if (selection) {
+                                            editor.executeEdits('clipboard', [{
+                                                range: selection,
+                                                text: text,
+                                                forceMoveMarkers: true
+                                            }]);
+                                        }
+                                    })
+                                    .catch(err => {
+                                        console.error('Paste failed: ', err);
+                                        // Fallback?
+                                        editor.trigger('keyboard', 'editor.action.clipboardPasteAction', null);
+                                    });
                             });
                             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, () => {
                                 editor.trigger('keyboard', 'editor.action.clipboardCutAction', null);
