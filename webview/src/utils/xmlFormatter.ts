@@ -117,7 +117,7 @@ export function formatXml(xml: string, alignAttributes: boolean = false, inlineE
                                 // It seems correct assuming 'pad' is the tag's indentation.
 
                                 for (let k = 1; k < attrs.length; k++) {
-                                    line += '\n' + ' '.repeat(pad + 1 + tagName.length + 1) + attrs[k];
+                                    line += '\n' + ' '.repeat(indentSize) + attrs[k];
                                 }
                             } else {
                                 attrs.forEach(attr => line += ` ${attr}`);
