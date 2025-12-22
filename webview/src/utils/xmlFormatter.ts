@@ -29,9 +29,9 @@ export function formatXml(xml: string, alignAttributes: boolean = false, inlineE
                 // Let's use a flag?
                 // Or: Better approach: When handling Opening Tag, peek ahead.
 
-                pad -= 2;
                 // Check if last char was \n. If not, we are inline, so don't indent or newline.
                 if (formatted.endsWith('\n')) {
+                    pad -= 2;
                     formatted += ' '.repeat(Math.max(0, pad)) + token + '\n';
                 } else {
                     // Inline closing

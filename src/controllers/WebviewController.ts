@@ -67,6 +67,16 @@ export class WebviewController {
             case 'getSettings':
                 this.sendSettingsToWebview();
                 break;
+            case 'getAutosave':
+                this.handleGetAutosave();
+                break;
+        }
+    }
+
+    private handleGetAutosave() {
+        const content = this._settingsManager.getAutosave();
+        if (content) {
+            this._panel.webview.postMessage({ command: 'restoreAutosave', content });
         }
     }
 

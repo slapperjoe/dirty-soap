@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Layout, ListOrdered, Play, Loader2, RotateCcw, AlignLeft } from 'lucide-react';
+import { Layout, ListOrdered, Play, Loader2, RotateCcw, WrapText, FoldVertical } from 'lucide-react';
 import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
@@ -331,7 +331,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         onUpdateRequest({ ...selectedRequest, request: formatXml(selectedRequest.request, newValue, inlineElementValues) });
                     }
                 }} active={alignAttributes} title="Toggle Attribute Alignment">
-                    <AlignLeft size={16} />
+                    <WrapText size={16} />
                 </IconButton>
                 <IconButton onClick={() => {
                     // Toggle Inline Values
@@ -346,7 +346,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         onUpdateRequest({ ...selectedRequest, request: formatXml(selectedRequest.request, alignAttributes, nextVal) });
                     }
                 }} active={inlineElementValues} title="Toggle Inline Values (Compact Elements)">
-                    <Layout size={16} style={{ transform: 'rotate(90deg)' }} />
+                    <FoldVertical size={16} />
                 </IconButton>
                 <IconButton onClick={onToggleLayout} title="Toggle Layout (Vertical/Horizontal)">
                     <Layout size={16} />

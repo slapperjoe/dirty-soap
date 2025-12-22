@@ -170,6 +170,7 @@ function App() {
     useEffect(() => {
         // Request settings on load
         bridge.sendMessage({ command: 'getSettings' });
+        bridge.sendMessage({ command: 'getAutosave' });
 
         const state = bridge.getState();
         if (state) {
