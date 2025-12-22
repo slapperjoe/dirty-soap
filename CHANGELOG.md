@@ -1,6 +1,11 @@
 # Changelog
 
 
+## [0.3.0] - 2025-12-22
+### Overview
+- Major variation release including workspace persistence, inline XML values, and performance optimizations.
+- feat: Add version bump tasks and update changelog; implement workspace dirty state tracking in App and Sidebar components
+
 ## [0.2.22] - 2025-12-22
 ### Auto-Generated Changes
 - fix: Optimize event listener management for resizing in App component

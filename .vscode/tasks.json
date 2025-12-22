@@ -8,6 +8,22 @@
             "label": "Version Bump",
             "detail": "Bump patch version and update changelog",
             "problemMatcher": []
+        },        
+        {
+            "type": "npm",
+            "script": "version-bump-minor",
+            "group": "none",
+            "label": "Version Bump Minor",
+            "detail": "Bump minor version and update changelog",
+            "problemMatcher": []
+        },
+        {
+            "type": "npm",
+            "script": "version-bump-major",
+            "group": "none",
+            "label": "Version Bump Major",
+            "detail": "Bump major version and update changelog",
+            "problemMatcher": []
         },
         {
             "type": "npm",

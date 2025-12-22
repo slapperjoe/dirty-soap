@@ -8,7 +8,7 @@
     "url": "https://github.com/Dev1/dirty-soap"
   },
   "license": "MIT",
-  "version": "0.2.22",
+  "version": "0.3.0",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -38,6 +38,8 @@
     "build:sidecar": "npx esbuild src/sidecar.ts --bundle --platform=node --target=node16 --outfile=out/sidecar-bundled.js && npx pkg out/sidecar-bundled.js --target node16-win-x64 --output src-tauri/binaries/sidecar-x86_64-pc-windows-msvc.exe",
     "dev:webview": "cd webview && npm run dev",
     "version-bump": "npm version patch --no-git-tag-version && node scripts/update_changelog.js",
+    "version-bump-minor": "npm version minor --no-git-tag-version && node scripts/update_changelog.js",
+    "version-bump-major": "npm version major --no-git-tag-version && node scripts/update_changelog.js",
     "prepare": "npx simple-git-hooks"
   },
   "simple-git-hooks": {

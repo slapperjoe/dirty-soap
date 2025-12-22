@@ -31,6 +31,7 @@ export interface SoapUIRequest {
     contentType?: string;
     method?: string;
     endpoint?: string;
+    dirty?: boolean;
 }
 
 export interface SoapUIOperation {
@@ -58,4 +59,5 @@ export interface SoapUIProject {
     expanded?: boolean;
     fileName?: string;
     id?: string;
+    dirty?: boolean;
 }

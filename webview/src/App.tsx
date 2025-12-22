@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
-import { bridge } from './utils/bridge';
+import { bridge, isVsCode } from './utils/bridge';
 import { Sidebar } from './components/Sidebar';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
 
@@ -144,6 +144,7 @@ function App() {
     const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [savedProjects, setSavedProjects] = useState<Set<string>>(new Set());
+    const [workspaceDirty, setWorkspaceDirty] = useState(false);
 
     const startTimeRef = useRef<number>(0);
 
@@ -289,10 +290,12 @@ function App() {
                         if (prev.find(p => p.name === newProj.name)) return prev;
                         return [...prev, { ...newProj, fileName: message.filename, expanded: false }];
                     });
+                    setWorkspaceDirty(true);
                     break;
                 case 'workspaceLoaded':
                     // Replace projects or merge? Usually replace workspace
                     setProjects(message.projects.map((p: any) => ({ ...p, expanded: false })));
+                    setWorkspaceDirty(false);
                     break;
                 case 'echoResponse':
                     console.log("Backend Connected:", message.message);
@@ -338,6 +341,20 @@ function App() {
                         newSet.add(message.projectName);
                         return newSet;
                     });
+                    setProjects(prev => prev.map(p => {
+                        if (p.name !== message.projectName) return p;
+                        return {
+                            ...p,
+                            dirty: false,
+                            interfaces: p.interfaces.map(i => ({
+                                ...i,
+                                operations: i.operations.map(o => ({
+                                    ...o,
+                                    requests: o.requests.map(r => ({ ...r, dirty: false }))
+                                }))
+                            }))
+                        };
+                    }));
                     setTimeout(() => {
                         setSavedProjects(prev => {
                             const newSet = new Set(prev);
@@ -345,6 +362,9 @@ function App() {
                             return newSet;
                         });
                     }, 2000);
+                    break;
+                case 'workspaceSaved':
+                    setWorkspaceDirty(false);
                     break;
             }
         };
@@ -421,7 +441,9 @@ function App() {
     };
 
     const handleRequestUpdate = (updated: SoapUIRequest) => {
-        setSelectedRequest(updated);
+        const dirtyUpdated = { ...updated, dirty: true };
+        setSelectedRequest(dirtyUpdated);
+        setWorkspaceDirty(true);
 
         // Update in Project/Explorer
         if (selectedProjectName) {
@@ -429,6 +451,7 @@ function App() {
                 if (p.name !== selectedProjectName) return p;
                 return {
                     ...p,
+                    dirty: true,
                     interfaces: p.interfaces.map(i => {
                         if (i.name !== selectedInterface?.name) return i;
                         return {
@@ -437,7 +460,7 @@ function App() {
                                 if (o.name !== selectedOperation?.name) return o;
                                 return {
                                     ...o,
-                                    requests: o.requests.map(r => r.name === selectedRequest?.name ? updated : r)
+                                    requests: o.requests.map(r => r.name === selectedRequest?.name ? dirtyUpdated : r)
                                 };
                             })
                         };
@@ -453,7 +476,7 @@ function App() {
                         if (o.name !== selectedOperation?.name) return o;
                         return {
                             ...o,
-                            requests: o.requests.map(r => r.name === selectedRequest?.name ? updated : r)
+                            requests: o.requests.map(r => r.name === selectedRequest?.name ? dirtyUpdated : r)
                         };
                     })
                 };
@@ -472,12 +495,13 @@ function App() {
     // Sidebar Helpers
     const addToProject = (iface: SoapUIInterface) => {
         if (projects.length === 0) {
-            setProjects([{ name: 'Project 1', interfaces: [iface], expanded: true }]);
+            setProjects([{ name: 'Project 1', interfaces: [iface], expanded: true, dirty: true, id: Date.now().toString() }]);
         } else {
             setProjects(prev => prev.map((p, i) =>
-                i === 0 ? { ...p, interfaces: [...p.interfaces, iface] } : p
+                i === 0 ? { ...p, interfaces: [...p.interfaces, iface], dirty: true } : p
             ));
         }
+        setWorkspaceDirty(true);
         // Clear from explorer
         setExploredInterfaces(prev => prev.filter(i => i.name !== iface.name));
         if (exploredInterfaces.length <= 1) { // If it was the last one
@@ -487,12 +511,13 @@ function App() {
 
     const addAllToProject = () => {
         if (projects.length === 0) {
-            setProjects([{ name: 'Project 1', interfaces: [...exploredInterfaces], expanded: true }]);
+            setProjects([{ name: 'Project 1', interfaces: [...exploredInterfaces], expanded: true, dirty: true, id: Date.now().toString() }]);
         } else {
             setProjects(prev => prev.map((p, i) =>
-                i === 0 ? { ...p, interfaces: [...p.interfaces, ...exploredInterfaces] } : p
+                i === 0 ? { ...p, interfaces: [...p.interfaces, ...exploredInterfaces], dirty: true } : p
             ));
         }
+        setWorkspaceDirty(true);
         clearExplorer();
     };
 
@@ -512,6 +537,7 @@ function App() {
     const closeProject = (name: string) => {
         if (deleteConfirm === name) {
             setProjects(prev => prev.filter(p => p.name !== name));
+            setWorkspaceDirty(true);
             // Reset selection if inside this project
             if (selectedProjectName === name) {
                 setSelectedProjectName(null);
@@ -533,7 +559,8 @@ function App() {
         console.log("Adding Project, prev count:", projects.length);
         const name = `Project ${projects.length + 1}`;
         console.log("New Name:", name);
-        setProjects(prev => [...prev, { name: name, interfaces: [], expanded: true, id: Date.now().toString() }]);
+        setProjects(prev => [...prev, { name: name, interfaces: [], expanded: true, id: Date.now().toString(), dirty: true }]);
+        setWorkspaceDirty(true);
     };
 
 
@@ -700,6 +727,8 @@ function App() {
                 backendConnected={backendConnected}
                 savedProjects={savedProjects}
                 onOpenSettings={() => setShowSettings(true)}
+                workspaceDirty={workspaceDirty}
+                showBackendStatus={!isVsCode()}
             />
 
             <WorkspaceLayout

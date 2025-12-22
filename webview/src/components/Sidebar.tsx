@@ -13,6 +13,13 @@ const SidebarContainer = styled.div`
   overflow: hidden;
 `;
 
+const DirtyMarker = styled.span`
+  color: var(--vscode-charts-yellow);
+  margin-left: 5px;
+  font-size: 1.2em;
+  line-height: 0.5;
+`;
+
 const SectionHeader = styled.div`
   padding: 5px 10px;
   font-weight: bold;
@@ -148,6 +155,10 @@ interface SidebarProps {
 
     // Settings
     onOpenSettings?: () => void;
+
+    // Computed
+    workspaceDirty?: boolean;
+    showBackendStatus?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -163,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     selectedRequest, setSelectedRequest,
     setResponse,
     handleContextMenu, deleteConfirm, backendConnected,
-    onOpenSettings, savedProjects
+    onOpenSettings, savedProjects, workspaceDirty, showBackendStatus = true
 }) => {
 
     const renderInterfaceList = (interfaces: SoapUIInterface[], isExplorer: boolean) => (
@@ -244,6 +255,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 onContextMenu={(e) => handleContextMenu(e, 'request', req, isExplorer)}
                             >
                                 {req.name}
+                                {req.dirty && <DirtyMarker>●</DirtyMarker>}
                             </RequestItem>
                         ))}
                     </div>
@@ -258,11 +270,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <SectionHeader onClick={toggleExplorerExpand}>
                     <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                         {explorerExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} WSDL Explorer
-                        <div style={{
-                            width: 8, height: 8, borderRadius: '50%',
-                            backgroundColor: backendConnected ? '#4caf50' : '#f44336',
-                            marginLeft: 10
-                        }} title={backendConnected ? "Backend Connected" : "Backend Disconnected"}></div>
+                        {showBackendStatus && (
+                            <div style={{
+                                width: 8, height: 8, borderRadius: '50%',
+                                backgroundColor: backendConnected ? '#4caf50' : '#f44336',
+                                marginLeft: 10
+                            }} title={backendConnected ? "Backend Connected" : "Backend Disconnected"}></div>
+                        )}
                     </SectionTitle>
                     {exploredInterfaces.length > 0 && (
                         <>
@@ -345,7 +359,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div style={{ borderTop: '1px solid var(--vscode-sideBarSectionHeader-border)', marginTop: 10 }}></div>
 
                 <div style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-                    <div style={{ fontWeight: 'bold' }}>Workspace</div>
+                    <div style={{ fontWeight: 'bold' }}>
+                        Workspace
+                        {workspaceDirty && <DirtyMarker>●</DirtyMarker>}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <HeaderButton onClick={onAddProject} title="New Project">
                             <Plus size={16} />
@@ -370,7 +387,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         >
                             <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
                                 <span style={{ flexShrink: 0 }}>{(proj as any).expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
-                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Project: {proj.name || (proj as any).fileName}</span>
+                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    Project: {proj.name || (proj as any).fileName}
+                                    {proj.dirty && <DirtyMarker>●</DirtyMarker>}
+                                </span>
                             </SectionTitle>
                             <HeaderButton onClick={(e) => { e.stopPropagation(); saveProject(proj); }} title="Save Project" style={{ color: savedProjects.has(proj.name) ? 'var(--vscode-testing-iconPassed)' : 'inherit' }}>
                                 <Save size={16} />
