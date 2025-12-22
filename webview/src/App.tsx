@@ -284,12 +284,12 @@ function App() {
                     const newProj = message.project;
                     setProjects(prev => {
                         if (prev.find(p => p.name === newProj.name)) return prev;
-                        return [...prev, { ...newProj, fileName: message.filename, expanded: true }];
+                        return [...prev, { ...newProj, fileName: message.filename, expanded: false }];
                     });
                     break;
                 case 'workspaceLoaded':
                     // Replace projects or merge? Usually replace workspace
-                    setProjects(message.projects.map((p: any) => ({ ...p, expanded: true })));
+                    setProjects(message.projects.map((p: any) => ({ ...p, expanded: false })));
                     break;
                 case 'echoResponse':
                     console.log("Backend Connected:", message.message);
@@ -391,7 +391,7 @@ function App() {
             // We pass definition URL.
             // Prioritize the request-specific endpoint, then the interface definition, then the WSDL URL
             const url = selectedRequest?.endpoint || selectedInterface?.definition || wsdlUrl;
-            bridge.sendMessage({ command: 'executeRequest', url, operation: selectedOperation.name, xml });
+            bridge.sendMessage({ command: 'executeRequest', url, operation: selectedOperation.name, xml, contentType: selectedRequest?.contentType });
         }
     };
 

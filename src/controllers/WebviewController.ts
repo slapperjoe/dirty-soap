@@ -325,8 +325,9 @@ export class WebviewController {
             this._soapClient.log('Substituted Payload:', processedXml);
             this._soapClient.log('-----------------------');
 
-            // Pass headers if needed, currently wildcard processor only handles primitives
-            const result = await this._soapClient.executeRequest(processedUrl, message.operation, processedXml);
+            // Pass headers if needed
+            const headers = message.contentType ? { 'Content-Type': message.contentType } : undefined;
+            const result = await this._soapClient.executeRequest(processedUrl, message.operation, processedXml, headers);
             this._panel.webview.postMessage({ command: 'response', result });
         } catch (error: any) {
             const errorMessage = error instanceof Error ? error.message : String(error);

@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.2.14] - 2025-12-22
+### Auto-Generated Changes
+- feat: Update request handling to include content type headers and adjust project expansion state in sidebar
+
 ## [0.2.13] - 2025-12-22
 ### Auto-Generated Changes
 - feat: Enhance project name logging and error handling in ProjectStorage and WebviewController; enable default context menu in MonacoRequestEditor
