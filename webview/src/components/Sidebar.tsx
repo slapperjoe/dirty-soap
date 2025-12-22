@@ -370,7 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                                 {(proj as any).expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Project: {proj.name || (proj as any).fileName}
                             </SectionTitle>
-                            <div style={{ flex: 1 }}></div>
+
                             <HeaderButton onClick={(e) => { e.stopPropagation(); saveProject(proj); }} title="Save Project">
                                 <Save size={16} />
                             </HeaderButton>
