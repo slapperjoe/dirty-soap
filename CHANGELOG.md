@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.4.0] - 2025-12-23
+### Auto-Generated Changes
+- feat: Implement assertion handling and UI components for SoapUI requests
+
 ## [0.3.8] - 2025-12-23
 ### Auto-Generated Changes
 - feat: Add Help Modal and enhance sidebar with help functionality
