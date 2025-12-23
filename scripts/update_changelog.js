@@ -20,28 +20,36 @@ const { execSync } = require('child_process');
 const date = new Date().toISOString().split('T')[0];
 const header = `## [${version}] - ${date}`;
 
-// Fetch git logs
+// Fetch git logs or use provided message
 let changes = '';
-try {
-    // Find the last commit that modified package.json
-    // This serves as the "Previous Release" anchor if tags aren't used.
-    let lastAnchor = '';
-    try {
-        lastAnchor = execSync('git log -n 1 --format="%H" -- package.json').toString().trim();
-    } catch (e) {
-        // No history for package.json
-    }
 
-    if (lastAnchor) {
-        // Get commits since that anchor
-        // If lastAnchor is HEAD (e.g. we just committed), this might be empty, but usually we run this BEFORE committing the bump.
-        changes = execSync(`git log ${lastAnchor}..HEAD --pretty=format:"- %s"`).toString();
-    } else {
-        // Fallback: get last 10 commits
-        changes = execSync('git log -n 10 --pretty=format:"- %s"').toString();
+// Check for CLI argument (e.g. from Task input)
+const cliMessage = process.argv[2];
+
+if (cliMessage && cliMessage.trim().length > 0) {
+    changes = `- ${cliMessage}`;
+} else {
+    // Fallback to Git Log
+    try {
+        // Find the last commit that modified package.json
+        // This serves as the "Previous Release" anchor if tags aren't used.
+        let lastAnchor = '';
+        try {
+            lastAnchor = execSync('git log -n 1 --format="%H" -- package.json').toString().trim();
+        } catch (e) {
+            // No history for package.json
+        }
+
+        if (lastAnchor) {
+            // Get commits since that anchor
+            changes = execSync(`git log ${lastAnchor}..HEAD --pretty=format:"- %s"`).toString();
+        } else {
+            // Fallback: get last 10 commits
+            changes = execSync('git log -n 10 --pretty=format:"- %s"').toString();
+        }
+    } catch (e) {
+        changes = '- Could not auto-generate changes from git.';
     }
-} catch (e) {
-    changes = '- Could not auto-generate changes from git.';
 }
 
 if (!changes) changes = '- No Commit messages found.';

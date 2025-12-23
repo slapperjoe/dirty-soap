@@ -1,76 +1,43 @@
 {
     "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "commitMessage",
+            "type": "promptString",
+            "description": "Enter Changelog Message (Paste from 'Generate Commit Message' if desired)"
+        }
+    ],
     "tasks": [
         {
             "type": "npm",
-            "script": "version-bump",
-            "group": "none",
-            "label": "Version Bump",
-            "detail": "Bump patch version and update changelog",
-            "problemMatcher": []
-        },        
-        {
-            "type": "npm",
-            "script": "version-bump-minor",
-            "group": "none",
-            "label": "Version Bump Minor",
-            "detail": "Bump minor version and update changelog",
-            "problemMatcher": []
-        },
-        {
-            "type": "npm",
-            "script": "version-bump-major",
-            "group": "none",
-            "label": "Version Bump Major",
-            "detail": "Bump major version and update changelog",
-            "problemMatcher": []
-        },
-        {
-            "type": "npm",
-            "script": "compile",
+            "script": "watch",
+            "problemMatcher": "$ts-webpack-watch",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
-            },
-            "problemMatcher": "$tsc",
-            "label": "npm: compile",
-            "detail": "compile the extension"
+            }
         },
         {
-            "type": "npm",
-            "script": "watch",
-            "group": "build",
-            "problemMatcher": "$tsc-watch",
-            "label": "npm: watch",
-            "detail": "watch the extension"
-        },
-        {
+            "label": "Version Bump Major",
             "type": "shell",
-            "command": "npx vsce package",
-            "group": "build",
-            "label": "package",
-            "detail": "Package the extension into a .vsix file"
+            "command": "npm run version-bump-major -- \"${input:commitMessage}\"",
+            "problemMatcher": []
         },
         {
-            "type": "npm",
-            "script": "compile-webview",
-            "group": "build",
-            "label": "npm: compile-webview",
-            "detail": "compile the webview"
+            "label": "Version Bump Minor",
+            "type": "shell",
+            "command": "npm run version-bump-minor -- \"${input:commitMessage}\"",
+            "problemMatcher": []
         },
         {
-            "type": "npm",
-            "script": "desktop:build",
-            "group": "build",
-            "label": "Tauri Build",
-            "detail": "Build the Desktop App (Tauri)"
-        },
-        {
-            "type": "npm",
-            "script": "desktop:dev",
-            "group": "test",
-            "label": "Tauri Dev",
-            "detail": "Run Desktop App in Dev Mode"
+            "label": "Version Bump Patch",
+            "type": "shell",
+            "command": "npm run version-bump-patch -- \"${input:commitMessage}\"",
+            "problemMatcher": []
         }
     ]
 }

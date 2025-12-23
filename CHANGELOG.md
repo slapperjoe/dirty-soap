@@ -5,11 +5,6 @@
 ### Auto-Generated Changes
 - feat: Add Help Modal and enhance sidebar with help functionality
 
-## [0.3.7] - 2025-12-23
-### Auto-Generated Changes
-- feat:
-
-
 ## [0.3.5] - 2025-12-23
 ### Auto-Generated Changes
 - fix: Add https-proxy-agent for improved proxy handling in Axios requests

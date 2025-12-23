@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { bridge, isVsCode } from './utils/bridge';
 import { Sidebar } from './components/Sidebar';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
+import { HelpModal } from './components/HelpModal';
 
 import { SchemaViewer } from './components/SchemaViewer';
 import { SettingsEditorModal } from './components/SettingsEditorModal';
@@ -165,6 +166,7 @@ function App() {
     const [config, setConfig] = useState<DirtySoapConfigWeb | null>(null);
     const [rawConfig, setRawConfig] = useState<string>('');
     const [showSettings, setShowSettings] = useState(false);
+    const [showHelp, setShowHelp] = useState(false); // Help Modal State
     const [changelog, setChangelog] = useState<string>('');
 
     // Initial Load
@@ -727,6 +729,7 @@ function App() {
                 backendConnected={backendConnected}
                 savedProjects={savedProjects}
                 onOpenSettings={() => setShowSettings(true)}
+                onOpenHelp={() => setShowHelp(true)}
                 workspaceDirty={workspaceDirty}
                 showBackendStatus={!isVsCode()}
             />
@@ -771,11 +774,13 @@ function App() {
                 <SettingsEditorModal
                     rawConfig={rawConfig}
                     onClose={() => setShowSettings(false)}
-                    onSave={(content) => bridge.sendMessage({ command: 'saveSettings', raw: true, content })}
+                    onSave={(content) => {
+                        bridge.sendMessage({ command: 'saveSettings', raw: true, content });
+                        setShowSettings(false);
+                    }}
                 />
             )}
-
-            {/* Context Menu */}
+            {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
             {contextMenu && (
                 <ContextMenu top={contextMenu.y} left={contextMenu.x}>
                     {(contextMenu.type === 'request' || contextMenu.type === 'project') && (

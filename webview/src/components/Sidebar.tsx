@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ChevronRight, ChevronDown, Plus, Trash2, Globe, FileCode, Play, Save, FolderOpen, FolderPlus, Settings } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Globe, FileCode, Play, Save, FolderOpen, FolderPlus, Settings, HelpCircle } from 'lucide-react';
 import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapUIProject } from '../models';
 
 // Styled Components
@@ -155,6 +155,7 @@ interface SidebarProps {
 
     // Settings
     onOpenSettings?: () => void;
+    onOpenHelp?: () => void;
 
     // Computed
     workspaceDirty?: boolean;
@@ -174,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     selectedRequest, setSelectedRequest,
     setResponse,
     handleContextMenu, deleteConfirm, backendConnected,
-    onOpenSettings, savedProjects, workspaceDirty, showBackendStatus = true
+    onOpenSettings, onOpenHelp, savedProjects, workspaceDirty, showBackendStatus = true
 }) => {
 
     const renderInterfaceList = (interfaces: SoapUIInterface[], isExplorer: boolean) => (
@@ -412,10 +413,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ))}
             </div>
 
-            {/* Settings Footer */}
-            <div style={{ padding: '10px', borderTop: '1px solid var(--vscode-sideBarSectionHeader-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <HeaderButton onClick={onOpenSettings} title="Settings" style={{ width: '100%', justifyContent: 'center', padding: 5, border: '1px solid var(--vscode-button-border)' }}>
+            {/* Settings & Help Footer */}
+            <div style={{ padding: '10px', borderTop: '1px solid var(--vscode-sideBarSectionHeader-border)', display: 'flex', gap: 5 }}>
+                <HeaderButton onClick={onOpenSettings} title="Settings" style={{ flex: 1, justifyContent: 'center', padding: 5, border: '1px solid var(--vscode-button-border)' }}>
                     <Settings size={14} style={{ marginRight: 5 }} /> Settings
+                </HeaderButton>
+                <HeaderButton onClick={onOpenHelp} title="Help" style={{ flex: 1, justifyContent: 'center', padding: 5, border: '1px solid var(--vscode-button-border)' }}>
+                    <HelpCircle size={14} style={{ marginRight: 5 }} /> Help
                 </HeaderButton>
             </div>
         </SidebarContainer>

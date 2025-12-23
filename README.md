@@ -9,6 +9,11 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
     - Load WSDLs from URLs or local files.
     - Explore Services, Bindings, and Operations.
     - Selectively add interfaces to your active projects.
+- **Smart Proxy Support**: Automatically detects and uses your VS Code or System Proxy settings (supports HTTP/HTTPS proxies with Authentication).
+- **WCF/Enterprise Ready**:
+    - **SSL Bypass**: Automatically handles self-signed certificates purely for WSDL loading and Request execution (useful for internal dev/test environments).
+    - **Header Emulation**: Mimics browser headers to bypass strict WAFs.
+    - **Detailed Logging**: Network errors are logged with full status and body for debugging.
 - **Request Editor**: 
     - Auto-generates SOAP Envelopes with correct path handling and namespaces.
     - Editable Request Endpoint URL per request.
