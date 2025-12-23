@@ -10,15 +10,26 @@
     "tasks": [
         {
             "type": "npm",
+            "script": "compile",
+            "problemMatcher": "$tsc",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "label": "npm: compile",
+            "detail": "compile extension"
+        },
+        {
+            "type": "npm",
             "script": "watch",
-            "problemMatcher": "$ts-webpack-watch",
+            "problemMatcher": "$tsc-watch",
             "isBackground": true,
             "presentation": {
                 "reveal": "never"
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             }
         },
         {

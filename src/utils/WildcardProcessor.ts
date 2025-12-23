@@ -93,11 +93,15 @@ export class WildcardProcessor {
 
                 try {
                     vm.createContext(sandbox);
-                    vm.runInContext(scriptContent, sandbox);
+                    // Add timeout to prevent infinite loops in user scripts blocking the extension
+                    vm.runInContext(scriptContent, sandbox, { timeout: 1000 });
 
                     const exports = sandbox.module.exports;
                     if (exports && typeof exports === 'object') {
                         for (const [key, func] of Object.entries(exports)) {
+                            // Skip empty keys to avoid regex issues
+                            if (!key) continue;
+
                             // key should be like {{myFunc}}
                             // func should be a function() => string
                             if (typeof func === 'function') {
@@ -105,8 +109,12 @@ export class WildcardProcessor {
                                 const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                 const regex = new RegExp(escapedKey, 'g');
                                 if (regex.test(processed)) {
-                                    const result = (func as Function)();
-                                    processed = processed.replace(regex, String(result));
+                                    try {
+                                        const result = (func as Function)();
+                                        processed = processed.replace(regex, String(result));
+                                    } catch (err) {
+                                        console.error(`Error executing function ${key} in ${file}:`, err);
+                                    }
                                 }
                             }
                         }

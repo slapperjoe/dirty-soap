@@ -96,20 +96,23 @@ export class WsdlParser {
                     // Use https-proxy-agent to correctly tunnel HTTPS over the proxy
                     // AND allow us to set rejectUnauthorized: false
                     httpsAgent = new HttpsProxyAgent(proxyUrl, {
-                        rejectUnauthorized: false
+                        rejectUnauthorized: false,
+                        keepAlive: false
                     } as any);
                     this.log('Using HttpsProxyAgent for tunneling.');
                 } catch (e) {
                     this.log(`Failed to create proxy agent: ${e}`);
                     // Fallback to standard agent
                     httpsAgent = new (require('https').Agent)({
-                        rejectUnauthorized: false
+                        rejectUnauthorized: false,
+                        keepAlive: false
                     });
                 }
             } else {
                 this.log('No explicit proxy configuration found. Using direct connection (SSL check disabled).');
                 httpsAgent = new (require('https').Agent)({
-                    rejectUnauthorized: false
+                    rejectUnauthorized: false,
+                    keepAlive: false
                 });
             }
 
@@ -120,7 +123,7 @@ export class WsdlParser {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
                 'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive'
+                'Connection': 'close'
             };
 
             return axios({

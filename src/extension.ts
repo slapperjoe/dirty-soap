@@ -10,3 +10,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(disposable);
 }
+
+export function deactivate() {
+    console.log('Dirty Soap: Deactivate called.');
+    // Ensure the panel is properly disposed when the extension is deactivated
+    if (SoapPanel.currentPanel) {
+        console.log('Dirty Soap: Disposing panel...');
+        SoapPanel.currentPanel.dispose();
+        console.log('Dirty Soap: Panel disposed.');
+    }
+    console.log('Dirty Soap: Deactivate finished.');
+}

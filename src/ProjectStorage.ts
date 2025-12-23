@@ -67,6 +67,10 @@ export class ProjectStorage {
                                     "content": a.configuration?.expectedContent
                                 }
                             })) : [],
+                            "dirty:headers": req.headers ? Object.entries(req.headers).map(([k, v]) => ({
+                                "@_key": k,
+                                "@_value": v
+                            })) : [],
                             "dirty:requestContent": req.request // Save raw content here too
                         }))
                     }))
@@ -169,7 +173,11 @@ export class ProjectStorage {
                                 xpath: a["con:configuration"]["path"],
                                 expectedContent: a["con:configuration"]["content"]
                             } : {}
-                        })) : []
+                        })) : [],
+                        headers: req["dirty:headers"] ? (Array.isArray(req["dirty:headers"]) ? req["dirty:headers"] : [req["dirty:headers"]]).reduce((acc: any, curr: any) => {
+                            acc[curr["@_key"]] = curr["@_value"];
+                            return acc;
+                        }, {}) : {}
                     })) : []
                 })) : []
             }));

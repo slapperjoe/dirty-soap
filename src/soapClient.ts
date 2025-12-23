@@ -163,6 +163,10 @@ export class SoapClient {
         const CancelToken = axios.CancelToken;
         this.cancelTokenSource = CancelToken.source();
 
+        const agentOptions = { keepAlive: false, rejectUnauthorized: false };
+        const httpsAgent = new (require('https').Agent)(agentOptions);
+        const httpAgent = new (require('http').Agent)(agentOptions);
+
         this.log(`Methods: POST ${endpoint}`);
         this.log('Headers:', requestHeaders);
         this.log('Body:', xml);
@@ -170,6 +174,8 @@ export class SoapClient {
         try {
             const response = await axios.post(endpoint, xml, {
                 headers: requestHeaders,
+                httpsAgent: httpsAgent,
+                httpAgent: httpAgent,
                 cancelToken: this.cancelTokenSource.token,
                 transformResponse: [(data) => data] // Do not parse JSON automatically, define raw
             });

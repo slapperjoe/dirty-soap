@@ -49,6 +49,7 @@ export interface SoapUIRequest {
     endpoint?: string;
     dirty?: boolean;
     assertions?: SoapUIAssertion[];
+    headers?: Record<string, string>;
 }
 
 export interface SoapUIOperation {

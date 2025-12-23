@@ -5,6 +5,7 @@ import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
 import { AssertionsPanel } from './AssertionsPanel';
+import { HeadersPanel } from './HeadersPanel';
 import ReactMarkdown from 'react-markdown';
 import { MonacoSingleLineInput } from './MonacoSingleLineInput';
 import { formatXml } from '../utils/xmlFormatter';
@@ -140,7 +141,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     inlineElementValues, onToggleInlineElementValues
 }) => {
     const [alignAttributes, setAlignAttributes] = React.useState(false);
-    const [activeTab, setActiveTab] = React.useState<'request' | 'assertions'>('request');
+    const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth'>('request');
 
     if (!selectedRequest) {
         return (
@@ -233,16 +234,29 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         height: 'auto',
                         width: 'auto'
                     }}>
+                        {/* Title Section (Moved above tabs) */}
+                        <div style={{
+                            padding: '10px 15px',
+                            backgroundColor: 'var(--vscode-editor-background)',
+                            borderBottom: '1px solid var(--vscode-panel-border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 5
+                        }}>
+                            <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>{selectedOperation?.name}</div>
+                            <div style={{ fontSize: '0.9em', opacity: 0.7 }}>{selectedRequest.name}</div>
+                        </div>
+
+                        {/* Tabs Header */}
                         <div style={{
                             padding: '0 10px',
                             backgroundColor: 'var(--vscode-editor-background)',
                             borderBottom: '1px solid var(--vscode-panel-border)',
-                            fontWeight: 'bold',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 15,
+                            gap: 20,
                             flexShrink: 0,
-                            height: 30
+                            height: 35
                         }}>
                             <div
                                 style={{
@@ -253,8 +267,19 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 }}
                                 onClick={() => setActiveTab('request')}
                             >
-                                Request
-                                <span style={{ fontSize: '0.8em', marginLeft: 5, opacity: 0.5 }}>{selectedOperation?.name}</span>
+                                Body
+                            </div>
+                            <div
+                                style={{
+                                    cursor: 'pointer',
+                                    borderBottom: activeTab === 'headers' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
+                                    padding: '5px 0',
+                                    color: activeTab === 'headers' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
+                                }}
+                                onClick={() => setActiveTab('headers')}
+                            >
+                                Headers
+                                {selectedRequest.headers && Object.keys(selectedRequest.headers).length > 0 && ` (${Object.keys(selectedRequest.headers).length})`}
                             </div>
                             <div
                                 style={{
@@ -273,21 +298,41 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                     </span>
                                 )}
                             </div>
+                            <div
+                                style={{
+                                    cursor: 'pointer',
+                                    borderBottom: activeTab === 'auth' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
+                                    padding: '5px 0',
+                                    color: activeTab === 'auth' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)',
+                                    opacity: 0.6
+                                }}
+                                title="Coming Soon"
+                            // onClick={() => setActiveTab('auth')} 
+                            >
+                                Auth
+                            </div>
 
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center', fontSize: '0.9em' }}>
                                 <span style={{ opacity: 0.8 }}>Lines: {typeof selectedRequest.request === 'string' ? selectedRequest.request.split('\n').length : 0}</span>
                                 <span style={{ opacity: 0.8 }}>Size: {typeof selectedRequest.request === 'string' ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</span>
                             </div>
                         </div>
 
-                        {activeTab === 'request' ? (
+                        {activeTab === 'request' && (
                             <MonacoRequestEditor
                                 value={selectedRequest.request || ''}
                                 onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
                                 readOnly={loading}
                                 language="xml"
                             />
-                        ) : (
+                        )}
+                        {activeTab === 'headers' && (
+                            <HeadersPanel
+                                headers={selectedRequest.headers || {}}
+                                onChange={(newHeaders) => onUpdateRequest({ ...selectedRequest, headers: newHeaders })}
+                            />
+                        )}
+                        {activeTab === 'assertions' && (
                             <AssertionsPanel
                                 assertions={selectedRequest.assertions || []}
                                 onChange={(newAssertions) => onUpdateRequest({ ...selectedRequest, assertions: newAssertions })}

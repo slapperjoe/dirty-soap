@@ -265,7 +265,7 @@ function App() {
                     }
 
                     // We store the generic result but also the pre-processed display string
-                    setResponse({ ...res, rawResponse: displayResponse, duration, lineCount });
+                    setResponse({ ...res, rawResponse: displayResponse, duration, lineCount, assertionResults: message.assertionResults });
                     break;
                 case 'error':
                     setLoading(false);
@@ -433,7 +433,15 @@ function App() {
             // We pass definition URL.
             // Prioritize the request-specific endpoint, then the interface definition, then the WSDL URL
             const url = selectedRequest?.endpoint || selectedInterface?.definition || wsdlUrl;
-            bridge.sendMessage({ command: 'executeRequest', url, operation: selectedOperation.name, xml, contentType: selectedRequest?.contentType });
+            bridge.sendMessage({
+                command: 'executeRequest',
+                url,
+                operation: selectedOperation.name,
+                xml,
+                contentType: selectedRequest?.contentType,
+                assertions: selectedRequest?.assertions,
+                headers: selectedRequest?.headers
+            });
         }
     };
 

@@ -14,6 +14,8 @@ export class SoapPanel {
     private _settingsManager: SettingsManager;
     private _controller: WebviewController;
     private _disposables: vscode.Disposable[] = [];
+    private _autosaveTimeout: NodeJS.Timeout | undefined;
+    private _outputChannel: vscode.OutputChannel;
 
     public static createOrShow(extensionUri: vscode.Uri) {
         const column = vscode.window.activeTextEditor
@@ -44,9 +46,11 @@ export class SoapPanel {
         this._panel = panel;
         this._extensionUri = extensionUri;
 
-        const outputChannel = vscode.window.createOutputChannel('Dirty SOAP');
-        this._soapClient = new SoapClient(outputChannel);
-        this._projectStorage = new ProjectStorage(outputChannel);
+        this._extensionUri = extensionUri;
+
+        this._outputChannel = vscode.window.createOutputChannel('Dirty SOAP');
+        this._soapClient = new SoapClient(this._outputChannel);
+        this._projectStorage = new ProjectStorage(this._outputChannel);
         this._settingsManager = new SettingsManager();
 
         this._controller = new WebviewController(
@@ -79,15 +83,41 @@ export class SoapPanel {
     private async checkAutosave() {
         const autosave = this._settingsManager.getAutosave();
         if (autosave) {
-            setTimeout(() => {
+            this._autosaveTimeout = setTimeout(() => {
                 this._panel.webview.postMessage({ command: 'restoreAutosave', content: autosave });
             }, 1000);
         }
     }
 
+    private _isDisposed = false;
+
     public dispose() {
+        if (this._isDisposed) {
+            return;
+        }
+        this._isDisposed = true;
+
         SoapPanel.currentPanel = undefined;
+
+        // Clear timeouts
+        if (this._autosaveTimeout) {
+            clearTimeout(this._autosaveTimeout);
+        }
+
+        // Cancel any pending requests
+        if (this._soapClient) {
+            this._soapClient.cancelRequest();
+        }
+
+        // Dispose Output Channel
+        if (this._outputChannel) {
+            this._outputChannel.dispose();
+        }
+
+        // Dispose panel
+        // If we are here because of onDidDispose, this is redundant but safe.
         this._panel.dispose();
+
         while (this._disposables.length) {
             const x = this._disposables.pop();
             if (x) {

@@ -343,8 +343,27 @@ export class WebviewController {
             this._soapClient.log('Substituted Payload:', processedXml);
             this._soapClient.log('-----------------------');
 
-            // Pass headers if needed
-            const headers = message.contentType ? { 'Content-Type': message.contentType } : undefined;
+            // Process Headers
+            let headers = message.headers || {};
+            // Apply wildcards to headers
+            if (headers) {
+                const processedHeaders: Record<string, string> = {};
+                for (const key in headers) {
+                    if (headers.hasOwnProperty(key)) {
+                        processedHeaders[key] = WildcardProcessor.process(headers[key], envVars, globals, scriptsDir);
+                    }
+                }
+                headers = processedHeaders;
+            }
+
+            // Merge Content-Type
+            if (message.contentType) {
+                headers['Content-Type'] = message.contentType;
+            }
+            // If empty, set to undefined to avoid polluting if not needed, 
+            // though SoapClient handles it. 
+            // Better to keep it as object if keys exist.
+            if (Object.keys(headers).length === 0) headers = undefined;
 
             const startTime = Date.now();
             const result = await this._soapClient.executeRequest(processedUrl, message.operation, processedXml, headers);

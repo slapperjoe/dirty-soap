@@ -65,7 +65,6 @@ const Title = styled.div`
 `;
 
 const ConfigText = styled.div`
-    font-size: 0.9em;
     opacity: 0.8;
 `;
 
@@ -77,6 +76,27 @@ const Input = styled.input`
     margin-left: 5px;
 `;
 
+const Select = styled.select`
+    background-color: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+    border: 1px solid var(--vscode-dropdown-border);
+    padding: 4px;
+    outline: none;
+    height: 26px;
+    box-sizing: border-box;
+    cursor: pointer;
+    &:focus {
+        border-color: var(--vscode-focusBorder);
+    }
+`;
+
+function generateId() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 interface AssertionsPanelProps {
     assertions: SoapUIAssertion[];
     onChange: (assertions: SoapUIAssertion[]) => void;
@@ -87,7 +107,7 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
 
     const handleAdd = (type: SoapUIAssertion['type']) => {
         const newAssertion: SoapUIAssertion = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type,
             name: type,
             configuration: {}
@@ -115,6 +135,7 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
 
     const getStatus = (id: string) => {
         if (!lastResult) return null;
+        // console.log('Checking status for', id, 'in', lastResult);
         const res = lastResult.find(r => r.id === id);
         return res ? res.status : null;
     };
@@ -122,13 +143,13 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
     return (
         <Container>
             <Toolbar>
-                <select onChange={(e) => handleAdd(e.target.value as any)} value="" style={{ padding: 4 }}>
-                    <option value="" disabled>+ Add Assertion</option>
+                <Select onChange={(e) => handleAdd(e.target.value as any)} value="">
+                    <option value="" disabled style={{ color: 'var(--vscode-dropdown-foreground)' }}>+ Add Assertion</option>
                     <option value="Simple Contains">Contains</option>
                     <option value="Simple Not Contains">Not Contains</option>
                     <option value="Response SLA">Response SLA</option>
                     {/* <option value="XPath Match">XPath Match</option> */}
-                </select>
+                </Select>
             </Toolbar>
 
             <AssertionList>
