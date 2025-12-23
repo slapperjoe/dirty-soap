@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.5.2] - 2025-12-23
+### Auto-Generated Changes
+- feat: Add file watcher controls and enhance watcher event model with root element extraction
+
 ## [0.5.1] - 2025-12-23
 ### Auto-Generated Changes
 - feat: Implement file watcher service and integrate with WebviewController and Sidebar for real-time updates
