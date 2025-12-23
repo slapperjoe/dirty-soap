@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.3.5] - 2025-12-23
+### Auto-Generated Changes
+- fix: Add https-proxy-agent for improved proxy handling in Axios requests
+
 ## [0.3.4] - 2025-12-23
 ### Auto-Generated Changes
 - fix: Implement proxy detection and configuration in Axios requests for improved network handling

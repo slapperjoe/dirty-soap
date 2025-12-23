@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import * as soap from 'soap';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -79,32 +80,37 @@ export class WsdlParser {
             // 2. Fallback to Network (Axios)
             this.log('Performing network request via Axios (SSL verification disabled)...');
 
+            // 2. Fallback to Network (Axios)
+            this.log('Performing network request via Axios (SSL verification disabled)...');
+
             // --- PROXY DETECTION ---
-            let proxyConfig: any = false; // Default: no proxy (let axios decide or direct)
             const envProxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
             const vscodeProxy = vscode.workspace.getConfiguration('http').get<string>('proxy');
             const proxyUrl = vscodeProxy || envProxy;
 
+            let httpsAgent: any;
+
             if (proxyUrl) {
                 this.log(`Detected Proxy Configuration: ${proxyUrl}`);
                 try {
-                    const parsed = new URL(proxyUrl);
-                    proxyConfig = {
-                        protocol: parsed.protocol.replace(':', ''),
-                        host: parsed.hostname,
-                        port: parseInt(parsed.port) || (parsed.protocol === 'https:' ? 443 : 80),
-                    };
-                    if (parsed.username && parsed.password) {
-                        proxyConfig.auth = {
-                            username: parsed.username,
-                            password: parsed.password
-                        };
-                    }
+                    // Use https-proxy-agent to correctly tunnel HTTPS over the proxy
+                    // AND allow us to set rejectUnauthorized: false
+                    httpsAgent = new HttpsProxyAgent(proxyUrl, {
+                        rejectUnauthorized: false
+                    } as any);
+                    this.log('Using HttpsProxyAgent for tunneling.');
                 } catch (e) {
-                    this.log(`Failed to parse proxy URL: ${e}`);
+                    this.log(`Failed to create proxy agent: ${e}`);
+                    // Fallback to standard agent
+                    httpsAgent = new (require('https').Agent)({
+                        rejectUnauthorized: false
+                    });
                 }
             } else {
-                this.log('No explicit proxy configuration found (checking HTTP/HTTPS_PROXY and VSCode settings).');
+                this.log('No explicit proxy configuration found. Using direct connection (SSL check disabled).');
+                httpsAgent = new (require('https').Agent)({
+                    rejectUnauthorized: false
+                });
             }
 
             const method = data ? 'POST' : 'GET';
@@ -117,17 +123,13 @@ export class WsdlParser {
                 'Connection': 'keep-alive'
             };
 
-            const httpsAgent = new (require('https').Agent)({
-                rejectUnauthorized: false
-            });
-
             return axios({
                 method: method,
                 url: actualUrl,
                 data: data,
                 headers: headers,
                 httpsAgent: httpsAgent,
-                proxy: proxyConfig, // Explicit proxy config
+                proxy: false, // Important: Disable axios proxy handling, let the Agent handle tunneling
                 ...exoptions
             }).then((response) => {
                 this.log(`Network request success: ${response.status}`);
