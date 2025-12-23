@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.3.8] - 2025-12-23
+### Auto-Generated Changes
+- feat: Add Help Modal and enhance sidebar with help functionality
+
 ## [0.3.7] - 2025-12-23
 ### Auto-Generated Changes
 - feat:
