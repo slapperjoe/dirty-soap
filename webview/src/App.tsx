@@ -327,11 +327,15 @@ function App() {
                 case 'settingsUpdate':
                     setConfig(message.config);
                     setRawConfig(message.raw);
+                    // Consume UI preferences
                     if (message.config.ui) {
                         if (message.config.ui.layoutMode) setLayoutMode(message.config.ui.layoutMode);
                         if (message.config.ui.showLineNumbers !== undefined) setShowLineNumbers(message.config.ui.showLineNumbers);
+                        if (message.config.ui.splitRatio !== undefined) setSplitRatio(message.config.ui.splitRatio);
                         if (message.config.ui.inlineElementValues !== undefined) setInlineElementValues(message.config.ui.inlineElementValues);
-                        if (message.config.ui.splitRatio) setSplitRatio(message.config.ui.splitRatio);
+                    }
+                    if (message.config.lastConfigPath) {
+                        setConfigPath(message.config.lastConfigPath);
                     }
                     break;
                 case 'restoreAutosave':
