@@ -158,13 +158,24 @@ export class WebviewController {
                 break;
             case 'openCertificate':
                 const certPath = this._proxyService.getCertPath();
+                console.log('[WebviewController] Opening certificate at:', certPath);
+
                 if (certPath) {
+                    if (!fs.existsSync(certPath)) {
+                        console.error('[WebviewController] Certificate file not found at path:', certPath);
+                        vscode.window.showErrorMessage(`Certificate file missing at: ${certPath}`);
+                        return;
+                    }
+
                     try {
-                        await vscode.env.openExternal(vscode.Uri.file(certPath));
+                        const uri = vscode.Uri.file(certPath);
+                        console.log('[WebviewController] Opening URI:', uri.toString());
+                        await vscode.env.openExternal(uri);
                         vscode.window.showInformationMessage(
                             "Certificate opened. To trust this proxy, install it to 'Trusted Root Certification Authorities' in the Windows Certificate Import Wizard."
                         );
                     } catch (err: any) {
+                        console.error('[WebviewController] Failed to open cert:', err);
                         vscode.window.showErrorMessage('Failed to open certificate: ' + err.message);
                     }
                 } else {
