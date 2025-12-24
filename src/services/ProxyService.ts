@@ -97,7 +97,7 @@ export class ProxyService extends EventEmitter {
         if (this.isRunning) return;
 
         try {
-            const isHttpsTarget = this.config.targetUrl.toLowerCase().startsWith('https://');
+            const isHttpsTarget = this.config.targetUrl.trim().toLowerCase().startsWith('https');
 
             if (isHttpsTarget) {
                 const pems = await this.ensureCert();

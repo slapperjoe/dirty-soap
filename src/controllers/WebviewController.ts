@@ -120,7 +120,9 @@ export class WebviewController {
                     openLabel: 'Select Config File'
                 });
                 if (uris && uris.length > 0) {
-                    this._panel.webview.postMessage({ command: 'configFileSelected', path: uris[0].fsPath });
+                    const selectedPath = uris[0].fsPath;
+                    this._settingsManager.updateLastConfigPath(selectedPath);
+                    this._panel.webview.postMessage({ command: 'configFileSelected', path: selectedPath });
                 }
                 break;
             case 'injectProxy':

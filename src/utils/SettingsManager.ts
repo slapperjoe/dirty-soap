@@ -25,6 +25,7 @@ export interface DirtySoapConfig {
     }>;
     globals?: Record<string, string>;
     recentWorkspaces?: string[];
+    lastConfigPath?: string;
 }
 
 const DEFAULT_CONFIG: DirtySoapConfig = {
@@ -57,7 +58,8 @@ const DEFAULT_CONFIG: DirtySoapConfig = {
         apiKey: '12345',
         _comment: 'Variables here apply to all environments'
     },
-    recentWorkspaces: []
+    recentWorkspaces: [],
+    lastConfigPath: ""
 };
 
 export class SettingsManager {
@@ -144,6 +146,10 @@ export class SettingsManager {
 
     public updateActiveEnvironment(envName: string) {
         this.updateConfigPath(['activeEnvironment'], envName);
+    }
+
+    public updateLastConfigPath(path: string) {
+        this.updateConfigPath(['lastConfigPath'], path);
     }
 
     public saveRawConfig(content: string) {

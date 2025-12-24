@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.6.4] - 2025-12-24
+### Auto-Generated Changes
+- feat: Enhance configuration management by adding lastConfigPath tracking - Updated WebviewController to store the last selected config file path. - Modified ProxyService to ensure proper handling of HTTPS target URLs with trimmed input. - Extended SettingsManager to include lastConfigPath in the configuration.
+
 ## [0.6.3] - 2025-12-24
 ### Auto-Generated Changes
 - feat: Add certificate opening functionality in WebviewController - Implemented handling for openCertificate message to open the generated certificate and provide user instructions for installation. - Enhanced user feedback for certificate management in the proxy service.
