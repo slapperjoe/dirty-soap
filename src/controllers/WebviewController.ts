@@ -159,41 +159,42 @@ export class WebviewController {
             case 'openCertificate':
                 // Force generation if not running or missing
                 let certPath = this._proxyService.getCertPath();
-                console.log('[WebviewController] Initial cert path:', certPath);
+                this._soapClient.log('[WebviewController] Initial cert path: ' + certPath);
 
                 if (!certPath || !fs.existsSync(certPath)) {
                     try {
-                        console.log('[WebviewController] Cert missing. Forcing generation...');
+                        this._soapClient.log('[WebviewController] Cert missing. Forcing generation...');
                         await this._proxyService.prepareCert();
                         certPath = this._proxyService.getCertPath();
                     } catch (e: any) {
+                        this._soapClient.log('Failed to generate certificate: ' + e.message);
                         vscode.window.showErrorMessage('Failed to generate certificate: ' + e.message);
                         return;
                     }
                 }
 
-                console.log('[WebviewController] Opening certificate at:', certPath);
+                this._soapClient.log('[WebviewController] Opening certificate at: ' + certPath);
 
                 if (certPath) {
                     if (!fs.existsSync(certPath)) {
-                        console.error('[WebviewController] Certificate file still not found at path:', certPath);
+                        this._soapClient.log('[WebviewController] Certificate file still not found at path: ' + certPath);
                         vscode.window.showErrorMessage(`Certificate file missing at: ${certPath}`);
                         return;
                     }
 
                     try {
                         const uri = vscode.Uri.file(certPath);
-                        console.log('[WebviewController] Opening URI:', uri.toString());
+                        this._soapClient.log('[WebviewController] Opening URI: ' + uri.toString());
                         await vscode.env.openExternal(uri);
                         vscode.window.showInformationMessage(
                             "Certificate opened. To trust this proxy, install it to 'Trusted Root Certification Authorities' in the Windows Certificate Import Wizard."
                         );
                     } catch (err: any) {
-                        console.error('[WebviewController] Failed to open cert:', err);
+                        this._soapClient.log('[WebviewController] Failed to open cert: ' + err);
                         vscode.window.showErrorMessage('Failed to open certificate: ' + err.message);
                     }
                 } else {
-                    vscode.window.showWarningMessage('No certificate generated yet. Start the proxy with an HTTPS target first.');
+                    this._soapClient.log('No cert path available even after generation attempt.');
                 }
                 break;
         }
