@@ -72,8 +72,7 @@ export class ProxyService extends EventEmitter {
     }
 
     private ensureCert(): Promise<{ key: string, cert: string }> {
-        console.log('[ProxyService] ensureCert called');
-        // ...
+        this.logDebug('[ProxyService] ensureCert called');
         return new Promise((resolve, reject) => {
             const tempDir = os.tmpdir();
             this.certPath = path.join(tempDir, 'dirty-soap-proxy.cer');
@@ -83,29 +82,40 @@ export class ProxyService extends EventEmitter {
                 try {
                     const key = fs.readFileSync(this.keyPath, 'utf8');
                     const cert = fs.readFileSync(this.certPath, 'utf8');
+                    this.logDebug('[ProxyService] Found existing certs.');
                     resolve({ key, cert });
                     return;
                 } catch (e) {
-                    console.warn('Failed to read existing certs, regenerating...');
+                    this.logDebug('[ProxyService] Failed to read existing certs, regenerating...');
                 }
             }
 
             const attrs = [{ name: 'commonName', value: 'localhost' }];
             const opts = { days: 365, keySize: 2048, extensions: [{ name: 'basicConstraints', cA: true }] };
 
-            (selfsigned as any).generate(attrs, opts, (err: any, pems: any) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                try {
-                    fs.writeFileSync(this.certPath!, pems.cert);
-                    fs.writeFileSync(this.keyPath!, pems.private);
-                    resolve({ key: pems.private, cert: pems.cert });
-                } catch (writeErr) {
-                    reject(writeErr);
-                }
-            });
+            this.logDebug('[ProxyService] Generating new certificate (this may take a moment)...');
+            try {
+                (selfsigned as any).generate(attrs, opts, (err: any, pems: any) => {
+                    if (err) {
+                        this.logDebug('[ProxyService] Certificate generation failed: ' + err);
+                        reject(err);
+                        return;
+                    }
+                    this.logDebug('[ProxyService] Certificate generation successful. Writing files...');
+                    try {
+                        fs.writeFileSync(this.certPath!, pems.cert);
+                        fs.writeFileSync(this.keyPath!, pems.private);
+                        this.logDebug(`[ProxyService] Wrote cert to: ${this.certPath}`);
+                        resolve({ key: pems.private, cert: pems.cert });
+                    } catch (writeErr: any) {
+                        this.logDebug('[ProxyService] Failed to write cert files: ' + writeErr.message);
+                        reject(writeErr);
+                    }
+                });
+            } catch (syncErr: any) {
+                this.logDebug('[ProxyService] selfsigned.generate threw synchronously: ' + syncErr.message);
+                reject(syncErr);
+            }
         });
     }
 
