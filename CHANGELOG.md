@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.5.3] - 2025-12-24
+### Auto-Generated Changes
+- feat: Enhance file watcher functionality with clear history feature and operation name extraction
+
 ## [0.5.2] - 2025-12-23
 ### Auto-Generated Changes
 - feat: Add file watcher controls and enhance watcher event model with root element extraction
