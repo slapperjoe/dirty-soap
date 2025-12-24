@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.6.5] - 2025-12-24
+### Auto-Generated Changes
+- feat: add TypeScript declarations for Vite client and PNG module support
+
 ## [0.6.4] - 2025-12-24
 ### Auto-Generated Changes
 - feat: Enhance configuration management by adding lastConfigPath tracking - Updated WebviewController to store the last selected config file path. - Modified ProxyService to ensure proper handling of HTTPS target URLs with trimmed input. - Extended SettingsManager to include lastConfigPath in the configuration.

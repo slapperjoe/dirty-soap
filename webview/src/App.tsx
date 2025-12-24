@@ -397,7 +397,9 @@ function App() {
                     // Handled by backend notification for now
                     break;
                 case 'updateProxyTarget':
-                    setProxyConfig(prev => ({ ...prev, target: message.target }));
+                    const newConfig = { ...proxyConfig, target: message.target };
+                    setProxyConfig(newConfig);
+                    bridge.sendMessage({ command: 'updateProxyConfig', config: newConfig });
                     break;
             }
         };

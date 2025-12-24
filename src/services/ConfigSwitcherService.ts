@@ -61,6 +61,9 @@ export class ConfigSwitcherService {
             });
 
             if (content === newContent2) {
+                if (matchCount > 0) {
+                    return { success: true, message: 'Configuration already injected (no changes needed).', originalUrl: capturedUrl };
+                }
                 throw new Error("Regex failed to replace address. Check format.");
             }
 
