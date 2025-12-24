@@ -9,6 +9,23 @@ import { HeadersPanel } from './HeadersPanel';
 import ReactMarkdown from 'react-markdown';
 import { MonacoSingleLineInput } from './MonacoSingleLineInput';
 import { formatXml } from '../utils/xmlFormatter';
+import mascotImg from '../assets/mascot.png';
+
+const Mascot = styled.img`
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 200px;
+    height: auto;
+    opacity: 0.8;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+
+    body.vscode-dark &, body.vscode-high-contrast & {
+        filter: invert(1);
+        mix-blend-mode: screen;
+    }
+`;
 
 const Content = styled.div`
   flex: 1;
@@ -145,25 +162,11 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const [alignAttributes, setAlignAttributes] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth'>('request');
 
-    import mascotImg from '../assets/mascot.png';
 
-    const Mascot = styled.img`
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 200px;
-    height: auto;
-    opacity: 0.8;
-    pointer-events: none;
-    mix-blend-mode: multiply;
 
-    body.vscode-dark &, body.vscode-high-contrast & {
-        filter: invert(1);
-        mix-blend-mode: screen;
-    }
-`;
 
-    // ... inside WorkspaceLayout component ...
+
+
     if (!selectedRequest) {
         return (
             <div style={{ padding: 20, flex: 1, overflow: 'auto', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)', position: 'relative' }}>
