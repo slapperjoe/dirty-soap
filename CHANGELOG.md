@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.5.4] - 2025-12-24
+### Auto-Generated Changes
+- feat: Update Sidebar and WorkspaceLayout components for improved watcher controls and response display
+
 ## [0.5.3] - 2025-12-24
 ### Auto-Generated Changes
 - feat: Enhance file watcher functionality with clear history feature and operation name extraction
