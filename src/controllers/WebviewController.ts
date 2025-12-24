@@ -127,6 +127,13 @@ export class WebviewController {
                 const injectResult = this._configSwitcherService.inject(message.path, message.proxyUrl);
                 if (injectResult.success) {
                     vscode.window.showInformationMessage(injectResult.message);
+                    // If we found an original URL, tell the UI to update the target
+                    if (injectResult.originalUrl) {
+                        this._panel.webview.postMessage({
+                            command: 'updateProxyTarget',
+                            target: injectResult.originalUrl
+                        });
+                    }
                 } else {
                     vscode.window.showErrorMessage(injectResult.message);
                 }

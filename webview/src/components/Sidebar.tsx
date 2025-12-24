@@ -317,82 +317,120 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
     );
 
-    const renderProxyList = () => (
-        <div style={{ padding: 20, color: 'var(--vscode-descriptionForeground)' }}>
-            <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <h3>Dirty Proxy</h3>
-                <p>Port: {proxyConfig.port}</p>
-                <p>Target: {proxyConfig.target}</p>
-                <p>Status: {proxyRunning ? 'Running' : 'Stopped'}</p>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 10 }}>
-                    {!proxyRunning ? (
-                        <HeaderButton onClick={onStartProxy}>Start</HeaderButton>
-                    ) : (
-                        <HeaderButton onClick={onStopProxy}>Stop</HeaderButton>
-                    )}
-                    <HeaderButton onClick={onClearProxy} title="Clear History"><Trash2 size={16} /></HeaderButton>
-                    <HeaderButton onClick={() => onUpdateProxyConfig({ ...proxyConfig, port: proxyConfig.port + 1 })}>Config</HeaderButton>
-                </div>
-            </div>
+    const renderProxyList = () => {
+        // Local state for inputs to allow editing before saving?
+        // Actually, we can just use the props and update on blur/change if we want, or local state.
+        // Let's use local state for the inputs to avoid jitter, committed on Blur or Enter.
+        // But for simplicity/speed let's make them uncontrolled or strictly controlled by parent but with local buffer if needed.
+        // Sidebar re-renders often?
+        // Let's just use the props but with an "Edit" mode? Or just inputs.
+        // Inputs are better.
 
-            <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 15, marginTop: 15 }}>
-                <h4 style={{ margin: '0 0 10px 0' }}>Config Switcher</h4>
-                <div style={{
-                    marginBottom: 10,
-                    fontSize: '0.85em',
-                    wordBreak: 'break-all',
-                    padding: '5px',
-                    backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)',
-                    borderRadius: '3px'
-                }}>
-                    {configPath ? configPath : 'No web.config selected'}
-                </div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <HeaderButton onClick={onSelectConfigFile} title="Select web.config">
-                        <FolderOpen size={14} style={{ marginRight: 5 }} /> Select
-                    </HeaderButton>
-                    {configPath && (
-                        <>
-                            <HeaderButton onClick={onInjectProxy} title="Inject Proxy Address">
-                                <Network size={14} style={{ marginRight: 5 }} /> Inject
-                            </HeaderButton>
-                            <HeaderButton onClick={onRestoreProxy} title="Restore Original Config">
-                                <FileCode size={14} style={{ marginRight: 5 }} /> Restore
-                            </HeaderButton>
-                        </>
-                    )}
-                </div>
-            </div>
+        return (
+            <div style={{ padding: 10, color: 'var(--vscode-descriptionForeground)' }}>
 
-            <div style={{ marginTop: 20 }}>
-                <h4 style={{ margin: '0 0 10px 0' }}>Live Traffic</h4>
-                {proxyHistory.length === 0 ? (
-                    <div style={{ textAlign: 'center', marginTop: 10 }}>
-                        Waiting for requests...
+                {/* compact controls */}
+                <div style={{ marginBottom: 15, padding: 10, backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 5 }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 5 }}>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.8em', marginBottom: 2 }}>Local Port</label>
+                            <input
+                                type="number"
+                                className="vscode-input"
+                                value={proxyConfig.port}
+                                onChange={(e) => onUpdateProxyConfig({ ...proxyConfig, port: parseInt(e.target.value) || 9000 })}
+                                style={{ width: '100%', padding: '4px', background: 'var(--vscode-input-background)', color: 'var(--vscode-input-foreground)', border: '1px solid var(--vscode-input-border)' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+                            {!proxyRunning ? (
+                                <HeaderButton onClick={onStartProxy} style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '4px 8px' }} title="Start Proxy"><Play size={14} /></HeaderButton>
+                            ) : (
+                                <HeaderButton onClick={onStopProxy} style={{ color: 'var(--vscode-testing-iconFailed)', border: '1px solid currentColor', padding: '4px 8px' }} title="Stop Proxy"><Square size={14} /></HeaderButton>
+                            )}
+                        </div>
                     </div>
-                ) : (
-                    proxyHistory.map((event, i) => (
-                        <ServiceItem
-                            key={i}
-                            style={{ paddingLeft: 10 }}
-                            onClick={() => onSelectWatcherEvent(event)}
-                        >
-                            <div style={{ flex: 1, fontSize: '0.9em' }}>
-                                <div style={{ fontWeight: 'bold' }}>{event.method} {event.url}</div>
-                                <div>{event.status ? `Status: ${event.status}` : 'Pending...'}</div>
-                            </div>
-                        </ServiceItem>
-                    ))
-                )}
+
+                    <div style={{ marginBottom: 5 }}>
+                        <label style={{ display: 'block', fontSize: '0.8em', marginBottom: 2 }}>Target URL</label>
+                        <input
+                            type="text"
+                            className="vscode-input"
+                            value={proxyConfig.target}
+                            onChange={(e) => onUpdateProxyConfig({ ...proxyConfig, target: e.target.value })}
+                            style={{ width: '100%', padding: '4px', background: 'var(--vscode-input-background)', color: 'var(--vscode-input-foreground)', border: '1px solid var(--vscode-input-border)' }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                        <div style={{ fontSize: '0.8em' }}>Status: {proxyRunning ? <span style={{ color: 'var(--vscode-testing-iconPassed)' }}>Running</span> : 'Stopped'}</div>
+                        <HeaderButton onClick={onClearProxy} title="Clear Traffic History"><Trash2 size={14} /></HeaderButton>
+                    </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10, marginTop: 10 }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9em' }}>Config Switcher</h4>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 5 }}>
+                        <div style={{
+                            flex: 1,
+                            fontSize: '0.8em',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            padding: '4px',
+                            backgroundColor: 'var(--vscode-editor-background)',
+                            border: '1px solid var(--vscode-input-border)',
+                            borderRadius: '2px'
+                        }} title={configPath || ''}>
+                            {configPath ? configPath.split(/[\\/]/).pop() : 'Select web.config...'}
+                        </div>
+                        <HeaderButton onClick={onSelectConfigFile} title="Browse"><FolderOpen size={14} /></HeaderButton>
+                    </div>
+
+                    {configPath && (
+                        <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
+                            <HeaderButton onClick={onInjectProxy} style={{ flex: 1, justifyContent: 'center', border: '1px solid var(--vscode-button-border)', background: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)' }} title="Inject Proxy Address">
+                                <Network size={12} style={{ marginRight: 5 }} /> Inject
+                            </HeaderButton>
+                            <HeaderButton onClick={onRestoreProxy} style={{ flex: 1, justifyContent: 'center', border: '1px solid var(--vscode-button-border)', background: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)' }} title="Restore Original Config">
+                                <FileCode size={12} style={{ marginRight: 5 }} /> Restore
+                            </HeaderButton>
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ marginTop: 15 }}>
+                    <h4 style={{ margin: '0 0 5px 0', fontSize: '0.9em' }}>Traffic ({proxyHistory.length})</h4>
+                    {proxyHistory.length === 0 ? (
+                        <div style={{ textAlign: 'center', marginTop: 10, fontSize: '0.8em', opacity: 0.7 }}>
+                            No events captured.
+                        </div>
+                    ) : (
+                        proxyHistory.map((event, i) => (
+                            <ServiceItem
+                                key={i}
+                                style={{ paddingLeft: 5, paddingRight: 5 }}
+                                onClick={() => onSelectWatcherEvent(event)}
+                            >
+                                <div style={{ flex: 1, fontSize: '0.85em', overflow: 'hidden' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 'bold' }}>{event.method}</span>
+                                        <span style={{ opacity: 0.7 }}>{event.status}</span>
+                                    </div>
+                                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={event.url}>{event.url}</div>
+                                </div>
+                            </ServiceItem>
+                        ))
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     // Sidebar Navigation Rail Item
-    const NavItem = ({ icon: Icon, active, onClick, title }: any) => (
+    const NavItem = ({ icon: Icon, active, onClick }: any) => (
         <div
             onClick={onClick}
-            title={title}
             style={{
                 padding: '10px 0',
                 cursor: 'pointer',
@@ -470,7 +508,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <HeaderButton
                                 onClick={(e) => { e.stopPropagation(); if (watcherRunning) onStopWatcher(); else onStartWatcher(); }}
                                 title={watcherRunning ? "Stop Watcher" : "Start Watcher"}
-                                style={{ color: watcherRunning ? 'var(--vscode-testing-iconPassed)' : 'inherit' }}
+                                style={{ color: watcherRunning ? 'var(--vscode-testing-iconFailed)' : 'var(--vscode-testing-iconPassed)' }}
                             >
                                 {watcherRunning ? <Square size={14} /> : <Play size={14} />}
                             </HeaderButton>

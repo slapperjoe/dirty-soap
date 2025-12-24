@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.6.1] - 2025-12-24
+### Auto-Generated Changes
+- feat: Enhance proxy configuration handling and UI updates - Updated ConfigSwitcherService to return original URL upon proxy injection. - Modified WebviewController to send updated proxy target to the UI. - Enhanced Sidebar component to allow editing of proxy target URL and improved layout for proxy controls.
+
 ## [0.6.0] - 2025-12-24
 ### Auto-Generated Changes
 - feat: Implement Proxy and Config Switcher Services - Added ProxyService to handle HTTP requests and responses including logging and error handling. - Introduced ConfigSwitcherService for injecting proxy URLs into configuration files and restoring original configurations. - Updated SoapPanel to integrate ProxyService and ConfigSwitcherService. - Enhanced App component to manage proxy state and history. - Modified Sidebar component to include proxy controls and navigation. - Updated WatcherEvent model to accommodate proxy-related fields.

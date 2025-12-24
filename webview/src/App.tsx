@@ -396,6 +396,9 @@ function App() {
                 case 'configRestored':
                     // Handled by backend notification for now
                     break;
+                case 'updateProxyTarget':
+                    setProxyConfig(prev => ({ ...prev, target: message.target }));
+                    break;
             }
         };
 
