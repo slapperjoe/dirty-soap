@@ -382,7 +382,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 flexShrink: 0
                             }}>
                                 <span>Response</span>
-                                {response && (
+                                {response && !isReadOnly && (
                                     <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
                                         <span style={{ opacity: 0.8 }}>Lines: {response.lineCount || 0}</span>
                                         <span style={{ opacity: 0.8 }}>Time: {(response.duration || 0).toFixed(1)}s</span>

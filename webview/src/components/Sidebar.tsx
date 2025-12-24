@@ -272,9 +272,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div style={{ padding: 10 }}>
             {watcherHistory.length === 0 ? (
                 <div style={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', marginTop: 20 }}>
-                    No events captured yet.
-                    <br />
-                    Watching C:\temp\requestXML.xml
+                    {watcherRunning ? (
+                        <>
+                            Watching C:\temp\requestXML.xml...
+                            <br />
+                            Waiting for events.
+                        </>
+                    ) : (
+                        <>
+                            Watcher is stopped.
+                            <br />
+                            Press Play to begin.
+                        </>
+                    )}
                 </div>
             ) : (
                 watcherHistory.map(event => (
@@ -329,11 +339,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span>Watcher</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', paddingRight: 5 }}>
-                        <HeaderButton onClick={(e) => { e.stopPropagation(); onStartWatcher(); }} title="Start Watcher" style={{ color: watcherRunning ? 'var(--vscode-testing-iconPassed)' : 'inherit' }}>
-                            <Play size={14} />
-                        </HeaderButton>
-                        <HeaderButton onClick={(e) => { e.stopPropagation(); onStopWatcher(); }} title="Stop Watcher" style={{ color: !watcherRunning ? 'var(--vscode-testing-iconFailed)' : 'inherit' }}>
-                            <Square size={14} />
+                        <HeaderButton
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (watcherRunning) onStopWatcher();
+                                else onStartWatcher();
+                            }}
+                            title={watcherRunning ? "Stop Watcher" : "Start Watcher"}
+                            style={{ color: watcherRunning ? 'var(--vscode-testing-iconPassed)' : 'inherit' }}
+                        >
+                            {watcherRunning ? <Square size={14} /> : <Play size={14} />}
                         </HeaderButton>
                         <HeaderButton onClick={(e) => { e.stopPropagation(); onClearWatcher(); }} title="Clear History" style={{ marginLeft: 5 }}>
                             <Trash2 size={14} />
