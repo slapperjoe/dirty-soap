@@ -4,17 +4,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import axios, { AxiosRequestConfig, Method } from 'axios';
-// import * as vscode from 'vscode'; // Removed
+import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
-
-// Mock VSCode
-const vscode = {
-    window: {
-        showErrorMessage: (msg: string) => console.error(`[VSCode Error] ${msg}`),
-        showInformationMessage: (msg: string) => console.log(`[VSCode Info] ${msg}`)
-    }
-};
 
 export interface ProxyConfig {
     port: number;
@@ -171,10 +163,26 @@ export class ProxyService extends EventEmitter {
                 const requestPath = (req.url || '/').replace(/^\//, '');
                 const fullTargetUrl = `${targetBase}/${requestPath}`;
 
-                // Handle upstream self-signed certs
-                const agent = this.config.targetUrl.startsWith('https')
-                    ? new https.Agent({ rejectUnauthorized: false, keepAlive: true })
-                    : undefined;
+                // Detect VS Code Proxy Settings
+                const httpConfig = vscode.workspace.getConfiguration('http');
+                const proxyUrl = httpConfig.get<string>('proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+                const strictSSL = httpConfig.get<boolean>('proxyStrictSSL', false);
+
+                let agent: any;
+
+                if (proxyUrl) {
+                    this.logDebug(`[Proxy] Using System Proxy: ${proxyUrl}`);
+                    const { HttpsProxyAgent } = require('https-proxy-agent');
+                    agent = new HttpsProxyAgent(proxyUrl);
+                    // proxy-agent handles the underlying connection, but we might need to verify strictSSL
+                    // HttpsProxyAgent options? It usually takes a URL string or options object.
+                    // Let's create it with options if needed, but the simple string constructor is common.
+                } else {
+                    // Handle upstream self-signed certs directly if no proxy
+                    agent = this.config.targetUrl.startsWith('https')
+                        ? new https.Agent({ rejectUnauthorized: strictSSL, keepAlive: true })
+                        : undefined;
+                }
 
                 // Strip conflicting headers
                 const { 'transfer-encoding': te, 'connection': conn, 'content-length': cl, host, ...forwardHeaders } = req.headers;
