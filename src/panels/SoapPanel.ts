@@ -60,6 +60,17 @@ export class SoapPanel {
         this._fileWatcherService = new FileWatcherService(this._outputChannel);
         this._proxyService = new ProxyService();
         this._proxyService.setLogger(msg => this._outputChannel.appendLine(msg));
+        this._proxyService.on('log', (event: any) => {
+            const statusFn = (s: number) => s >= 200 && s < 300 ? 'SUCCESS' : 'FAIL';
+            if (event.type === 'request') {
+                this._outputChannel.appendLine(`[Proxy] Request: ${event.method} ${event.url}`);
+            } else {
+                this._outputChannel.appendLine(`[Proxy] Response: ${event.method} ${event.url} -> ${event.status} (${event.duration}s)`);
+                if (event.error) {
+                    this._outputChannel.appendLine(`[Proxy] Error: ${event.error}`);
+                }
+            }
+        });
         this._configSwitcherService = new ConfigSwitcherService();
 
         this._controller = new WebviewController(
