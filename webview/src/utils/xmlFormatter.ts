@@ -1,16 +1,29 @@
 
-export function formatXml(xml: string, alignAttributes: boolean = false, inlineElementValues: boolean = false): string {
+export function stripCausalityData(xml: string): string {
+    if (!xml) return '';
+    let processedXml = xml;
+    processedXml = processedXml.replace(/(?:\r\n|\r|\n)?<!--[\s\S]*?VsDebuggerCausalityData[\s\S]*?-->/gi, '');
+    processedXml = processedXml.replace(/(?:\r\n|\r|\n)?<(\w+:)?VsDebuggerCausalityData[\s\S]*?<\/(\w+:)?VsDebuggerCausalityData>/gi, '');
+    return processedXml;
+}
+
+export function formatXml(xml: string, alignAttributes: boolean = false, inlineElementValues: boolean = false, hideCausalityData: boolean = false): string {
     if (typeof xml !== 'string') return '';
 
     let formatted = '';
     let pad = 0;
+
+    let processedXml = xml;
+    if (hideCausalityData) {
+        processedXml = stripCausalityData(processedXml);
+    }
 
     // Remove existing formatting to clean up
     // We want to be careful not to merge content that shouldn't be merged, but generally stripping newlines between tags is safe?
     // Regex based simple tokenizer limits us.
     // Let's refine the tokens to capture whitespace if it's significant? No, for SOAP/XML usually pretty print ignores whitespace between tags.
     // But content whitespace matters.
-    const tokens = xml.replace(/>\s*</g, '><').match(/(<[^>]+>)|([^<]+)/g) || [];
+    const tokens = processedXml.replace(/>\s*</g, '><').match(/(<[^>]+>)|([^<]+)/g) || [];
 
     for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i];

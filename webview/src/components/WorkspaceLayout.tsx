@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Layout, ListOrdered, Play, Loader2, RotateCcw, WrapText, FoldVertical } from 'lucide-react';
+import { Layout as LayoutIcon, ListOrdered, Play, Loader2, RotateCcw, WrapText, FoldVertical, Bug, AlignLeft, Braces } from 'lucide-react';
 import { SoapUIRequest, SoapUIOperation } from '../models';
 import { MonacoRequestEditor } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
@@ -8,7 +8,7 @@ import { AssertionsPanel } from './AssertionsPanel';
 import { HeadersPanel } from './HeadersPanel';
 import ReactMarkdown from 'react-markdown';
 import { MonacoSingleLineInput } from './MonacoSingleLineInput';
-import { formatXml } from '../utils/xmlFormatter';
+import { formatXml, stripCausalityData } from '../utils/xmlFormatter';
 import mascotImg from '../assets/mascot.png';
 
 const Mascot = styled.img`
@@ -148,6 +148,8 @@ interface WorkspaceLayoutProps {
     // Config options passed from App for formatting
     inlineElementValues?: boolean;
     onToggleInlineElementValues?: () => void;
+    hideCausalityData?: boolean;
+    onToggleHideCausalityData?: () => void;
 
     // Config
     config?: any;
@@ -161,6 +163,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     changelog,
     config, onChangeEnvironment,
     inlineElementValues, onToggleInlineElementValues,
+    hideCausalityData, onToggleHideCausalityData,
     isReadOnly
 }) => {
     const [alignAttributes, setAlignAttributes] = React.useState(false);
@@ -170,6 +173,13 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
 
 
+
+    // Reset active tab if it's assertions and we are in read-only mode (e.g. Watcher/Proxy)
+    React.useEffect(() => {
+        if (isReadOnly && (activeTab === 'assertions')) {
+            setActiveTab('request');
+        }
+    }, [isReadOnly, activeTab]);
 
     if (!selectedRequest) {
         return (
@@ -312,23 +322,26 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 Headers
                                 {selectedRequest.headers && Object.keys(selectedRequest.headers).length > 0 && ` (${Object.keys(selectedRequest.headers).length})`}
                             </div>
-                            <div
-                                style={{
-                                    cursor: 'pointer',
-                                    borderBottom: activeTab === 'assertions' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                    padding: '5px 0',
-                                    color: activeTab === 'assertions' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                }}
-                                onClick={() => setActiveTab('assertions')}
-                            >
-                                Assertions
-                                {selectedRequest.assertions && selectedRequest.assertions.length > 0 && ` (${selectedRequest.assertions.length})`}
-                                {response && response.assertionResults && (
-                                    <span style={{ marginLeft: 5, fontSize: '0.8em' }}>
-                                        {response.assertionResults.every((r: any) => r.status === 'PASS') ? '✔' : '❌'}
-                                    </span>
-                                )}
-                            </div>
+
+                            {!isReadOnly && (
+                                <div
+                                    style={{
+                                        cursor: 'pointer',
+                                        borderBottom: activeTab === 'assertions' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
+                                        padding: '5px 0',
+                                        color: activeTab === 'assertions' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
+                                    }}
+                                    onClick={() => setActiveTab('assertions')}
+                                >
+                                    Assertions
+                                    {selectedRequest.assertions && selectedRequest.assertions.length > 0 && ` (${selectedRequest.assertions.length})`}
+                                    {response && response.assertionResults && (
+                                        <span style={{ marginLeft: 5, fontSize: '0.8em' }}>
+                                            {response.assertionResults.every((r: any) => r.status === 'PASS') ? '✔' : '❌'}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                             <div
                                 style={{
                                     cursor: 'pointer',
@@ -350,12 +363,72 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         </div>
 
                         {activeTab === 'request' && (
-                            <MonacoRequestEditor
-                                value={selectedRequest.request || ''}
-                                onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
-                                readOnly={loading || isReadOnly}
-                                language="xml"
-                            />
+                            <div style={{
+                                position: 'relative',
+                                flex: 1,
+                                width: '100%',
+                                height: '100%',
+                                overflow: 'hidden'
+                            }}>
+                                <MonacoRequestEditor
+                                    value={hideCausalityData ? stripCausalityData(selectedRequest.request) : selectedRequest.request}
+                                    language="xml"
+                                    readOnly={isReadOnly}
+                                    onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
+                                />
+                                {/* Format Button Overlay */}
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: 20,
+                                    right: 20,
+                                    display: 'flex',
+                                    gap: 10,
+                                    zIndex: 10
+                                }}>
+                                    {/* Auto Format Toggle */}
+                                    {onToggleInlineElementValues && (
+                                        <IconButton
+                                            title={inlineElementValues ? "Format: Inline Values" : "Format: Block Values"}
+                                            onClick={onToggleInlineElementValues}
+                                            style={{
+                                                backgroundColor: 'var(--vscode-editor-background)',
+                                                border: '1px solid var(--vscode-widget-border)',
+                                                opacity: 0.8
+                                            }}
+                                        >
+                                            <AlignLeft size={16} color={inlineElementValues ? 'var(--vscode-textLink-foreground)' : 'var(--vscode-foreground)'} />
+                                        </IconButton>
+                                    )}
+                                    {/* Hide Causality Data Toggle */}
+                                    {onToggleHideCausalityData && (
+                                        <IconButton
+                                            title={hideCausalityData ? "Show Debugger Causality Data" : "Hide Debugger Causality Data"}
+                                            onClick={onToggleHideCausalityData}
+                                            style={{
+                                                backgroundColor: 'var(--vscode-editor-background)',
+                                                border: '1px solid var(--vscode-widget-border)',
+                                                opacity: 0.8
+                                            }}
+                                        >
+                                            <Bug size={16} color={hideCausalityData ? 'var(--vscode-textLink-foreground)' : 'var(--vscode-foreground)'} />
+                                        </IconButton>
+                                    )}
+                                    <IconButton
+                                        title="Format XML"
+                                        onClick={() => {
+                                            const formatted = formatXml(selectedRequest.request, alignAttributes, inlineElementValues);
+                                            onUpdateRequest({ ...selectedRequest, request: formatted });
+                                        }}
+                                        style={{
+                                            backgroundColor: 'var(--vscode-editor-background)',
+                                            border: '1px solid var(--vscode-widget-border)',
+                                            opacity: 0.8
+                                        }}
+                                    >
+                                        <Braces size={16} />
+                                    </IconButton>
+                                </div>
+                            </div>
                         )}
                         {activeTab === 'headers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -503,7 +576,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                     <FoldVertical size={16} />
                 </IconButton>
                 <IconButton onClick={onToggleLayout} title="Toggle Layout (Vertical/Horizontal)">
-                    <Layout size={16} />
+                    <LayoutIcon size={16} />
                 </IconButton>
             </MainFooter>
         </Content >

@@ -167,6 +167,7 @@ function App() {
     const [layoutMode, setLayoutMode] = useState<'vertical' | 'horizontal'>('vertical');
     const [showLineNumbers, setShowLineNumbers] = useState(true);
     const [inlineElementValues, setInlineElementValues] = useState(false);
+    const [hideCausalityData, setHideCausalityData] = useState(false);
     const [splitRatio, setSplitRatio] = useState(0.5);
     const [isResizing, setIsResizing] = useState(false);
 
@@ -747,7 +748,7 @@ function App() {
         let requestBody = event.formattedBody;
         if (requestBody === undefined) {
             const raw = event.requestContent || event.requestBody || '';
-            requestBody = formatXml(raw, true);
+            requestBody = formatXml(raw, true, inlineElementValues, hideCausalityData);
 
             // Cache the formatted body so it doesn't re-format on next click
             if (activeView === 'proxy') {
@@ -901,7 +902,11 @@ function App() {
                         bridge.sendMessage({ command: 'restoreProxy', path: configPath });
                     }
                 }}
-
+                onSaveUiState={() => {
+                    if (config) {
+                        bridge.sendMessage({ command: 'saveUiState', ui: config.ui });
+                    }
+                }}
             />
 
             <WorkspaceLayout
@@ -932,9 +937,21 @@ function App() {
                 onToggleInlineElementValues={() => {
                     const newState = !inlineElementValues;
                     setInlineElementValues(newState);
+                    // Invalidate formatted body cache to force re-format with new settings
+                    setProxyHistory(prev => prev.map(e => ({ ...e, formattedBody: undefined })));
+                    setWatcherHistory(prev => prev.map(e => ({ ...e, formattedBody: undefined })));
                     bridge.sendMessage({ command: 'saveUiState', ui: { ...config?.ui, inlineElementValues: newState } });
                 }}
-                isReadOnly={selectedInterface?.name === 'File Watcher'}
+                hideCausalityData={hideCausalityData}
+                onToggleHideCausalityData={() => {
+                    const newState = !hideCausalityData;
+                    setHideCausalityData(newState);
+                    // Invalidate formatted body cache
+                    setProxyHistory(prev => prev.map(e => ({ ...e, formattedBody: undefined })));
+                    setWatcherHistory(prev => prev.map(e => ({ ...e, formattedBody: undefined })));
+                    bridge.sendMessage({ command: 'saveUiState', ui: { ...config?.ui, hideCausalityData: newState } });
+                }}
+                isReadOnly={activeView !== 'projects'}
                 onStartResizing={startResizing}
                 config={config}
                 onChangeEnvironment={(env) => bridge.sendMessage({ command: 'updateActiveEnvironment', envName: env })}
@@ -951,7 +968,11 @@ function App() {
                     }}
                 />
             )}
-            {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+            {showHelp && (
+                <HelpModal
+                    onClose={() => setShowHelp(false)}
+                />
+            )}
             {contextMenu && (
                 <ContextMenu top={contextMenu.y} left={contextMenu.x}>
                     {(contextMenu.type === 'request' || contextMenu.type === 'project') && (

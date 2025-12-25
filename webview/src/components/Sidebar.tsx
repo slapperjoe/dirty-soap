@@ -152,6 +152,7 @@ interface SidebarProps {
     // Computed
     workspaceDirty?: boolean;
     showBackendStatus?: boolean;
+    onSaveUiState?: () => void;
 
     // View State
     activeView: 'projects' | 'watcher' | 'proxy';
