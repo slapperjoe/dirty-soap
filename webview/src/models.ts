@@ -101,4 +101,8 @@ export interface WatcherEvent {
     error?: string;
     requestHeaders?: Record<string, string>;
     responseHeaders?: Record<string, string>;
+
+    // Compatibility with ProxyEvent
+    requestBody?: string;
+    responseBody?: string;
 }

@@ -732,7 +732,7 @@ function App() {
         const tempRequest: SoapUIRequest = {
             id: event.id,
             name: `Logged: ${event.timestampLabel}`,
-            request: event.requestContent || '',
+            request: event.requestContent || event.requestBody || '',
             dirty: false,
             headers: {},
             endpoint: '',
@@ -759,11 +759,12 @@ function App() {
         setSelectedOperation(tempOp);
         setSelectedRequest(tempRequest);
 
-        if (event.responseContent) {
+        const responseContent = event.responseContent || event.responseBody;
+        if (responseContent) {
             setResponse({
-                rawResponse: event.responseContent,
+                rawResponse: responseContent,
                 duration: 0,
-                lineCount: event.responseContent.split(/\r\n|\r|\n/).length
+                lineCount: responseContent.split(/\r\n|\r|\n/).length
             });
         } else {
             setResponse(null);

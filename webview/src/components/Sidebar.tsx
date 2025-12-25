@@ -330,13 +330,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 5 }}>
                         <div style={{ flex: 1 }}>
                             <label style={{ display: 'block', fontSize: '0.8em', marginBottom: 2 }}>Local Port</label>
-                            <input
-                                type="number"
-                                className="vscode-input"
-                                value={proxyConfig.port}
-                                onChange={(e) => onUpdateProxyConfig({ ...proxyConfig, port: parseInt(e.target.value) || 9000 })}
-                                style={{ width: '100%', padding: '4px', background: 'var(--vscode-input-background)', color: 'var(--vscode-input-foreground)', border: '1px solid var(--vscode-input-border)' }}
-                            />
+                            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--vscode-input-background)', border: '1px solid var(--vscode-input-border)' }}>
+                                <div
+                                    onClick={() => onUpdateProxyConfig({ ...proxyConfig, port: Math.max(1, (proxyConfig.port || 9000) - 1) })}
+                                    style={{ padding: '4px 8px', cursor: 'pointer', borderRight: '1px solid var(--vscode-input-border)', userSelect: 'none' }}
+                                >-</div>
+                                <input
+                                    type="number"
+                                    className="vscode-input"
+                                    value={proxyConfig.port}
+                                    onChange={(e) => onUpdateProxyConfig({ ...proxyConfig, port: parseInt(e.target.value) || 9000 })}
+                                    style={{
+                                        flex: 1,
+                                        width: '50px',
+                                        padding: '4px',
+                                        background: 'transparent',
+                                        color: 'var(--vscode-input-foreground)',
+                                        border: 'none',
+                                        textAlign: 'center',
+                                        appearance: 'textfield', // Hide default arrows
+                                    }}
+                                />
+                                <div
+                                    onClick={() => onUpdateProxyConfig({ ...proxyConfig, port: (proxyConfig.port || 9000) + 1 })}
+                                    style={{ padding: '4px 8px', cursor: 'pointer', borderLeft: '1px solid var(--vscode-input-border)', userSelect: 'none' }}
+                                >+</div>
+                            </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingBottom: 1 }}>
                             {!proxyRunning ? (
@@ -364,7 +383,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             id="chkSystemProxy"
                             checked={proxyConfig.systemProxyEnabled !== false}
                             onChange={e => onUpdateProxyConfig({ ...proxyConfig, systemProxyEnabled: e.target.checked })}
-                            style={{ marginRight: 6 }}
+                            style={{
+                                marginRight: 6,
+                                accentColor: 'var(--vscode-button-background)',
+                                width: '14px',
+                                height: '14px',
+                                cursor: 'pointer'
+                            }}
                         />
                         <label htmlFor="chkSystemProxy" style={{ fontSize: '0.8em', cursor: 'pointer', userSelect: 'none' }} title="Uncheck to bypass local corporate proxy (direct connection)">
                             Use System Proxy

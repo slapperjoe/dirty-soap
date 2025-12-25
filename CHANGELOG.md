@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.6.6] - 2025-12-25
+### Auto-Generated Changes
+- feat: enhance request handling in App and Sidebar components for improved proxy configuration
+
 ## [0.6.5] - 2025-12-24
 ### Auto-Generated Changes
 - feat: add TypeScript declarations for Vite client and PNG module support
