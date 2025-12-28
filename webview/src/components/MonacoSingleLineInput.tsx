@@ -1,8 +1,10 @@
-import { useRef, useImperativeHandle, forwardRef } from 'react';
+
+import { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import styled from 'styled-components';
 import { useWildcardDecorations } from '../hooks/useWildcardDecorations';
+import { bridge } from '../utils/bridge';
 
 loader.config({ monaco });
 
@@ -68,20 +70,98 @@ export const MonacoSingleLineInput = forwardRef<MonacoSingleLineInputHandle, Mon
         editorRef.current = editor;
         monacoRef.current = monaco;
 
-        // Handle Enter Key
         editor.addCommand(monaco.KeyCode.Enter, () => {
             if (onEnter) onEnter();
         });
 
-        // Handle Paste (strip newlines)
-        editor.onDidPaste((_: any) => {
-            const val = editor.getValue();
-            if (val.includes('\n')) {
-                const clean = val.replace(/[\r\n]+/g, '');
-                editor.setValue(clean);
-                onChange(clean);
+        // --- Clipboard Fixes ---
+
+        // Paste Action (Shared logic)
+        const doPaste = async (ed: any) => {
+            try {
+                // Try Native Web API first
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    const clean = text.replace(/[\r\n]+/g, ''); // Enforce single line
+                    const selection = ed.getSelection();
+                    ed.executeEdits('clipboard', [{ range: selection, text: clean, forceMoveMarkers: true }]);
+                }
+            } catch (e) {
+                // Fallback to Backend
+                bridge.sendMessage({ command: 'clipboardAction', action: 'read' });
             }
+        };
+
+        // Paste (Ctrl+V)
+        editor.addAction({
+            id: 'custom-paste',
+            label: 'Paste',
+            keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV],
+            run: doPaste
         });
+
+        // Paste (Context Menu Override - this ID is standard in Monaco)
+        // Overriding this ID makes the Context Menu "Paste" item use our logic!
+        editor.addAction({
+            id: 'editor.action.clipboardPasteAction',
+            label: 'Paste',
+            precondition: '!readonly',
+            run: doPaste
+        });
+
+
+        // Copy (Ctrl+C)
+        const doCopy = (ed: any) => {
+            const selection = ed.getSelection();
+            const text = ed.getModel()?.getValueInRange(selection);
+            if (text) {
+                navigator.clipboard.writeText(text).catch(() => { });
+                bridge.sendMessage({ command: 'clipboardAction', action: 'write', text });
+            }
+        };
+
+        editor.addAction({
+            id: 'custom-copy',
+            label: 'Copy',
+            keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC],
+            run: doCopy
+        });
+
+        // Override Context Menu Copy
+        editor.addAction({
+            id: 'editor.action.clipboardCopyAction',
+            label: 'Copy',
+            run: doCopy
+        });
+
+
+        // Cut (Ctrl+X)
+        const doCut = (ed: any) => {
+            const selection = ed.getSelection();
+            const text = ed.getModel()?.getValueInRange(selection);
+            if (text) {
+                navigator.clipboard.writeText(text).catch(() => { });
+                bridge.sendMessage({ command: 'clipboardAction', action: 'write', text });
+                ed.executeEdits('clipboard', [{ range: selection, text: '', forceMoveMarkers: true }]);
+            }
+        };
+
+        editor.addAction({
+            id: 'custom-cut',
+            label: 'Cut',
+            keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX],
+            run: doCut
+        });
+
+        // Override Context Menu Cut
+        editor.addAction({
+            id: 'editor.action.clipboardCutAction',
+            label: 'Cut',
+            precondition: '!readonly',
+            run: doCut
+        });
+
+        // --- End Clipboard Fixes ---
 
         editor.onDidFocusEditorText(() => {
             if (onFocus) onFocus();
@@ -98,6 +178,31 @@ export const MonacoSingleLineInput = forwardRef<MonacoSingleLineInputHandle, Mon
             onChange(v);
         }
     };
+
+    // Listen for Clipboard Data from Backend (Fallback for Paste)
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            const message = event.data;
+            if (message.command === 'clipboardText' && message.text) {
+                if (editorRef.current) {
+                    const ed = editorRef.current;
+                    // Check if this editor currently has focus, otherwise we might paste to the wrong input if multiple exist
+                    // But typically we only have one focused. Monaco doesn't have a reliable "hasFocus" boolean prop sync'd here easily without state.
+                    // We'll rely on the fact that if the user invoked Paste, they likely focused it.
+                    // Actually, if multiple editors listen to 'clipboardText', ALL will paste. That's bad.
+                    // Ideally we check if this editor is focused.
+                    if (ed.hasTextFocus()) {
+                        const clean = message.text.replace(/[\r\n]+/g, '');
+                        const selection = ed.getSelection();
+                        ed.executeEdits('clipboard', [{ range: selection, text: clean, forceMoveMarkers: true }]);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
 
     return (
         <InputContainer>
