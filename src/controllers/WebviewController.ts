@@ -158,7 +158,16 @@ export class WebviewController {
                 break;
             // case 'executeRequest': handled by command registry
             case 'saveSettings':
-                this.handleSaveSettings(message);
+                if (message.raw) {
+                    this._settingsManager.saveRawConfig(message.content);
+                } else if (message.config) {
+                    this._settingsManager.updateConfigFromObject(message.config);
+                }
+                this.sendSettingsToWebview();
+                break;
+            case 'getSettings':
+                console.log('[WebviewController] Received getSettings. Sending settings to webview.');
+                this.sendSettingsToWebview();
                 break;
             case 'saveUiState':
                 this._settingsManager.updateUiState(message.ui);

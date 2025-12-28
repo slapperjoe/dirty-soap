@@ -48,14 +48,42 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
                         editor.trigger('keyboard', 'editor.action.clipboardCopyAction', null);
                     });
 
-                    editor.onDidChangeCursorSelection((e) => {
-                        if (onSelectionChange) {
-                            const selection = e.selection;
-                            if (selection && !selection.isEmpty()) {
+                    // Track selection state to support "Wait for Mouse Up"
+                    let pendingSelection: any = null;
+                    let isMouseDown = false;
+
+                    editor.onMouseDown(() => {
+                        isMouseDown = true;
+                    });
+
+                    editor.onMouseUp(() => {
+                        isMouseDown = false;
+                        if (pendingSelection && onSelectionChange) {
+                            if (pendingSelection) {
                                 const model = editor.getModel();
                                 if (model) {
-                                    const text = model.getValueInRange(selection);
-                                    const offset = model.getOffsetAt(selection.getStartPosition());
+                                    const text = model.getValueInRange(pendingSelection);
+                                    const offset = model.getOffsetAt(pendingSelection.getStartPosition());
+                                    onSelectionChange({ text, offset });
+                                }
+                            } else {
+                                onSelectionChange(null);
+                            }
+                            // Do not clear pendingSelection here if we want it to persist until cleared?
+                            // Actually, keeping it is fine, but we handled the event.
+                        }
+                    });
+
+                    editor.onDidChangeCursorSelection((e) => {
+                        pendingSelection = e.selection;
+
+                        // Immediate update for keyboard interactions (when mouse is not down)
+                        if (!isMouseDown && onSelectionChange) {
+                            if (e.selection) {
+                                const model = editor.getModel();
+                                if (model) {
+                                    const text = model.getValueInRange(e.selection);
+                                    const offset = model.getOffsetAt(e.selection.getStartPosition());
                                     onSelectionChange({ text, offset });
                                 }
                             } else {

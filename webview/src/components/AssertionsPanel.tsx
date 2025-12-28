@@ -166,7 +166,7 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
                                         <Clock size={18} style={{ opacity: 0.5 }} />}
                             </IconWrapper>
                             <Details>
-                                <Title>{a.type}</Title>
+                                <Title>{a.name || a.type}</Title>
                                 <ConfigText>
                                     {(a.type === 'Simple Contains' || a.type === 'Simple Not Contains') && (
                                         <>

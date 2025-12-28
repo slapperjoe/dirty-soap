@@ -77,6 +77,7 @@ export class SettingsManager {
         this.scriptsDir = path.join(this.configDir, 'scripts');
         this.ensureConfigDir();
         this.ensureScriptsDir();
+        console.log(`SettingsManager initialized. Config Path: ${this.configPath}`);
     }
 
     private ensureConfigDir() {
@@ -112,7 +113,13 @@ export class SettingsManager {
         if (!fs.existsSync(this.configPath)) {
             this.saveConfig(DEFAULT_CONFIG);
         }
-        return fs.readFileSync(this.configPath, 'utf8');
+        const content = fs.readFileSync(this.configPath, 'utf8');
+        if (!content || content.trim().length === 0) {
+            // File exists but is empty/corrupt. Re-write defaults.
+            this.updateConfigPath([], DEFAULT_CONFIG); // Use updateConfigPath to get nice formatting with comments if possible
+            return fs.readFileSync(this.configPath, 'utf8');
+        }
+        return content;
     }
 
     public saveConfig(config: DirtySoapConfig) {
@@ -177,13 +184,27 @@ export class SettingsManager {
         fs.writeFileSync(this.autosavePath, content);
     }
 
+    public updateConfigFromObject(config: DirtySoapConfig) {
+        // Iterate top-level keys and update them individually to best preserve structure/comments
+        // We skip 'version' usually, but can update it.
+        const keys = Object.keys(config) as (keyof DirtySoapConfig)[];
+        keys.forEach(key => {
+            // If it's a complex object like 'ui' or 'network', we could just replace the whole node
+            // jsonc-parser modify should handle replacing the object value while keeping surrounding comments.
+            // If the value is undefined, we might skip or remove (modify with undefined removes).
+            if (config[key] !== undefined) {
+                this.updateConfigPath([key], config[key]);
+            }
+        });
+    }
+
     private updateConfigPath(jsonPath: (string | number)[], value: any) {
         let content = "{}";
         if (fs.existsSync(this.configPath)) {
             content = fs.readFileSync(this.configPath, 'utf8');
-        } else {
-            // Initialize with default JSONC string with comments
-            content = `{
+        }
+
+        const template = `{
   "version": 1,
   "network": {
     "defaultTimeout": 30,
@@ -216,6 +237,10 @@ export class SettingsManager {
   },
   "recentWorkspaces": []
 }`;
+
+        // If content is empty or corrupt, use template
+        if (!content || content.trim().length === 0 || content === "{}") {
+            content = template;
         }
 
         const edits = modify(content, jsonPath, value, { formattingOptions: { tabSize: 2, insertSpaces: true } });

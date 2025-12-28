@@ -190,12 +190,27 @@ export class SoapPanel {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-randomNonce' ${webview.cspSource} 'unsafe-eval'; worker-src blob:; font-src ${webview.cspSource} data:; img-src ${webview.cspSource} data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-randomNonce' ${webview.cspSource} 'unsafe-eval'; worker-src blob:; font-src ${webview.cspSource} data:; img-src ${webview.cspSource} data:;">
     <title>Dirty SOAP</title>
     <link rel="stylesheet" type="text/css" href="${styleUri}">
 </head>
 <body>
     <div id="root"></div>
+    <script nonce="randomNonce">
+        // Monaco Environment Polyfill to avoid SecurityError with Workers in Webview
+        window.MonacoEnvironment = {
+            getWorker: function(moduleId, label) {
+                // Return a dummy worker or main thread fallback if possible?
+                // Monaco doesn't support main thread fallback easily for standard workers.
+                // We create a Blob worker that does nothing to prevent crash, OR we try to load the actual worker code if we can access it.
+                // Since we can't easily access the worker file due to CSP, we treat it as no-op or basic.
+                // BUT better yet, let's try to construct a worker from a Blob that contains the code if we could read it.
+                // For now, to stop the crash, we provide a dummy worker. Functional features (validation) might suffer.
+                const blob = new Blob(['self.onmessage = () => {};'], { type: 'application/javascript' });
+                return new Worker(URL.createObjectURL(blob));
+            }
+        };
+    </script>
     <script type="module" nonce="randomNonce" src="${scriptUri}"></script>
 </body>
 </html>`;

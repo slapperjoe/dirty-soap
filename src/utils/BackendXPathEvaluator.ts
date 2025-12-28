@@ -13,6 +13,14 @@ export class BackendXPathEvaluator {
         try {
             const jsonObj = this.parser.parse(xml);
 
+            // Handle explicit "Exists" check: count(xpath) > 0
+            const countMatch = xpath.match(/^count\((.+)\)\s*>\s*0$/);
+            if (countMatch) {
+                const innerPath = countMatch[1].trim();
+                const result = this.evaluate(xml, innerPath);
+                return result !== null ? 'true' : 'false';
+            }
+
             // Normalize XPath: Remove namespaces from segments for matching
             // //m:CountryNameResult -> [ "", "m:CountryNameResult" ]
             const segments = xpath.split('/');

@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.7.0] - 2025-12-28
+### Auto-Generated Changes
+- feat: Implement new webview UI for SOAP interaction and project management,deprecating old verification scripts.
+
 ## [0.6.6] - 2025-12-25
 ### Auto-Generated Changes
 - feat: enhance request handling in App and Sidebar components for improved proxy configuration

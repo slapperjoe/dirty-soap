@@ -5,17 +5,16 @@ import { Sidebar } from './components/Sidebar';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
 import { HelpModal } from './components/HelpModal';
 
-import { AddToTestCaseModal } from './components/AddToTestCaseModal';
-
-import { SchemaViewer } from './components/SchemaViewer';
-import { SettingsEditorModal } from './components/SettingsEditorModal';
-import { SoapUIInterface, SoapUIProject, SoapUIOperation, SoapUIRequest, SoapTestCase, SoapTestStep, SoapTestSuite, WatcherEvent, SidebarView, SoapTestExtractor } from './models';
+import { AddToTestCaseModal } from './components/modals/AddToTestCaseModal';
+import { ConfirmationModal } from './components/modals/ConfirmationModal';
+import { RenameModal } from './components/modals/RenameModal';
+import { SampleModal } from './components/modals/SampleModal';
+import { ExtractorModal } from './components/modals/ExtractorModal';
+import { SettingsEditorModal } from './components/modals/SettingsEditorModal';
+import { SoapUIInterface, SoapUIProject, SoapUIOperation, SoapUIRequest, SoapTestCase, SoapTestStep, SoapTestSuite, WatcherEvent, SidebarView, SoapTestExtractor, SoapUIAssertion } from './models';
 import { formatXml } from './utils/xmlFormatter';
 import { CustomXPathEvaluator } from './utils/xpathEvaluator';
 
-// TS might complain about importing from outside src if not careful. 
-// Ideally we define types in shared folder. 
-// For now, let's redefine Interface or use 'any'.
 interface DirtySoapConfigWeb {
     version: number;
     ui: {
@@ -31,7 +30,6 @@ interface DirtySoapConfigWeb {
     lastProxyTarget?: string;
     openProjects?: string[];
 }
-import { X } from 'lucide-react';
 
 interface ConfirmationState {
     title: string;
@@ -50,55 +48,7 @@ const Container = styled.div`
   font-size: var(--vscode-font-size);
 `;
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-`;
 
-const ModalContent = styled.div`
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 400px;
-  max-width: 90%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-`;
-
-const ModalHeader = styled.div`
-    padding: 10px 15px;
-    border-bottom: 1px solid var(--vscode-panel-border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-`;
-
-const ModalTitle = styled.div`
-    font-weight: bold;
-`;
-
-const ModalBody = styled.div`
-    padding: 15px;
-    overflow-y: auto;
-    flex: 1;
-`;
-
-const ModalFooter = styled.div`
-    padding: 10px 15px;
-    border-top: 1px solid var(--vscode-panel-border);
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-`;
 
 const ContextMenu = styled.div<{ top: number, left: number }>`
     position: fixed;
@@ -122,16 +72,7 @@ const ContextMenuItem = styled.div`
     }
 `;
 
-const Button = styled.button`
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  padding: 6px 12px;
-  cursor: pointer;
-  &:hover {
-    background: var(--vscode-button-hoverBackground);
-  }
-`;
+
 
 function App() {
     // State
@@ -514,8 +455,9 @@ function App() {
                     // The `localWsdls` logic in extension seems unused or fallback.
                     break;
                 case 'settingsUpdate':
+                    console.log("App.tsx: Received settingsUpdate.", { rawLength: message.raw?.length, configKeys: Object.keys(message.config || {}) });
                     setConfig(message.config);
-                    setRawConfig(message.raw);
+                    setRawConfig(message.raw || JSON.stringify(message.config, null, 2));
                     // Consume UI preferences
                     if (message.config.ui) {
                         if (message.config.ui.layoutMode) setLayoutMode(message.config.ui.layoutMode);
@@ -901,6 +843,144 @@ function App() {
         }
     };
 
+    const handleAddAssertion = (data: { xpath: string, expectedContent: string }) => {
+        console.log("App.tsx: handleAddAssertion Called.", data, "TC:", selectedTestCase?.id, "Step:", selectedStep?.id);
+
+        if (!selectedTestCase || !selectedStep) {
+            console.error("App.tsx: Missing selection state", { tc: !!selectedTestCase, step: !!selectedStep });
+            return;
+        }
+
+        let updatedStep: SoapTestStep | null = null;
+        let updatedProjectOrNull: SoapUIProject | null = null;
+
+        // Calculate new state
+        const nextProjects = projects.map(p => {
+            const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
+            if (!suite) return p;
+
+            const updatedSuite = {
+                ...suite,
+                testCases: suite.testCases?.map(tc => {
+                    if (tc.id !== selectedTestCase.id) return tc;
+                    return {
+                        ...tc,
+                        steps: tc.steps.map(s => {
+                            if (s.id !== selectedStep.id) return s;
+                            if (s.type !== 'request' || !s.config.request) return s;
+
+                            const newAssertion: SoapUIAssertion = {
+                                id: crypto.randomUUID(),
+                                type: 'XPath Match',
+                                name: 'XPath Match - ' + data.xpath.split('/').pop(),
+                                configuration: {
+                                    xpath: data.xpath,
+                                    expectedContent: data.expectedContent
+                                }
+                            };
+
+                            const newStep = {
+                                ...s,
+                                config: {
+                                    ...s.config,
+                                    request: {
+                                        ...s.config.request,
+                                        assertions: [...(s.config.request.assertions || []), newAssertion],
+                                        dirty: true
+                                    }
+                                }
+                            };
+                            updatedStep = newStep;
+                            return newStep;
+                        })
+                    };
+                })
+            };
+
+            const updatedProject = { ...p, testSuites: p.testSuites!.map(s => s.id === suite.id ? updatedSuite : s), dirty: true };
+            updatedProjectOrNull = updatedProject;
+            return updatedProject;
+        });
+
+        if (updatedProjectOrNull) {
+            setProjects(nextProjects);
+            setTimeout(() => saveProject(updatedProjectOrNull!), 0);
+            if (updatedStep) {
+                console.log("Updating Selected Step State:", (updatedStep as any).config.request.assertions.length, "assertions");
+                setSelectedStep(updatedStep);
+                if ((updatedStep as any).type === 'request' && (updatedStep as any).config.request) {
+                    setSelectedRequest((updatedStep as any).config.request);
+                }
+            }
+        }
+    };
+
+    const handleAddExistenceAssertion = (data: { xpath: string }) => {
+        console.log("Adding Existence Assertion:", data);
+        if (!selectedTestCase || !selectedStep) return;
+
+        let updatedStep: SoapTestStep | null = null;
+        let updatedProjectOrNull: SoapUIProject | null = null;
+
+        const nextProjects = projects.map(p => {
+            const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
+            if (!suite) return p;
+
+            const updatedSuite = {
+                ...suite,
+                testCases: suite.testCases?.map(tc => {
+                    if (tc.id !== selectedTestCase.id) return tc;
+                    return {
+                        ...tc,
+                        steps: tc.steps.map(s => {
+                            if (s.id !== selectedStep.id) return s;
+                            if (s.type !== 'request' || !s.config.request) return s;
+
+                            const newAssertion: SoapUIAssertion = {
+                                id: crypto.randomUUID(),
+                                type: 'XPath Match',
+                                name: 'Node Exists - ' + data.xpath.split('/').pop(),
+                                configuration: {
+                                    xpath: `count(${data.xpath}) > 0`,
+                                    expectedContent: 'true'
+                                }
+                            };
+
+                            const newStep = {
+                                ...s,
+                                config: {
+                                    ...s.config,
+                                    request: {
+                                        ...s.config.request,
+                                        assertions: [...(s.config.request.assertions || []), newAssertion],
+                                        dirty: true
+                                    }
+                                }
+                            };
+                            updatedStep = newStep;
+                            return newStep;
+                        })
+                    };
+                })
+            };
+
+            const updatedProject = { ...p, testSuites: p.testSuites!.map(s => s.id === suite.id ? updatedSuite : s), dirty: true };
+            updatedProjectOrNull = updatedProject;
+            return updatedProject;
+        });
+
+        if (updatedProjectOrNull) {
+            setProjects(nextProjects);
+            setTimeout(() => saveProject(updatedProjectOrNull!), 0);
+            if (updatedStep) {
+                console.log("Updating Selected Step State:", (updatedStep as any).config.request.assertions.length, "assertions");
+                setSelectedStep(updatedStep);
+                if ((updatedStep as any).type === 'request' && (updatedStep as any).config.request) {
+                    setSelectedRequest((updatedStep as any).config.request);
+                }
+            }
+        }
+    };
     // Sidebar Helpers
     const addToProject = (iface: SoapUIInterface) => {
         // Prevent duplicates
@@ -1524,6 +1604,7 @@ function App() {
                 onDeleteInterface={handleDeleteInterface}
                 onDeleteOperation={handleDeleteOperation}
                 deleteConfirm={deleteConfirm}
+                setDeleteConfirm={setDeleteConfirm}
                 backendConnected={backendConnected}
                 savedProjects={savedProjects}
                 onOpenSettings={() => setShowSettings(true)}
@@ -1816,6 +1897,8 @@ function App() {
                     if (!selectedStep) return;
                     setExtractorModal({ ...data, variableName: '' });
                 }}
+                onAddAssertion={handleAddAssertion}
+                onAddExistenceAssertion={handleAddExistenceAssertion}
                 onUpdateStep={(updatedStep) => {
                     if (!selectedTestCase) return;
                     setProjects(prev => prev.map(p => {
@@ -1927,8 +2010,8 @@ function App() {
                 <SettingsEditorModal
                     rawConfig={rawConfig}
                     onClose={() => setShowSettings(false)}
-                    onSave={(content) => {
-                        bridge.sendMessage({ command: 'saveSettings', raw: true, content });
+                    onSave={(content, config) => {
+                        bridge.sendMessage({ command: 'saveSettings', raw: !config, content, config });
                         setShowSettings(false);
                     }}
                 />
@@ -1969,65 +2052,41 @@ function App() {
             )}
 
 
+
             {/* Rename Modal */}
-            {
-                renameState && (
-                    <ModalOverlay>
-                        <ModalContent>
-                            <ModalHeader>
-                                <ModalTitle>Rename {renameState.type}</ModalTitle>
-                                <Button onClick={() => setRenameState(null)} style={{ background: 'transparent' }}><X size={16} /></Button>
-                            </ModalHeader>
-                            <ModalBody>
-                                <input
-                                    style={{ width: '100%', padding: 5 }}
-                                    value={renameState.value}
-                                    onChange={(e) => setRenameState({ ...renameState, value: e.target.value })}
-                                />
-                            </ModalBody>
-                            <ModalFooter>
-                                <Button onClick={() => {
-                                    // Apply rename logic here (update state)
-                                    if (renameState.type === 'project') {
-                                        setProjects(projects.map(p => p === renameState.data ? { ...p, name: renameState.value } : p));
-                                    } else if (renameState.type === 'interface') {
-                                        setProjects(prev => prev.map(p => {
-                                            const hasInterface = p.interfaces.some(i => i === renameState.data);
-                                            if (hasInterface) {
-                                                return {
-                                                    ...p,
-                                                    interfaces: p.interfaces.map(i => i === renameState.data ? { ...i, name: renameState.value } : i)
-                                                };
-                                            }
-                                            return p;
-                                        }));
-                                    }
-                                    setRenameState(null);
-                                }}>Save</Button>
-                            </ModalFooter>
-                        </ModalContent>
-                    </ModalOverlay>
-                )
-            }
+            <RenameModal
+                isOpen={!!renameState}
+                title={`Rename ${renameState?.type}`}
+                initialValue={renameState?.value || ''}
+                onCancel={() => setRenameState(null)}
+                onSave={(value) => {
+                    if (!renameState) return;
+                    // Apply rename logic here (update state)
+                    if (renameState.type === 'project') {
+                        setProjects(projects.map(p => p === renameState.data ? { ...p, name: value } : p));
+                    } else if (renameState.type === 'interface') {
+                        setProjects(prev => prev.map(p => {
+                            const hasInterface = p.interfaces.some(i => i === renameState.data);
+                            if (hasInterface) {
+                                return {
+                                    ...p,
+                                    interfaces: p.interfaces.map(i => i === renameState.data ? { ...i, name: value } : i)
+                                };
+                            }
+                            return p;
+                        }));
+                    }
+                    setRenameState(null);
+                }}
+            />
 
             {/* Sample Schema Modal */}
-            {
-                sampleModal.open && (
-                    <ModalOverlay>
-                        <ModalContent style={{ width: 600 }}>
-                            <ModalHeader>
-                                <ModalTitle>Schema: {sampleModal.operationName}</ModalTitle>
-                                <Button onClick={() => setSampleModal({ open: false, schema: null, operationName: '' })} style={{ background: 'transparent' }}><X size={16} /></Button>
-                            </ModalHeader>
-                            <ModalBody>
-                                <div style={{ height: 500, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                    {sampleModal.schema && <SchemaViewer schema={sampleModal.schema} />}
-                                </div>
-                            </ModalBody>
-                        </ModalContent>
-                    </ModalOverlay>
-                )
-            }
+            <SampleModal
+                isOpen={sampleModal.open}
+                operationName={sampleModal.operationName}
+                schema={sampleModal.schema}
+                onClose={() => setSampleModal({ open: false, schema: null, operationName: '' })}
+            />
 
             {/* Add to Test Case Modal */}
             {
@@ -2090,80 +2149,27 @@ function App() {
             }
 
             {/* Confirmation Modal */}
-            {
-                confirmationModal && (
-                    <ModalOverlay>
-                        <ModalContent>
-                            <ModalHeader>
-                                <ModalTitle>{confirmationModal.title}</ModalTitle>
-                                <Button onClick={() => setConfirmationModal(null)} style={{ background: 'transparent' }}><X size={16} /></Button>
-                            </ModalHeader>
-                            <ModalBody>
-                                <div style={{ padding: '10px 0' }}>
-                                    {confirmationModal.message}
-                                </div>
-                            </ModalBody>
-                            <ModalFooter>
-                                <Button onClick={() => setConfirmationModal(null)} style={{ background: 'transparent', border: '1px solid var(--vscode-button-secondaryForeground)', color: 'var(--vscode-button-secondaryForeground)' }}>Cancel</Button>
-                                <Button onClick={() => {
-                                    confirmationModal.onConfirm();
-                                    setConfirmationModal(null);
-                                }} style={{ background: 'var(--vscode-errorForeground)', color: 'white' }}>Delete</Button>
-                            </ModalFooter>
-                        </ModalContent>
-                    </ModalOverlay>
-                )
-            }
+            <ConfirmationModal
+                isOpen={!!confirmationModal}
+                title={confirmationModal?.title || ''}
+                message={confirmationModal?.message || ''}
+                onCancel={() => setConfirmationModal(null)}
+                onConfirm={() => {
+                    confirmationModal?.onConfirm();
+                    setConfirmationModal(null);
+                }}
+            />
 
             {/* Extractor Modal */}
-            {extractorModal && (
-                <ModalOverlay>
-                    <ModalContent style={{ width: 600 }}>
-                        <ModalHeader>
-                            <ModalTitle>Create Property Extractor</ModalTitle>
-                            <Button onClick={() => setExtractorModal(null)} style={{ background: 'transparent' }}><X size={16} /></Button>
-                        </ModalHeader>
-                        <ModalBody>
-                            <div style={{ marginBottom: 15 }}>
-                                <label style={{ display: 'block', marginBottom: 5, fontWeight: 'bold' }}>Target Variable Name</label>
-                                <input
-                                    style={{ width: '100%', padding: 8, background: 'var(--vscode-input-background)', color: 'var(--vscode-input-foreground)', border: '1px solid var(--vscode-input-border)', borderRadius: 2 }}
-                                    value={extractorModal.variableName}
-                                    placeholder="e.g. authToken"
-                                    onChange={(e) => setExtractorModal({ ...extractorModal, variableName: e.target.value })}
-                                    autoFocus
-                                />
-                                <div style={{ fontSize: '0.8em', opacity: 0.7, marginTop: 4 }}>
-                                    This variable will be available in subsequent steps as <code>{'${#TestCase#VariableName}'}</code>.
-                                </div>
-                            </div>
-
-                            <div style={{ marginBottom: 15 }}>
-                                <label style={{ display: 'block', marginBottom: 5, fontWeight: 'bold' }}>XPath Expression</label>
-                                <textarea
-                                    style={{ width: '100%', height: 60, padding: 8, background: 'var(--vscode-input-background)', color: 'var(--vscode-input-foreground)', border: '1px solid var(--vscode-input-border)', borderRadius: 2, fontFamily: 'monospace', fontSize: '0.9em' }}
-                                    value={extractorModal.xpath}
-                                    onChange={(e) => setExtractorModal({ ...extractorModal, xpath: e.target.value })}
-                                />
-                            </div>
-
-                            <div style={{ marginBottom: 10 }}>
-                                <label style={{ display: 'block', marginBottom: 5, fontWeight: 'bold' }}>Value Preview</label>
-                                <div style={{ padding: 8, background: 'var(--vscode-textCodeBlock-background)', borderRadius: 2, fontFamily: 'monospace', fontSize: '0.9em', maxHeight: 100, overflow: 'auto', whiteSpace: 'pre-wrap', border: '1px solid var(--vscode-panel-border)' }}>
-                                    {extractorModal.value}
-                                </div>
-                            </div>
-                        </ModalBody>
-                        <ModalFooter>
-                            <Button onClick={() => setExtractorModal(null)} style={{ marginRight: 10, background: 'transparent', border: '1px solid var(--vscode-button-secondaryForeground)' }}>Cancel</Button>
-                            <Button onClick={() => {
-                                handleSaveExtractor(extractorModal);
-                                setExtractorModal(null);
-                            }} disabled={!extractorModal.variableName.trim()}>Save Extractor</Button>
-                        </ModalFooter>
-                    </ModalContent>
-                </ModalOverlay>
-            )}
+            <ExtractorModal
+                isOpen={!!extractorModal}
+                data={extractorModal}
+                onClose={() => setExtractorModal(null)}
+                onSave={(data) => {
+                    handleSaveExtractor(data);
+                    setExtractorModal(null);
+                }}
+            />
 
         </Container >
     );

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Layout as LayoutIcon, ListOrdered, Play, Loader2, RotateCcw, WrapText, Bug, AlignLeft, Braces, ChevronLeft, Plus, FileCode, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Layout as LayoutIcon, ListOrdered, Play, Loader2, RotateCcw, WrapText, Bug, AlignLeft, Braces, ChevronLeft, Plus, FileCode, Trash2, ArrowUp, ArrowDown, ListChecks } from 'lucide-react';
 import { SoapUIRequest, SoapUIOperation, SoapTestCase, TestStepType, SoapTestStep } from '../models';
 // ... imports
 import { MonacoRequestEditor, MonacoRequestEditorHandle } from './MonacoRequestEditor';
@@ -175,6 +175,8 @@ interface WorkspaceLayoutProps {
     onDeleteStep?: (stepId: string) => void;
     onMoveStep?: (stepId: string, direction: 'up' | 'down') => void;
     onAddExtractor?: (data: { xpath: string, value: string, source: 'body' | 'header' }) => void;
+    onAddAssertion?: (data: { xpath: string, expectedContent: string }) => void;
+    onAddExistenceAssertion?: (data: { xpath: string }) => void;
 }
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
@@ -186,7 +188,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     hideCausalityData, onToggleHideCausalityData,
     isReadOnly,
     onRunTestCase, onOpenStepRequest, onBackToCase, onAddStep, testExecution,
-    selectedStep, onUpdateStep, onSelectStep, onDeleteStep, onMoveStep, onAddExtractor
+    selectedStep, onUpdateStep, onSelectStep, onDeleteStep, onMoveStep, onAddExtractor, onAddAssertion, onAddExistenceAssertion
 }) => {
     const [alignAttributes, setAlignAttributes] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth' | 'extractors'>('request');
@@ -198,6 +200,26 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const bodyEditorRef = React.useRef<MonacoRequestEditorHandle>(null);
     const lastFocusedRef = React.useRef<MonacoSingleLineInputHandle | MonacoRequestEditorHandle | null>(null);
     const [selection, setSelection] = React.useState<{ text: string, offset: number } | null>(null);
+    const [currentXPath, setCurrentXPath] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (selection && response?.rawResponse) {
+            // Calculate XPath on selection change to determine button visibility
+            const path = XPathGenerator.getPath(response.rawResponse, selection.offset);
+            setCurrentXPath(path);
+        } else {
+            setCurrentXPath(null);
+        }
+    }, [selection, response]);
+
+    // Reset selection when step changes or re-runs
+    React.useEffect(() => {
+        setSelection(null);
+        setCurrentXPath(null);
+        if (selectedStep?.config.request?.assertions) {
+            console.log("WorkspaceLayout: Step Updated. Assertions:", selectedStep.config.request.assertions.length);
+        }
+    }, [selectedStep?.id, response, selectedStep?.config.request?.assertions]);
 
     const handleCreateExtractor = () => {
         if (!selection || !response || !onAddExtractor) return;
@@ -214,6 +236,24 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         } else {
             console.warn("Could not determine XPath for selection");
         }
+    };
+
+    const handleCreateAssertion = () => {
+        console.log("WorkspaceLayout: Match Clicked. XPath:", currentXPath, "Selection:", selection?.text);
+        if (!selection || !response || !onAddAssertion || !currentXPath) {
+            console.warn("WorkspaceLayout: Match aborted. Missing deps:", { hasSelection: !!selection, hasResponse: !!response, hasHandler: !!onAddAssertion, hasPath: !!currentXPath });
+            return;
+        }
+
+        onAddAssertion({ xpath: currentXPath, expectedContent: selection.text });
+        setActiveTab('assertions');
+    };
+
+    const handleCreateExistenceAssertion = () => {
+        if (!selection || !response || !onAddExistenceAssertion || !currentXPath) return;
+
+        onAddExistenceAssertion({ xpath: currentXPath });
+        setActiveTab('assertions');
     };
 
 
@@ -839,10 +879,26 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <span>Response</span>
-                                    {selection && onAddExtractor && !isReadOnly && (
-                                        <ToolbarButton onClick={handleCreateExtractor} style={{ fontSize: '0.8em', padding: '2px 8px', height: 22 }}>
-                                            <Bug size={12} style={{ marginRight: 4 }} /> Extract "{selection.text.length > 15 ? selection.text.substring(0, 12) + '...' : selection.text}"
-                                        </ToolbarButton>
+                                    {selection && onAddExtractor && !isReadOnly && currentXPath && (
+                                        <div style={{ display: 'flex', gap: 5 }}>
+                                            {selection.text && (
+                                                <>
+                                                    <ToolbarButton onClick={handleCreateExtractor} style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}>
+                                                        <Bug size={12} style={{ marginRight: 4 }} /> Extract
+                                                    </ToolbarButton>
+                                                    {onAddAssertion && (
+                                                        <ToolbarButton onClick={handleCreateAssertion} style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}>
+                                                            <Braces size={12} style={{ marginRight: 4 }} /> Match
+                                                        </ToolbarButton>
+                                                    )}
+                                                </>
+                                            )}
+                                            {onAddExistenceAssertion && (
+                                                <ToolbarButton onClick={handleCreateExistenceAssertion} style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}>
+                                                    <ListChecks size={12} style={{ marginRight: 4 }} /> Exists
+                                                </ToolbarButton>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                                 {response && !isReadOnly && (
