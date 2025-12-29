@@ -164,6 +164,9 @@ export class WebviewController {
                     this._settingsManager.updateConfigFromObject(message.config);
                 }
                 this.sendSettingsToWebview();
+                // Sync replace rules to proxy service
+                const rules = this._settingsManager.getConfig().replaceRules || [];
+                this._proxyService.setReplaceRules(rules);
                 break;
             case 'getSettings':
                 console.log('[WebviewController] Received getSettings. Sending settings to webview.');
@@ -287,6 +290,8 @@ export class WebviewController {
             const raw = this._settingsManager.getRawConfig();
             this.sendChangelogToWebview(); // Piggyback changelog
             this._panel.webview.postMessage({ command: 'settingsUpdate', config, raw });
+            // Sync replace rules to proxy service on config load
+            this._proxyService.setReplaceRules(config.replaceRules || []);
         }
     }
 

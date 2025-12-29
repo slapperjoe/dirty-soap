@@ -10,6 +10,7 @@ import axios, { AxiosRequestConfig, Method } from 'axios';
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
+import { ReplaceRuleApplier, ReplaceRule } from '../utils/ReplaceRuleApplier';
 
 export interface ProxyConfig {
     port: number;
@@ -39,6 +40,7 @@ export class ProxyService extends EventEmitter {
     private isRunning: boolean = false;
     private certPath: string | null = null;
     private keyPath: string | null = null;
+    private replaceRules: ReplaceRule[] = [];
 
     constructor(initialConfig: ProxyConfig = { port: 9000, targetUrl: 'http://localhost:8080', systemProxyEnabled: true }) {
         super();
@@ -65,6 +67,11 @@ export class ProxyService extends EventEmitter {
             this.stop();
             this.start();
         }
+    }
+
+    public setReplaceRules(rules: ReplaceRule[]) {
+        this.replaceRules = rules;
+        this.logDebug(`[ProxyService] Updated replace rules: ${rules.length} rules`);
     }
 
     private async ensureCert(): Promise<{ key: string, cert: string }> {
@@ -240,8 +247,19 @@ export class ProxyService extends EventEmitter {
                     this.runDiagnostics(fullTargetUrl, axiosConfig).catch(err => this.logDebug(`[Diagnostics] Error running probes: ${err}`));
                 }
 
+                // Apply replace rules to response before forwarding
+                let responseData = typeof response.data === 'object' ? JSON.stringify(response.data) : String(response.data);
+                if (this.replaceRules.length > 0) {
+                    const originalData = responseData;
+                    responseData = ReplaceRuleApplier.apply(responseData, this.replaceRules, 'response');
+                    if (responseData !== originalData) {
+                        this.logDebug(`[Proxy] Applied ${this.replaceRules.filter(r => r.enabled && (r.target === 'response' || r.target === 'both')).length} replace rules to response`);
+                        // Update event for logging to show modified response
+                        event.responseBody = responseData;
+                    }
+                }
+
                 res.writeHead(response.status, response.headers as any);
-                const responseData = typeof response.data === 'object' ? JSON.stringify(response.data) : response.data;
                 res.end(responseData);
 
                 this.emit('log', event);

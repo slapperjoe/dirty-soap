@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { parse, modify, applyEdits } from 'jsonc-parser';
+import { ReplaceRule } from './ReplaceRuleApplier';
 
 export interface DirtySoapConfig {
     version: number;
@@ -28,6 +29,8 @@ export interface DirtySoapConfig {
     }>;
     globals?: Record<string, string>;
     recentWorkspaces?: string[];
+    /** Auto-replace rules for proxy view */
+    replaceRules?: ReplaceRule[];
 }
 
 const DEFAULT_CONFIG: DirtySoapConfig = {

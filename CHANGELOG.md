@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.7.3] - 2025-12-29
+### Auto-Generated Changes
+- feat: Implement replace rule functionality in proxy service - Added ReplaceRuleApplier for applying text replacement rules to XML content. - Updated ProxyService to manage and apply replace rules during request/response handling. - Enhanced SettingsManager to include replace rules in configuration.
+
 ## [0.7.2] - 2025-12-29
 ### Auto-Generated Changes
 - feat: Add replace rule functionality in proxy view - Implemented CreateReplaceRuleModal for defining text replacement rules in requests/responses. - Updated WorkspaceLayout to handle replace rule creation and display endpoint info in read-only mode. - Introduced ReplaceRule interface in models for managing replace rules.
