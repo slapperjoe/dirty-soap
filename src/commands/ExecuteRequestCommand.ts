@@ -39,7 +39,7 @@ export class ExecuteRequestCommand implements ICommand {
             if (headers) {
                 const processedHeaders: Record<string, string> = {};
                 for (const key in headers) {
-                    if (headers.hasOwnProperty(key)) {
+                    if (Object.prototype.hasOwnProperty.call(headers, key)) {
                         processedHeaders[key] = WildcardProcessor.process(headers[key], envVars, globals, scriptsDir, contextVars);
                     }
                 }

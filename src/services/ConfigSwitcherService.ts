@@ -21,7 +21,7 @@ export class ConfigSwitcherService {
             }
 
             // 2. Read content
-            let content = fs.readFileSync(filePath, 'utf8');
+            const content = fs.readFileSync(filePath, 'utf8');
 
             // 3. Replace endpoint addresses
             // Strategy: Look for address="..." attributes in <endpoint> tags.

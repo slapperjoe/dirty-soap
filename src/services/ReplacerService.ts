@@ -12,7 +12,7 @@ export interface ReplacementRule {
 export class ReplacerService {
     private rules: ReplacementRule[] = [];
 
-    constructor() { }
+
 
     public addRule(rule: ReplacementRule) {
         this.rules.push(rule);

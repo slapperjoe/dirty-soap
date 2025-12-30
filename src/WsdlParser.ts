@@ -1,9 +1,4 @@
-import * as vscode from 'vscode';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 import * as soap from 'soap';
-import * as fs from 'fs';
-import * as path from 'path';
-import axios from 'axios';
 import { SoapService, SoapOperation, SoapSchemaNode } from './models';
 
 export class WsdlParser {
@@ -187,7 +182,7 @@ export class WsdlParser {
         };
 
         // Recursive Build
-        const buildNode = (name: string, typeName: string, doc: string = '', minOccurs: string = '1'): SoapSchemaNode => {
+        const buildNode = (name: string, typeName: string, doc = '', minOccurs = '1'): SoapSchemaNode => {
             const node: SoapSchemaNode = {
                 name,
                 type: typeName,
@@ -202,7 +197,7 @@ export class WsdlParser {
                 node.documentation = typeDef.annotation?.documentation || doc;
 
                 const children: SoapSchemaNode[] = [];
-                let sequence = typeDef.sequence || typeDef.all;
+                const sequence = typeDef.sequence || typeDef.all;
 
                 if (sequence) {
                     sequence.forEach((child: any) => {

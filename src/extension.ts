@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
-    let disposable = vscode.commands.registerCommand('dirty-soap.openInterface', () => {
+    const disposable = vscode.commands.registerCommand('dirty-soap.openInterface', () => {
         SoapPanel.createOrShow(context.extensionUri);
     });
 

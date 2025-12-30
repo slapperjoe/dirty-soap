@@ -58,7 +58,7 @@ interface PendingBreakpoint {
 export class ProxyService extends EventEmitter {
     private server: http.Server | https.Server | null = null;
     private config: ProxyConfig;
-    private isRunning: boolean = false;
+    private isRunning = false;
     private certPath: string | null = null;
     private keyPath: string | null = null;
     private replaceRules: ReplaceRule[] = [];
@@ -106,7 +106,7 @@ export class ProxyService extends EventEmitter {
     /**
      * Resolve a pending breakpoint with modified content
      */
-    public resolveBreakpoint(breakpointId: string, modifiedContent: string, cancelled: boolean = false) {
+    public resolveBreakpoint(breakpointId: string, modifiedContent: string, cancelled = false) {
         const pending = this.pendingBreakpoints.get(breakpointId);
         if (pending) {
             clearTimeout(pending.timeoutId);

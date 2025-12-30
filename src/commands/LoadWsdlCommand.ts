@@ -5,6 +5,7 @@ import { WsdlParser } from '../WsdlParser';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 export class LoadWsdlCommand implements ICommand {
     constructor(
@@ -30,7 +31,7 @@ export class LoadWsdlCommand implements ICommand {
                 source = 'url';
             } else if (message.content) {
                 // Save raw content to temp file for parsing
-                const tempDir = require('os').tmpdir();
+                const tempDir = os.tmpdir();
                 localPath = path.join(tempDir, `temp_${Date.now()}.wsdl`);
                 fs.writeFileSync(localPath, message.content);
                 url = localPath;
@@ -56,7 +57,7 @@ export class LoadWsdlCommand implements ICommand {
 
             // Cleanup temp file if raw
             if (source === 'raw') {
-                try { fs.unlinkSync(localPath); } catch { }
+                try { fs.unlinkSync(localPath); } catch (_e) { /* ignore cleanup errors */ }
             }
 
         } catch (error: any) {

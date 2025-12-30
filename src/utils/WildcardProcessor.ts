@@ -121,7 +121,7 @@ export class WildcardProcessor {
                                 const regex = new RegExp(escapedKey, 'g');
                                 if (regex.test(processed)) {
                                     try {
-                                        const result = (func as Function)();
+                                        const result = (func as () => unknown)();
                                         processed = processed.replace(regex, String(result));
                                     } catch (err) {
                                         console.error(`Error executing function ${key} in ${file}:`, err);
@@ -154,7 +154,7 @@ export class WildcardProcessor {
 
     private static generateLorem(count: number): string {
         const words = ["lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore", "magna", "aliqua"];
-        let result = [];
+        const result = [];
         for (let i = 0; i < count; i++) {
             result.push(words[Math.floor(Math.random() * words.length)]);
         }

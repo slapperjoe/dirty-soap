@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { SoapUIProject, SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapTestSuite, SoapTestCase, SoapTestStep } from './models';
+import { SoapUIProject, SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapTestSuite, SoapTestCase } from './models';
 
 export class FolderProjectStorage {
     private outputChannel: any = null;
@@ -60,7 +60,7 @@ export class FolderProjectStorage {
             fs.writeFileSync(path.join(ifaceDir, 'interface.json'), JSON.stringify(ifaceMeta, null, 2));
 
             // Operations
-            const matchCounts: Record<string, number> = {}; // Handle multiple ops with same name? SOAP allows overload? Usually unique by name+input.
+            const _matchCounts: Record<string, number> = {}; // Handle multiple ops with same name? SOAP allows overload? Usually unique by name+input.
 
             for (const op of iface.operations) {
                 const safeOpName = this.sanitizeName(op.name);
@@ -214,7 +214,7 @@ export class FolderProjectStorage {
                         if (ext === '.json') entry.meta = JSON.parse(fs.readFileSync(path.join(opDir, f), 'utf8'));
                     });
 
-                    for (const [base, data] of requestsMap.entries()) {
+                    for (const [_base, data] of requestsMap.entries()) {
                         if (data.body !== undefined && data.meta) { // Must have both? Or allow implied?
                             // Merge
                             const req: SoapUIRequest = {
@@ -269,7 +269,7 @@ export class FolderProjectStorage {
 
                     suite.testCases.push(testCase);
                 }
-                project.testSuites!.push(suite);
+                project.testSuites?.push(suite);
             }
         }
 

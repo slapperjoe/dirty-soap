@@ -15,8 +15,8 @@ export interface WatcherEvent {
 
 export class FileWatcherService {
     private outputChannel: any;
-    private requestPath: string = 'C:\\temp\\requestXML.xml';
-    private responsePath: string = 'C:\\temp\\responseXML.xml';
+    private requestPath = 'C:\\temp\\requestXML.xml';
+    private responsePath = 'C:\\temp\\responseXML.xml';
     private history: WatcherEvent[] = [];
     private onUpdateCallback: ((history: WatcherEvent[]) => void) | undefined;
     private watchers: fs.FSWatcher[] = [];

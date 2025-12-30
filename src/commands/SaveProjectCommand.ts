@@ -18,7 +18,7 @@ export class SaveProjectCommand implements ICommand {
 
     async execute(message: any): Promise<void> {
         try {
-            let fileName = message.project.fileName;
+            const fileName = message.project.fileName;
 
             // 1. Existing file/folder?
             if (fileName && fs.existsSync(fileName)) {

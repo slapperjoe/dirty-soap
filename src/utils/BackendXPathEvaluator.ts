@@ -105,7 +105,7 @@ export class BackendXPathEvaluator {
     }
 
     private static parseSegment(segment: string): { key: string, index: number } {
-        const match = segment.match(/^([^\[]+)(?:\[(\d+)\])?$/);
+        const match = segment.match(/^([^[]+)(?:\[(\d+)\])?$/);
         const rawName = match ? match[1] : segment;
         const index = match && match[2] ? parseInt(match[2], 10) - 1 : 0;
 
