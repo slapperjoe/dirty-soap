@@ -1,1 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Development
+.vscode
+node_modules
+src
+webview
+scripts
+docs
+tsconfig.json
+package-lock.json
+.eslint*
+
+# Test files
 wsdl_files
+
+# Build artifacts that shouldn't be in VSIX
+*.vsix
+
+# Markdown files (except essential ones)
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE.md
