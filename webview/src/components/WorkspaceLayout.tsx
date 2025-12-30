@@ -99,10 +99,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const [breakpointContent, setBreakpointContent] = React.useState<string>('');
     const [breakpointTimeRemaining, setBreakpointTimeRemaining] = React.useState<number>(0);
 
-    // Initialize breakpoint content when breakpoint becomes active
+    // Initialize breakpoint content when breakpoint becomes active - format the XML for readability
     React.useEffect(() => {
         if (breakpointState?.activeBreakpoint) {
-            setBreakpointContent(breakpointState.activeBreakpoint.content);
+            const rawContent = breakpointState.activeBreakpoint.content;
+            // Format XML for user readability
+            const formatted = rawContent.trim().startsWith('<')
+                ? formatXml(rawContent, false, true)
+                : rawContent;
+            setBreakpointContent(formatted);
         }
     }, [breakpointState?.activeBreakpoint]);
 
@@ -240,7 +245,11 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         </div>
                         <span style={{ fontWeight: 'bold', minWidth: 40 }}>{seconds}s</span>
                         <ToolbarButton
-                            onClick={() => breakpointState.onResolve(breakpointContent)}
+                            onClick={() => {
+                                // Minify XML back to single line (remove pretty-print formatting)
+                                const minified = breakpointContent.replace(/>\s+</g, '><').trim();
+                                breakpointState.onResolve(minified);
+                            }}
                             style={{ background: 'white', color: '#b45309', padding: '6px 12px' }}
                         >
                             <Play size={14} /> Continue

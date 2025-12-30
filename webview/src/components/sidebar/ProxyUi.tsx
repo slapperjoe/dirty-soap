@@ -316,8 +316,15 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                     )}
                 </div>
 
-                <div style={{ marginTop: 15 }}>
-                    <h4 style={{ margin: '0 0 5px 0', fontSize: '0.9em' }}>Traffic ({history.length})</h4>
+                <div style={{ marginTop: 15, borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <h4 style={{ margin: 0, fontSize: '0.9em' }}>Traffic ({history.length})</h4>
+                        {history.length > 0 && (
+                            <HeaderButton onClick={onClear} title="Clear Traffic History" style={{ padding: 4 }}>
+                                <Trash2 size={14} />
+                            </HeaderButton>
+                        )}
+                    </div>
                     {history.length === 0 ? (
                         <div style={{ textAlign: 'center', marginTop: 10, fontSize: '0.8em', opacity: 0.7 }}>
                             No events captured.
