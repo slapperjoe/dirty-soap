@@ -151,6 +151,17 @@ function App() {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
 
+    // Breakpoint State
+    const [activeBreakpoint, setActiveBreakpoint] = useState<{
+        id: string;
+        type: 'request' | 'response';
+        content: string;
+        headers?: Record<string, any>;
+        breakpointName: string;
+        timeoutMs: number;
+        startTime: number;
+    } | null>(null);
+
     // NOTE: Watcher/Proxy state now comes from useWatcherProxy hook
 
     // NOTE: startTimeRef now comes from useRequestExecution hook
@@ -382,6 +393,7 @@ function App() {
         setProxyRunning,
         setTestExecution,
         setActiveView,
+        setActiveBreakpoint,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -552,6 +564,19 @@ function App() {
     // NOTE: handleRunTestCaseWrapper, handleRunTestSuiteWrapper, handleSaveExtractor
     // now come from useTestCaseHandlers hook
 
+    // Breakpoint Resolution Handler
+    const handleResolveBreakpoint = (modifiedContent: string, cancelled: boolean = false) => {
+        if (activeBreakpoint) {
+            bridge.sendMessage({
+                command: 'resolveBreakpoint',
+                breakpointId: activeBreakpoint.id,
+                content: modifiedContent,
+                cancelled
+            });
+            setActiveBreakpoint(null);
+        }
+    };
+
     return (
         <Container onClick={closeContextMenu}>
             {/* Sidebar with consolidated props */}
@@ -642,7 +667,15 @@ function App() {
                     onOpenCertificate: () => bridge.sendMessage({ command: 'installCertificate' }),
                     onSaveHistory: (content) => bridge.sendMessage({ command: 'saveProxyHistory', content }),
                     onInject: handleInjectProxy,
-                    onRestore: handleRestoreProxy
+                    onRestore: handleRestoreProxy,
+                    breakpoints: config?.breakpoints || [],
+                    onUpdateBreakpoints: (bps) => {
+                        if (config) {
+                            const updatedConfig = { ...config, breakpoints: bps };
+                            setConfig(updatedConfig);
+                            bridge.sendMessage({ command: 'saveSettings', config: updatedConfig });
+                        }
+                    }
                 }}
                 activeView={activeView}
                 onChangeView={setActiveView}
@@ -707,6 +740,10 @@ function App() {
                     onAddExistenceAssertion: handleAddExistenceAssertion,
                     onAddReplaceRule: (data) => setReplaceRuleModal({ open: true, ...data }),
                     onOpenDevOps: () => setShowDevOpsModal(true)
+                }}
+                breakpointState={{
+                    activeBreakpoint,
+                    onResolve: handleResolveBreakpoint
                 }}
             />
 

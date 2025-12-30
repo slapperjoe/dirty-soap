@@ -43,6 +43,19 @@ import {
     WorkspaceToolsActions
 } from '../types/props';
 
+interface WorkspaceBreakpointState {
+    activeBreakpoint: {
+        id: string;
+        type: 'request' | 'response';
+        content: string;
+        headers?: Record<string, any>;
+        breakpointName: string;
+        timeoutMs: number;
+        startTime: number;
+    } | null;
+    onResolve: (modifiedContent: string, cancelled?: boolean) => void;
+}
+
 interface WorkspaceLayoutProps {
     selectionState: WorkspaceSelectionState;
     requestActions: WorkspaceRequestActions;
@@ -50,6 +63,7 @@ interface WorkspaceLayoutProps {
     configState: WorkspaceConfigState;
     stepActions: WorkspaceStepActions;
     toolsActions: WorkspaceToolsActions;
+    breakpointState?: WorkspaceBreakpointState;
 }
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
@@ -58,7 +72,8 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     viewState,
     configState,
     stepActions,
-    toolsActions
+    toolsActions,
+    breakpointState
 }) => {
     // Destructure groups
     const { request: selectedRequest, operation: selectedOperation, testCase: selectedTestCase, testStep: selectedStep } = selectionState;
@@ -79,6 +94,35 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth' | 'extractors'>('request');
     const [deleteConfirm, setDeleteConfirm] = React.useState<string | null>(null);
     const [showVariables, setShowVariables] = React.useState(false);
+
+    // Breakpoint State
+    const [breakpointContent, setBreakpointContent] = React.useState<string>('');
+    const [breakpointTimeRemaining, setBreakpointTimeRemaining] = React.useState<number>(0);
+
+    // Initialize breakpoint content when breakpoint becomes active
+    React.useEffect(() => {
+        if (breakpointState?.activeBreakpoint) {
+            setBreakpointContent(breakpointState.activeBreakpoint.content);
+        }
+    }, [breakpointState?.activeBreakpoint]);
+
+    // Countdown timer for breakpoint
+    React.useEffect(() => {
+        if (!breakpointState?.activeBreakpoint) {
+            setBreakpointTimeRemaining(0);
+            return;
+        }
+
+        const updateTimer = () => {
+            const elapsed = Date.now() - breakpointState.activeBreakpoint!.startTime;
+            const remaining = Math.max(0, breakpointState.activeBreakpoint!.timeoutMs - elapsed);
+            setBreakpointTimeRemaining(remaining);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+    }, [breakpointState?.activeBreakpoint]);
 
     // Editor Refs for insertion
     const urlEditorRef = React.useRef<MonacoSingleLineInputHandle>(null);
@@ -152,6 +196,82 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
             setActiveTab('request');
         }
     }, [isReadOnly, activeTab]);
+
+    // Breakpoint Overlay - takes over the entire workspace when active
+    if (breakpointState?.activeBreakpoint) {
+        const bp = breakpointState.activeBreakpoint;
+        const seconds = Math.ceil(breakpointTimeRemaining / 1000);
+        const progress = (breakpointTimeRemaining / bp.timeoutMs) * 100;
+
+        return (
+            <Content style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {/* Breakpoint Banner */}
+                <div style={{
+                    background: 'linear-gradient(90deg, #d97706 0%, #b45309 100%)',
+                    padding: '12px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    color: 'white'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Bug size={20} />
+                        <div>
+                            <strong>Breakpoint Hit: {bp.breakpointName}</strong>
+                            <span style={{ marginLeft: 10, opacity: 0.9 }}>
+                                ({bp.type === 'request' ? 'Outgoing Request' : 'Incoming Response'})
+                            </span>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+                        <div style={{
+                            width: 120,
+                            height: 6,
+                            background: 'rgba(255,255,255,0.3)',
+                            borderRadius: 3,
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                width: `${progress}%`,
+                                height: '100%',
+                                background: 'white',
+                                transition: 'width 1s linear'
+                            }} />
+                        </div>
+                        <span style={{ fontWeight: 'bold', minWidth: 40 }}>{seconds}s</span>
+                        <ToolbarButton
+                            onClick={() => breakpointState.onResolve(breakpointContent)}
+                            style={{ background: 'white', color: '#b45309', padding: '6px 12px' }}
+                        >
+                            <Play size={14} /> Continue
+                        </ToolbarButton>
+                        <ToolbarButton
+                            onClick={() => breakpointState.onResolve(bp.content, true)}
+                            style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '6px 12px' }}
+                        >
+                            Cancel
+                        </ToolbarButton>
+                    </div>
+                </div>
+
+                {/* Editable Content */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--vscode-panel-border)' }}>
+                        <span style={{ fontWeight: 'bold' }}>
+                            Edit {bp.type === 'request' ? 'Request' : 'Response'} Content:
+                        </span>
+                    </div>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                        <MonacoRequestEditor
+                            value={breakpointContent}
+                            onChange={setBreakpointContent}
+                            readOnly={false}
+                        />
+                    </div>
+                </div>
+            </Content>
+        );
+    }
 
     if (!selectedRequest) {
         if (selectedStep && selectedStep.type === 'delay' && !isReadOnly && onUpdateStep) {

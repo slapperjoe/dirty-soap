@@ -78,6 +78,15 @@ export interface MessageHandlerState {
     setProxyRunning: React.Dispatch<React.SetStateAction<boolean>>;
     setTestExecution: React.Dispatch<React.SetStateAction<Record<string, Record<string, any>>>>;
     setActiveView: React.Dispatch<React.SetStateAction<SidebarView>>;
+    setActiveBreakpoint: React.Dispatch<React.SetStateAction<{
+        id: string;
+        type: 'request' | 'response';
+        content: string;
+        headers?: Record<string, any>;
+        breakpointName: string;
+        timeoutMs: number;
+        startTime: number;
+    } | null>>;
 
     // Current values needed for message handling
     wsdlUrl: string;
@@ -120,6 +129,7 @@ export function useMessageHandler(state: MessageHandlerState) {
         setProxyRunning,
         setTestExecution,
         setActiveView,
+        setActiveBreakpoint,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -417,6 +427,24 @@ export function useMessageHandler(state: MessageHandlerState) {
                 case 'proxyStatus':
                     debugLog('proxyStatus', { running: message.running });
                     setProxyRunning(message.running);
+                    break;
+
+                case 'breakpointHit':
+                    debugLog('breakpointHit', { breakpointId: message.breakpointId, type: message.type });
+                    setActiveBreakpoint({
+                        id: message.breakpointId,
+                        type: message.type,
+                        content: message.content,
+                        headers: message.headers,
+                        breakpointName: message.breakpointName,
+                        timeoutMs: message.timeoutMs,
+                        startTime: Date.now()
+                    });
+                    break;
+
+                case 'breakpointTimeout':
+                    debugLog('breakpointTimeout', { breakpointId: message.breakpointId });
+                    setActiveBreakpoint(null);
                     break;
 
                 case 'configFileSelected':

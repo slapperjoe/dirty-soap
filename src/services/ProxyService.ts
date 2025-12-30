@@ -34,6 +34,27 @@ export interface ProxyEvent {
     error?: string;
 }
 
+export interface Breakpoint {
+    id: string;
+    name?: string;
+    enabled: boolean;
+    pattern: string;        // regex or string match
+    isRegex?: boolean;
+    target: 'request' | 'response' | 'both';
+    matchOn: 'url' | 'body' | 'header';
+    headerName?: string;    // if matchOn === 'header'
+}
+
+interface PendingBreakpoint {
+    id: string;
+    eventId: string;
+    type: 'request' | 'response';
+    content: string;
+    headers?: Record<string, any>;
+    resolve: (result: { content: string, cancelled: boolean }) => void;
+    timeoutId: NodeJS.Timeout;
+}
+
 export class ProxyService extends EventEmitter {
     private server: http.Server | https.Server | null = null;
     private config: ProxyConfig;
@@ -41,6 +62,9 @@ export class ProxyService extends EventEmitter {
     private certPath: string | null = null;
     private keyPath: string | null = null;
     private replaceRules: ReplaceRule[] = [];
+    private breakpoints: Breakpoint[] = [];
+    private pendingBreakpoints: Map<string, PendingBreakpoint> = new Map();
+    private static BREAKPOINT_TIMEOUT_MS = 45000; // 45 seconds
 
     constructor(initialConfig: ProxyConfig = { port: 9000, targetUrl: 'http://localhost:8080', systemProxyEnabled: true }) {
         super();
@@ -72,6 +96,96 @@ export class ProxyService extends EventEmitter {
     public setReplaceRules(rules: ReplaceRule[]) {
         this.replaceRules = rules;
         this.logDebug(`[ProxyService] Updated replace rules: ${rules.length} rules`);
+    }
+
+    public setBreakpoints(breakpoints: Breakpoint[]) {
+        this.breakpoints = breakpoints;
+        this.logDebug(`[ProxyService] Updated breakpoints: ${breakpoints.length} breakpoints`);
+    }
+
+    /**
+     * Resolve a pending breakpoint with modified content
+     */
+    public resolveBreakpoint(breakpointId: string, modifiedContent: string, cancelled: boolean = false) {
+        const pending = this.pendingBreakpoints.get(breakpointId);
+        if (pending) {
+            clearTimeout(pending.timeoutId);
+            this.pendingBreakpoints.delete(breakpointId);
+            pending.resolve({ content: modifiedContent, cancelled });
+            this.logDebug(`[ProxyService] Breakpoint ${breakpointId} resolved (cancelled: ${cancelled})`);
+        }
+    }
+
+    /**
+     * Check if content matches any breakpoint
+     */
+    private checkBreakpoints(url: string, content: string, headers: Record<string, any>, target: 'request' | 'response'): Breakpoint | null {
+        for (const bp of this.breakpoints) {
+            if (!bp.enabled) continue;
+            if (bp.target !== target && bp.target !== 'both') continue;
+
+            let textToMatch = '';
+            if (bp.matchOn === 'url') {
+                textToMatch = url;
+            } else if (bp.matchOn === 'body') {
+                textToMatch = content;
+            } else if (bp.matchOn === 'header' && bp.headerName) {
+                textToMatch = String(headers[bp.headerName.toLowerCase()] || '');
+            }
+
+            const matched = bp.isRegex
+                ? new RegExp(bp.pattern).test(textToMatch)
+                : textToMatch.includes(bp.pattern);
+
+            if (matched) {
+                this.logDebug(`[ProxyService] Breakpoint hit: ${bp.name || bp.id} on ${target}`);
+                return bp;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Wait for user to edit content at breakpoint
+     */
+    private async waitForBreakpoint(
+        eventId: string,
+        type: 'request' | 'response',
+        content: string,
+        headers: Record<string, any>,
+        breakpoint: Breakpoint
+    ): Promise<{ content: string, cancelled: boolean }> {
+        const breakpointId = `bp-${eventId}-${type}`;
+
+        return new Promise((resolve) => {
+            const timeoutId = setTimeout(() => {
+                this.pendingBreakpoints.delete(breakpointId);
+                this.emit('breakpointTimeout', { breakpointId });
+                this.logDebug(`[ProxyService] Breakpoint ${breakpointId} timed out after ${ProxyService.BREAKPOINT_TIMEOUT_MS}ms`);
+                resolve({ content, cancelled: false }); // Continue with original
+            }, ProxyService.BREAKPOINT_TIMEOUT_MS);
+
+            this.pendingBreakpoints.set(breakpointId, {
+                id: breakpointId,
+                eventId,
+                type,
+                content,
+                headers,
+                resolve,
+                timeoutId
+            });
+
+            // Emit to webview
+            this.emit('breakpointHit', {
+                breakpointId,
+                eventId,
+                type,
+                content,
+                headers,
+                breakpointName: breakpoint.name || breakpoint.id,
+                timeoutMs: ProxyService.BREAKPOINT_TIMEOUT_MS
+            });
+        });
     }
 
     private async ensureCert(): Promise<{ key: string, cert: string }> {
@@ -232,6 +346,16 @@ export class ProxyService extends EventEmitter {
                     }
                 }
 
+                // Check for REQUEST breakpoint (before forwarding)
+                const requestBreakpoint = this.checkBreakpoints(fullTargetUrl, requestData, req.headers as Record<string, any>, 'request');
+                if (requestBreakpoint) {
+                    const result = await this.waitForBreakpoint(eventId, 'request', requestData, req.headers as Record<string, any>, requestBreakpoint);
+                    if (!result.cancelled) {
+                        requestData = result.content;
+                        axiosConfig.data = requestData;
+                    }
+                }
+
                 this.logDebug(`[Proxy] Sending Request to: ${axiosConfig.url}`);
                 // Ensure correct Host header and Content-Length
                 // Add User-Agent in case WAF requires it
@@ -270,6 +394,16 @@ export class ProxyService extends EventEmitter {
                         const ruleNames = applicableRules.map(r => r.name || r.id).join(', ');
                         this.logDebug(`[Proxy] ✓ Applied replace rules: ${ruleNames}`);
                         // Update event for logging to show modified response
+                        event.responseBody = responseData;
+                    }
+                }
+
+                // Check for RESPONSE breakpoint (before returning to client)
+                const responseBreakpoint = this.checkBreakpoints(fullTargetUrl, responseData, response.headers as Record<string, any>, 'response');
+                if (responseBreakpoint) {
+                    const result = await this.waitForBreakpoint(eventId, 'response', responseData, response.headers as Record<string, any>, responseBreakpoint);
+                    if (!result.cancelled) {
+                        responseData = result.content;
                         event.responseBody = responseData;
                     }
                 }

@@ -84,7 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const {
         history: proxyHistory, isRunning: proxyRunning, config: proxyConfig,
         onStart: onStartProxy, onStop: onStopProxy, onUpdateConfig: onUpdateProxyConfig, onClear: onClearProxy,
-        onSaveHistory: onSaveProxyHistory, configPath, onSelectConfigFile, onInject: onInjectProxy, onRestore: onRestoreProxy, onOpenCertificate
+        onSaveHistory: onSaveProxyHistory, configPath, onSelectConfigFile, onInject: onInjectProxy, onRestore: onRestoreProxy, onOpenCertificate,
+        breakpoints, onUpdateBreakpoints
     } = proxyProps;
 
     // Sidebar Navigation Rail Item
@@ -169,6 +170,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onInjectProxy={onInjectProxy}
                         onRestoreProxy={onRestoreProxy}
                         onOpenCertificate={onOpenCertificate}
+                        breakpoints={breakpoints}
+                        onUpdateBreakpoints={onUpdateBreakpoints}
                     />
                 )}
 

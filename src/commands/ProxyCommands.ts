@@ -178,3 +178,12 @@ export class OpenCertificateCommand implements ICommand {
         }
     }
 }
+
+export class ResolveBreakpointCommand implements ICommand {
+    constructor(private readonly _proxyService: ProxyService) { }
+
+    async execute(message: any): Promise<void> {
+        const { breakpointId, content, cancelled } = message;
+        this._proxyService.resolveBreakpoint(breakpointId, content || '', cancelled || false);
+    }
+}

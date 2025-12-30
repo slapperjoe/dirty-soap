@@ -104,6 +104,9 @@ export interface SidebarProxyProps {
     onSaveHistory: (content: string) => void;
     onInject: () => void;
     onRestore: () => void;
+    // Breakpoints
+    breakpoints?: any[]; // Breakpoint[]
+    onUpdateBreakpoints?: (breakpoints: any[]) => void;
 }
 
 // ============================================================================

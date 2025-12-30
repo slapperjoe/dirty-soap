@@ -1,10 +1,10 @@
 # Dirty SOAP 🧼
 
-**The Visual SOAP Client for VS Code**
+**The Interactive SOAP Client for VS Code**
 
-Dirty SOAP handles the messy parts of SOAP web services so you can stay clean and productive. Inspired by tools like standard SOAP clients but built natively for your favorite editor.
+Dirty SOAP handles the messy parts of SOAP web services so you can stay clean and productive. Inspired by tools new and old like SoapUI, Bruno and Yaak but built natively for your favorite editor.
 
-![Dirty Soap Logo](dirty_soap_logo.png)
+![Dirty Soap Logo](logo.png)
 
 ## 🚀 Key Features
 
@@ -18,7 +18,7 @@ Dirty SOAP handles the messy parts of SOAP web services so you can stay clean an
 - **Auto-Generation**: Generates valid XML envelopes for operations automatically—no manual XML crafting required.
 - **Full Control**: Edit the raw XML body with full syntax highlighting.
 - **Wildcard Support**: Use dynamic placeholders like `{{uuid}}` or `{{timestamp}}` for testing.
-- **Endpoint Overrides**: Change the target endpoint URL per request.
+- **Endpoint Overrides**: Change the target endpoint URL per request. Switch or add environments to swap on the fly!
 
 ### 🛡️ Enterprise-Ready Connectivity
 - **Smart Proxy**: Automatically respects your VS Code and System proxy settings (HTTP/HTTPS + Auth).
@@ -29,7 +29,16 @@ Dirty SOAP handles the messy parts of SOAP web services so you can stay clean an
 Need to debug traffic or mock responses?
 - **Intercept & Modify**: Capture HTTP traffic in-flight.
 - **Replace Rules**: Use XPath-scoped rules to modify requests or responses on the fly.
+- **Debugger**: Catch requests and responses in the proxy and modify by hand before they leave!
 - **Privacy**: Mask sensitive data (like SSNs) in responses automatically.
+
+### 🧪 Test Suite and Runner
+- **Create Scripts**: Run a batch of scenarios together in one test run.
+- **Multiple Steps**: Add multiple requests and delays in a single Test Case.
+- **Assumptions**: Test responses using XPATH (including count()) or via response time SLAs.
+- **Local Vars**: Take information from one response and push it into a followup request!
+
+  ---
 
 ## 📦 Getting Started
 
@@ -40,6 +49,7 @@ Need to debug traffic or mock responses?
 ## 🔧 Developer & Team Friendly
 
 - **Git Friendly**: Save projects as standard folders and JSON/XML files to source control.
+-  **SoapUI Compatable**: Load SoapUI workspaces or projects, save back to that format if needed.
 - **Context Actions**: Quickly clone, rename, or delete requests.
 - **Dark Mode**: Fully themed to match your VS Code aesthetics.
 

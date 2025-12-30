@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 import { ReplaceRule } from './ReplaceRuleApplier';
+import { Breakpoint } from '../services/ProxyService';
 
 export interface DirtySoapConfig {
     version: number;
@@ -31,6 +32,8 @@ export interface DirtySoapConfig {
     recentWorkspaces?: string[];
     /** Auto-replace rules for proxy view */
     replaceRules?: ReplaceRule[];
+    /** Breakpoints for proxy - pause on matching requests/responses */
+    breakpoints?: Breakpoint[];
 }
 
 const DEFAULT_CONFIG: DirtySoapConfig = {

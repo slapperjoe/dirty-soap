@@ -1,8 +1,9 @@
-import React from 'react';
-import { Play, Square, Shield, Trash2, FolderOpen, Network, FileCode, FileDown } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Square, Shield, Trash2, FolderOpen, Network, FileCode, FileDown, Bug, Plus, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { WatcherEvent } from '../../models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
 import { formatXml } from '../../utils/xmlFormatter';
+import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 
 export interface ProxyUiProps {
     isRunning: boolean;
@@ -21,6 +22,10 @@ export interface ProxyUiProps {
     onInjectProxy: () => void;
     onRestoreProxy: () => void;
     onOpenCertificate?: () => void;
+
+    // Breakpoints
+    breakpoints?: Breakpoint[];
+    onUpdateBreakpoints?: (breakpoints: Breakpoint[]) => void;
 }
 
 export const ProxyUi: React.FC<ProxyUiProps> = ({
@@ -37,9 +42,13 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
     onSelectConfigFile,
     onInjectProxy,
     onRestoreProxy,
-    onOpenCertificate
+    onOpenCertificate,
+    breakpoints = [],
+    onUpdateBreakpoints
 }) => {
     const isHttps = config.target.toLowerCase().startsWith('https');
+    const [breakpointModal, setBreakpointModal] = useState<{ open: boolean, bp?: Breakpoint | null }>({ open: false });
+    const [showBreakpoints, setShowBreakpoints] = useState(true);
 
     const generateEventMarkdown = (event: WatcherEvent) => {
         let md = `## Request: ${event.url} \n\n`;
@@ -187,6 +196,95 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                     </div>
                 </div>
 
+                {/* Breakpoints Section */}
+                {onUpdateBreakpoints && (
+                    <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10, marginTop: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <h4
+                                style={{ margin: 0, fontSize: '0.9em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+                                onClick={() => setShowBreakpoints(!showBreakpoints)}
+                            >
+                                <Bug size={14} />
+                                Breakpoints ({breakpoints.length})
+                            </h4>
+                            <HeaderButton onClick={() => setBreakpointModal({ open: true })} title="Add Breakpoint">
+                                <Plus size={14} />
+                            </HeaderButton>
+                        </div>
+
+                        {showBreakpoints && breakpoints.length > 0 && (
+                            <div style={{ fontSize: '0.85em' }}>
+                                {breakpoints.map((bp, i) => (
+                                    <div
+                                        key={bp.id}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            padding: '6px 8px',
+                                            marginBottom: 4,
+                                            backgroundColor: 'var(--vscode-list-hoverBackground)',
+                                            borderRadius: 4,
+                                            opacity: bp.enabled ? 1 : 0.5
+                                        }}
+                                    >
+                                        <button
+                                            onClick={() => {
+                                                const updated = breakpoints.map((b, idx) =>
+                                                    idx === i ? { ...b, enabled: !b.enabled } : b
+                                                );
+                                                onUpdateBreakpoints(updated);
+                                            }}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: bp.enabled ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-disabledForeground)',
+                                                padding: 2,
+                                                display: 'flex'
+                                            }}
+                                            title={bp.enabled ? 'Disable' : 'Enable'}
+                                        >
+                                            {bp.enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                        </button>
+                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                            <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {bp.name || bp.pattern}
+                                            </div>
+                                            <div style={{ fontSize: '0.8em', opacity: 0.7 }}>
+                                                {bp.target} • {bp.matchOn}{bp.isRegex ? ' (regex)' : ''}
+                                            </div>
+                                        </div>
+                                        <HeaderButton
+                                            onClick={() => setBreakpointModal({ open: true, bp })}
+                                            title="Edit"
+                                            style={{ padding: 4 }}
+                                        >
+                                            <Edit2 size={12} />
+                                        </HeaderButton>
+                                        <HeaderButton
+                                            onClick={() => {
+                                                const updated = breakpoints.filter((_, idx) => idx !== i);
+                                                onUpdateBreakpoints(updated);
+                                            }}
+                                            title="Delete"
+                                            style={{ padding: 4, color: 'var(--vscode-testing-iconFailed)' }}
+                                        >
+                                            <Trash2 size={12} />
+                                        </HeaderButton>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {showBreakpoints && breakpoints.length === 0 && (
+                            <div style={{ textAlign: 'center', fontSize: '0.8em', opacity: 0.7, padding: '10px 0' }}>
+                                No breakpoints configured.
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10, marginTop: 10 }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9em' }}>Config Switcher</h4>
                     <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 5 }}>
@@ -244,6 +342,27 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Breakpoint Modal */}
+            {onUpdateBreakpoints && (
+                <BreakpointModal
+                    open={breakpointModal.open}
+                    breakpoint={breakpointModal.bp}
+                    onClose={() => setBreakpointModal({ open: false })}
+                    onSave={(bp) => {
+                        const existing = breakpoints.findIndex(b => b.id === bp.id);
+                        if (existing >= 0) {
+                            // Update existing
+                            const updated = [...breakpoints];
+                            updated[existing] = bp;
+                            onUpdateBreakpoints(updated);
+                        } else {
+                            // Add new
+                            onUpdateBreakpoints([...breakpoints, bp]);
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 };

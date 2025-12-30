@@ -31,7 +31,8 @@ import {
     SaveProxyHistoryCommand,
     InjectProxyCommand,
     RestoreProxyCommand,
-    OpenCertificateCommand
+    OpenCertificateCommand,
+    ResolveBreakpointCommand
 } from '../commands/ProxyCommands';
 
 import {
@@ -90,6 +91,7 @@ export class WebviewController {
         this._commands.set('injectProxy', new InjectProxyCommand(this._panel, this._configSwitcherService, this._proxyService, this._soapClient));
         this._commands.set('restoreProxy', new RestoreProxyCommand(this._panel, this._configSwitcherService));
         this._commands.set('openCertificate', new OpenCertificateCommand(this._proxyService, this._soapClient));
+        this._commands.set('resolveBreakpoint', new ResolveBreakpointCommand(this._proxyService));
 
         // Test Commands
         this._commands.set('runTestSuite', new RunTestSuiteCommand(this._testRunnerService, this._loadedProjects));
@@ -107,6 +109,14 @@ export class WebviewController {
         });
         this._proxyService.on('status', (running) => {
             this._panel.webview.postMessage({ command: 'proxyStatus', running });
+        });
+
+        // Breakpoint events
+        this._proxyService.on('breakpointHit', (data) => {
+            this._panel.webview.postMessage({ command: 'breakpointHit', ...data });
+        });
+        this._proxyService.on('breakpointTimeout', (data) => {
+            this._panel.webview.postMessage({ command: 'breakpointTimeout', ...data });
         });
 
         // Test Runner Callback
@@ -166,9 +176,11 @@ export class WebviewController {
                     this._settingsManager.updateConfigFromObject(message.config);
                 }
                 this.sendSettingsToWebview();
-                // Sync replace rules to proxy service
+                // Sync replace rules and breakpoints to proxy service
                 const rules = this._settingsManager.getConfig().replaceRules || [];
                 this._proxyService.setReplaceRules(rules);
+                const breakpoints = this._settingsManager.getConfig().breakpoints || [];
+                this._proxyService.setBreakpoints(breakpoints);
                 break;
             case 'getSettings':
                 console.log('[WebviewController] Received getSettings. Sending settings to webview.');
@@ -325,8 +337,9 @@ export class WebviewController {
             const raw = this._settingsManager.getRawConfig();
             this.sendChangelogToWebview(); // Piggyback changelog
             this._panel.webview.postMessage({ command: 'settingsUpdate', config, raw });
-            // Sync replace rules to proxy service on config load
+            // Sync replace rules and breakpoints to proxy service on config load
             this._proxyService.setReplaceRules(config.replaceRules || []);
+            this._proxyService.setBreakpoints(config.breakpoints || []);
         }
     }
 
