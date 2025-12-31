@@ -446,6 +446,37 @@ function App() {
         return () => clearTimeout(timer);
     }, [projects, exploredInterfaces, explorerExpanded, wsdlUrl, selectedProjectName]);
 
+    // Ctrl+S keyboard shortcut to save all dirty projects
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                // Save all dirty projects
+                projects.forEach(p => {
+                    if (p.dirty) {
+                        saveProject(p);
+                    }
+                });
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [projects, saveProject]);
+
+    // Warn about unsaved changes on close
+    useEffect(() => {
+        const hasDirtyProjects = projects.some(p => p.dirty);
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasDirtyProjects) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [projects]);
+
     // Auto-save Open Projects (Project Paths)
     useEffect(() => {
         // Collect file names of all open projects
@@ -676,6 +707,20 @@ function App() {
                             bridge.sendMessage({ command: 'saveSettings', config: updatedConfig });
                         }
                     }
+                }}
+                testsProps={{
+                    projects,
+                    onAddSuite: handleAddSuite,
+                    onDeleteSuite: handleDeleteSuite,
+                    onRunSuite: handleRunTestSuiteWrapper,
+                    onAddTestCase: handleAddTestCase,
+                    onDeleteTestCase: handleDeleteTestCase,
+                    onRunCase: handleRunTestCaseWrapper,
+                    onSelectSuite: handleSelectTestSuite,
+                    onSelectTestCase: handleSelectTestCase,
+                    onToggleSuiteExpand: handleToggleSuiteExpand,
+                    onToggleCaseExpand: handleToggleCaseExpand,
+                    deleteConfirm
                 }}
                 activeView={activeView}
                 onChangeView={setActiveView}

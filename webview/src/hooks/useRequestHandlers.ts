@@ -178,7 +178,7 @@ export function useRequestHandlers({
 
                     if (caseUpdated) {
                         const updatedProject = { ...p, testSuites: updatedSuites, dirty: true };
-                        setTimeout(() => saveProject(updatedProject), 0);
+                        // No longer auto-saving - user must click Save button
                         return updatedProject;
                     }
                 }
@@ -201,7 +201,7 @@ export function useRequestHandlers({
                         };
                     })
                 };
-                setTimeout(() => saveProject(updatedProject), 0);
+                // No longer auto-saving - user must click Save button
                 return updatedProject;
             }));
         } else {

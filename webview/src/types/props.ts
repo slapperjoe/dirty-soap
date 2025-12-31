@@ -109,6 +109,21 @@ export interface SidebarProxyProps {
     onUpdateBreakpoints?: (breakpoints: any[]) => void;
 }
 
+export interface SidebarTestsProps {
+    projects: SoapUIProject[];
+    onAddSuite: (projectName: string) => void;
+    onDeleteSuite: (suiteId: string) => void;
+    onRunSuite: (suiteId: string) => void;
+    onAddTestCase: (suiteId: string) => void;
+    onDeleteTestCase: (caseId: string) => void;
+    onRunCase: (caseId: string) => void;
+    onSelectSuite: (suiteId: string) => void;
+    onSelectTestCase: (caseId: string) => void;
+    onToggleSuiteExpand: (suiteId: string) => void;
+    onToggleCaseExpand: (caseId: string) => void;
+    deleteConfirm: string | null;
+}
+
 // ============================================================================
 // WORKSPACE PROP GROUPS
 // ============================================================================

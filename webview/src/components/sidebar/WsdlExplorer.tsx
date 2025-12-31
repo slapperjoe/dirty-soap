@@ -131,9 +131,15 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
 
 
                     onToggleInterface={(iface) => toggleExploredInterface(iface.name)}
+                    onSelectInterface={(iface) => {
+                        // Only select, don't expand
+                        setSelectedInterface(iface);
+                        setSelectedOperation(null);
+                        setSelectedRequest(null);
+                    }}
                     onToggleOperation={(op, iface) => toggleExploredOperation(iface.name, op.name)}
                     onSelectOperation={(op, iface) => {
-                        toggleExploredOperation(iface.name, op.name);
+                        // Only select, don't expand - expand is chevron-only
                         setSelectedInterface(iface);
                         setSelectedOperation(op);
 

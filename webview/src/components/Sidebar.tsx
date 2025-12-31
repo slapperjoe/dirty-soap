@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Settings, HelpCircle, Eye, Globe, Compass, FolderOpen as FolderIcon } from 'lucide-react';
+import { Settings, HelpCircle, Eye, Globe, Compass, FolderOpen as FolderIcon, FlaskConical } from 'lucide-react';
 import { SidebarView } from '../models';
 
 // Components
@@ -8,6 +7,7 @@ import { ProjectList } from './sidebar/ProjectList';
 import { WsdlExplorer } from './sidebar/WsdlExplorer';
 import { WatcherPanel } from './sidebar/WatcherPanel';
 import { ProxyUi } from './sidebar/ProxyUi';
+import { TestsUi } from './sidebar/TestsUi';
 
 // Prop Groups
 import {
@@ -17,7 +17,8 @@ import {
     SidebarSelectionProps,
     SidebarTestRunnerProps,
     SidebarWatcherProps,
-    SidebarProxyProps
+    SidebarProxyProps,
+    SidebarTestsProps
 } from '../types/props';
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ interface SidebarProps {
     testRunnerProps: SidebarTestRunnerProps;
     watcherProps: SidebarWatcherProps;
     proxyProps: SidebarProxyProps;
+    testsProps: SidebarTestsProps;
 
     // View State
     activeView: SidebarView;
@@ -51,9 +53,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     explorerProps,
     wsdlProps,
     selectionProps,
-    testRunnerProps,
+    testRunnerProps: _testRunnerProps, // Legacy, tests now use testsProps
     watcherProps,
     proxyProps,
+    testsProps,
     backendConnected,
     workspaceDirty,
     onOpenSettings,
@@ -62,21 +65,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onChangeView
 }) => {
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
-    const { projects, savedProjects, loadProject, saveProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand } = projectProps;
+    const { projects, savedProjects, loadProject, saveProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation } = projectProps;
     const { exploredInterfaces, addToProject, addAllToProject, clearExplorer, removeFromExplorer, toggleExploredInterface, toggleExploredOperation } = explorerProps;
     const { inputType, setInputType, wsdlUrl, setWsdlUrl, selectedFile, loadWsdl, pickLocalWsdl, downloadStatus } = wsdlProps;
     const {
-        setSelectedProjectName,
+        selectedProjectName, setSelectedProjectName,
         selectedInterface, setSelectedInterface,
         selectedOperation, setSelectedOperation,
         selectedRequest, setSelectedRequest,
         setResponse, handleContextMenu, onAddRequest, onDeleteRequest,
         deleteConfirm, setDeleteConfirm
     } = selectionProps;
-    const {
-        onAddSuite, onDeleteSuite, onRunSuite, onAddTestCase, onRunCase, onDeleteTestCase,
-        onSelectSuite, onSelectTestCase, onToggleSuiteExpand, onToggleCaseExpand
-    } = testRunnerProps;
     const {
         history: watcherHistory, onSelectEvent: onSelectWatcherEvent, isRunning: watcherRunning,
         onStart: onStartWatcher, onStop: onStopWatcher, onClear: onClearWatcher
@@ -142,6 +141,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => onChangeView(SidebarView.PROXY)}
                     title="Dirty Proxy"
                 />
+                <NavItem
+                    icon={FlaskConical}
+                    active={activeView === SidebarView.TESTS}
+                    onClick={() => onChangeView(SidebarView.TESTS)}
+                    title="Tests"
+                />
 
                 <div style={{ flex: 1 }}></div>
 
@@ -183,6 +188,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onStop={onStopWatcher}
                         onClear={onClearWatcher}
                         onSelectEvent={onSelectWatcherEvent}
+                    />
+                )}
+
+                {activeView === SidebarView.TESTS && (
+                    <TestsUi
+                        projects={testsProps.projects}
+                        onAddSuite={testsProps.onAddSuite}
+                        onDeleteSuite={testsProps.onDeleteSuite}
+                        onRunSuite={testsProps.onRunSuite}
+                        onAddTestCase={testsProps.onAddTestCase}
+                        onDeleteTestCase={testsProps.onDeleteTestCase}
+                        onRunCase={testsProps.onRunCase}
+                        onSelectSuite={testsProps.onSelectSuite}
+                        onSelectTestCase={testsProps.onSelectTestCase}
+                        onToggleSuiteExpand={testsProps.onToggleSuiteExpand}
+                        onToggleCaseExpand={testsProps.onToggleCaseExpand}
+                        deleteConfirm={testsProps.deleteConfirm}
                     />
                 )}
 
@@ -231,6 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         toggleInterfaceExpand={toggleInterfaceExpand}
                         toggleOperationExpand={toggleOperationExpand}
 
+                        selectedProjectName={selectedProjectName}
                         setSelectedProjectName={setSelectedProjectName}
                         selectedInterface={selectedInterface}
                         setSelectedInterface={setSelectedInterface}
@@ -242,21 +265,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                         handleContextMenu={handleContextMenu}
                         onAddRequest={onAddRequest}
+                        onDeleteInterface={onDeleteInterface}
+                        onDeleteOperation={onDeleteOperation}
                         onDeleteRequest={onDeleteRequest}
                         deleteConfirm={deleteConfirm}
                         setDeleteConfirm={setDeleteConfirm}
-
-
-                        onAddSuite={onAddSuite}
-                        onDeleteSuite={onDeleteSuite}
-                        onRunSuite={onRunSuite}
-                        onAddTestCase={onAddTestCase}
-                        onRunCase={onRunCase}
-                        onDeleteTestCase={onDeleteTestCase}
-                        onSelectSuite={onSelectSuite}
-                        onSelectTestCase={onSelectTestCase}
-                        onToggleSuiteExpand={onToggleSuiteExpand}
-                        onToggleCaseExpand={onToggleCaseExpand}
                     />
                 )}
             </div>

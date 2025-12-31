@@ -16,14 +16,17 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "dirty-soap.openInterface",
         "title": "Open Interface",
-        "category": "Dirty Soap"
+        "category": "Dirty Soap",
+        "icon": "$(zap)"
       }
     ]
   },

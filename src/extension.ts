@@ -7,6 +7,14 @@ export function activate(context: vscode.ExtensionContext) {
     // Pass extension context for SecretStorage (used by AzureDevOpsService)
     SoapPanel.setContext(context);
 
+    // Create status bar button
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    statusBarItem.text = "$(beaker) Dirty SOAP";
+    statusBarItem.tooltip = "Open Dirty SOAP - WSDL Explorer & SOAP Client";
+    statusBarItem.command = 'dirty-soap.openInterface';
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
+
     let disposable = vscode.commands.registerCommand('dirty-soap.openInterface', () => {
         SoapPanel.createOrShow(context.extensionUri);
     });

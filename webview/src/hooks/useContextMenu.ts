@@ -124,9 +124,12 @@ export function useContextMenu({
                 return newProjects;
             });
 
+            // Clear the deleted request selection but keep parent operation selected
+            setSelectedRequest(null);
+
             if (contextMenu) closeContextMenu();
         }
-    }, [contextMenu, setProjects, saveProject, closeContextMenu]);
+    }, [contextMenu, setProjects, saveProject, closeContextMenu, setSelectedRequest]);
 
     const handleCloneRequest = useCallback(() => {
         if (contextMenu && contextMenu.type === 'request' && !contextMenu.isExplorer) {
@@ -190,9 +193,13 @@ export function useContextMenu({
                 return p;
             }));
 
+            // Auto-select the new request
+            setSelectedRequest(newRequest);
+            setResponse(null);
+
             if (contextMenu) closeContextMenu();
         }
-    }, [contextMenu, setProjects, saveProject, closeContextMenu]);
+    }, [contextMenu, setProjects, saveProject, closeContextMenu, setSelectedRequest, setResponse]);
 
     const handleDeleteInterface = useCallback((iface: SoapUIInterface) => {
         setProjects(prev => {

@@ -201,7 +201,7 @@ export function useRequestExecution({
 
                     if (caseUpdated) {
                         const updatedProject = { ...p, testSuites: updatedSuites, dirty: true };
-                        setTimeout(() => saveProject(updatedProject), 0);
+                        // No longer auto-saving - user must click Save button
                         return updatedProject;
                     }
                 }
@@ -224,7 +224,7 @@ export function useRequestExecution({
                         };
                     })
                 };
-                setTimeout(() => saveProject(updatedProject), 0);
+                // No longer auto-saving - user must click Save button
                 return updatedProject;
             }));
         } else {

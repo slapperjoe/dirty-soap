@@ -1,7 +1,7 @@
 import React from 'react';
-import { ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Save } from 'lucide-react';
 import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapUIProject } from '../../models';
-import { HeaderButton, ServiceItem, OperationItem, RequestItem, DirtyMarker } from './shared/SidebarStyles';
+import { HeaderButton, OperationItem, RequestItem, DirtyMarker } from './shared/SidebarStyles';
 
 export interface ServiceTreeProps {
     interfaces: SoapUIInterface[];
@@ -17,6 +17,7 @@ export interface ServiceTreeProps {
 
     // Actions
     onToggleInterface: (iface: SoapUIInterface) => void;
+    onSelectInterface: (iface: SoapUIInterface) => void;
     onToggleOperation: (op: SoapUIOperation, iface: SoapUIInterface) => void;
     onSelectOperation: (op: SoapUIOperation, iface: SoapUIInterface) => void;
     onSelectRequest: (req: SoapUIRequest, op: SoapUIOperation, iface: SoapUIInterface) => void;
@@ -31,6 +32,8 @@ export interface ServiceTreeProps {
     onAddRequest?: (op: SoapUIOperation) => void;
     onDeleteOperation?: (op: SoapUIOperation, iface: SoapUIInterface) => void;
     onDeleteRequest?: (req: SoapUIRequest) => void;
+    onSaveProject?: () => void; // Saves the parent project
+    recentlySaved?: boolean; // True if project was recently saved (for green confirmation)
 
     setConfirmDeleteId: (id: string | null) => void;
 
@@ -46,6 +49,7 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
     confirmDeleteId,
 
     onToggleInterface,
+    onSelectInterface,
     onToggleOperation,
     onSelectOperation,
     onSelectRequest,
@@ -56,6 +60,8 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
     onAddRequest,
     onDeleteOperation,
     onDeleteRequest,
+    onSaveProject,
+    recentlySaved,
     setConfirmDeleteId
 
 }) => {
@@ -63,12 +69,16 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
         <>
             {interfaces.map((iface, i) => (
                 <div key={i}>
-                    <ServiceItem
+                    <OperationItem
+                        active={selectedInterface === iface}
                         onContextMenu={(e) => onContextMenu(e, 'interface', iface)}
-                        onClick={() => onToggleInterface(iface)}
+                        onClick={() => onSelectInterface(iface)}
                         style={{ paddingLeft: 20 }}
                     >
-                        <span style={{ marginRight: 5, display: 'flex' }}>
+                        <span
+                            onClick={(e) => { e.stopPropagation(); onToggleInterface(iface); }}
+                            style={{ marginRight: 5, display: 'flex', cursor: 'pointer' }}
+                        >
                             {(iface as any).expanded !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         </span>
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -84,7 +94,7 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                 </HeaderButton>
                             </div>
                         )}
-                        {!isExplorer && onDeleteInterface && (
+                        {!isExplorer && selectedInterface === iface && onDeleteInterface && (
                             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
                                 <HeaderButton
                                     onClick={(e) => {
@@ -105,7 +115,7 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                 </HeaderButton>
                             </div>
                         )}
-                    </ServiceItem>
+                    </OperationItem>
                     {(iface as any).expanded !== false && iface.operations.map((op: any, j: number) => {
                         const hasSingleRequest = op.requests.length === 1;
                         const singleRequest = hasSingleRequest ? op.requests[0] : null;
@@ -126,6 +136,15 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                     </span>
                                     {op.name}
                                     {hasSingleRequest && singleRequest?.dirty && <DirtyMarker>●</DirtyMarker>}
+                                    {hasSingleRequest && (singleRequest?.dirty || recentlySaved) && !isExplorer && onSaveProject && (
+                                        <HeaderButton
+                                            onClick={(e) => { e.stopPropagation(); onSaveProject(); }}
+                                            title="Save Project"
+                                            style={{ marginLeft: 5, color: recentlySaved ? 'var(--vscode-testing-iconPassed)' : 'inherit' }}
+                                        >
+                                            <Save size={12} />
+                                        </HeaderButton>
+                                    )}
                                     {!isExplorer && selectedOperation === op && (
                                         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
                                             {onAddRequest && (
@@ -174,6 +193,15 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                         <div style={{ display: 'flex', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.name}</span>
                                             {req.dirty && <DirtyMarker>●</DirtyMarker>}
+                                            {(req.dirty || recentlySaved) && !isExplorer && onSaveProject && (
+                                                <HeaderButton
+                                                    onClick={(e) => { e.stopPropagation(); onSaveProject(); }}
+                                                    title="Save Project"
+                                                    style={{ color: recentlySaved ? 'var(--vscode-testing-iconPassed)' : 'inherit' }}
+                                                >
+                                                    <Save size={12} />
+                                                </HeaderButton>
+                                            )}
                                             {!isExplorer && onDeleteRequest && (
                                                 <div style={{ marginLeft: 5 }}>
                                                     <HeaderButton
