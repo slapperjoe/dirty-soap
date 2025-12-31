@@ -142,7 +142,7 @@ export class ProjectStorage {
         const parser = new XMLParser({
             ignoreAttributes: false,
             attributeNamePrefix: "@_",
-            isArray: (name, _jpath, _isLeafNode, _isAttribute) => {
+            isArray: (name) => {
                 return ["con:interface", "con:operation", "con:call", "con:request", "con:assertion", "con:testSuite", "con:testCase", "con:testStep"].indexOf(name) !== -1;
             }
         });
@@ -243,7 +243,7 @@ export class ProjectStorage {
                         const type = step["@_type"]; // 'request', 'delay', etc.
 
                         // Parse Config based on Type
-                        const parsedConfig: any = {};
+                        const parsedConfig: Record<string, unknown> = {};
 
                         if (type === 'request' && cfg["request"]) {
                             const r = cfg["request"];

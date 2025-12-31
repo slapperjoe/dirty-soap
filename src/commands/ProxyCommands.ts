@@ -43,7 +43,6 @@ export class UpdateProxyConfigCommand implements ICommand {
 }
 
 export class SaveProxyHistoryCommand implements ICommand {
-    // Uses static vscode.window methods, no constructor needed
     async execute(message: any): Promise<void> {
         try {
             const defaultName = `proxy-report-${new Date().toISOString().slice(0, 10)}.md`;

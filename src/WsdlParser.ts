@@ -186,7 +186,7 @@ export class WsdlParser {
             const node: SoapSchemaNode = {
                 name,
                 type: typeName,
-                kind: 'simple',
+                kind: 'simple' as const,
                 minOccurs,
                 documentation: doc
             };

@@ -57,7 +57,7 @@ export class LoadWsdlCommand implements ICommand {
 
             // Cleanup temp file if raw
             if (source === 'raw') {
-                try { fs.unlinkSync(localPath); } catch (_e) { /* ignore cleanup errors */ }
+                try { fs.unlinkSync(localPath); } catch { /* ignore cleanup errors */ }
             }
 
         } catch (error: any) {
