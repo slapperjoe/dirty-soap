@@ -188,6 +188,27 @@ export const ServerTab: React.FC<ServerTabProps> = ({
                 </div>
             </FormGroup>
 
+            <div style={{ display: 'flex', gap: 10 }}>
+                <PrimaryButton
+                    onClick={onInjectConfig}
+                    disabled={!configPath && !config.lastConfigPath}
+                    style={{ opacity: (!configPath && !config.lastConfigPath) ? 0.5 : 1 }}
+                >
+                    <Power size={12} /> Inject Server URL
+                </PrimaryButton>
+                <PrimaryButton
+                    onClick={onRestoreConfig}
+                    disabled={!configPath && !config.lastConfigPath}
+                    style={{
+                        opacity: (!configPath && !config.lastConfigPath) ? 0.5 : 1,
+                        background: 'var(--vscode-button-secondaryBackground)',
+                        color: 'var(--vscode-button-secondaryForeground)'
+                    }}
+                >
+                    <RotateCcw size={12} /> Restore Original
+                </PrimaryButton>
+            </div>
+
             {/* Mock Options */}
             <>
                 <SectionHeader>Mock Options</SectionHeader>
@@ -303,26 +324,7 @@ export const ServerTab: React.FC<ServerTabProps> = ({
                 </FormGroup>
             </>
 
-            <div style={{ display: 'flex', gap: 10 }}>
-                <PrimaryButton
-                    onClick={onInjectConfig}
-                    disabled={!configPath && !config.lastConfigPath}
-                    style={{ opacity: (!configPath && !config.lastConfigPath) ? 0.5 : 1 }}
-                >
-                    <Power size={12} /> Inject Server URL
-                </PrimaryButton>
-                <PrimaryButton
-                    onClick={onRestoreConfig}
-                    disabled={!configPath && !config.lastConfigPath}
-                    style={{
-                        opacity: (!configPath && !config.lastConfigPath) ? 0.5 : 1,
-                        background: 'var(--vscode-button-secondaryBackground)',
-                        color: 'var(--vscode-button-secondaryForeground)'
-                    }}
-                >
-                    <RotateCcw size={12} /> Restore Original
-                </PrimaryButton>
-            </div>
+
 
             {/* Mock Rule Modal */}
             <MockRuleModal
