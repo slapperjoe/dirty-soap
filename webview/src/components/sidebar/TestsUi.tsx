@@ -31,8 +31,8 @@ export const TestsUi: React.FC<TestsUiProps> = ({
     onAddTestCase,
     onDeleteTestCase,
     onRunCase,
-    onSelectSuite: _onSelectSuite,
-    onSelectTestCase: _onSelectTestCase,
+    onSelectSuite,
+    onSelectTestCase,
     onToggleSuiteExpand,
     onToggleCaseExpand: _onToggleCaseExpand,
     deleteConfirm
@@ -149,12 +149,13 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                     <OperationItem
                                         active={isSuiteSelected}
                                         onClick={() => {
-                                            // Toggle suite selection only - expand is on chevron
+                                            // Toggle suite selection and notify parent
                                             if (isSuiteSelected) {
                                                 setSelectedSuiteId(null);
                                             } else {
                                                 setSelectedSuiteId(suite.id);
                                                 setSelectedCaseId(null); // Clear case selection
+                                                onSelectSuite(suite.id); // Notify parent
                                             }
                                         }}
                                         style={{ paddingLeft: 8 }}
@@ -197,12 +198,13 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                                 key={tc.id}
                                                 active={isSelected}
                                                 onClick={() => {
-                                                    // Select case and clear suite selection
+                                                    // Select case and notify parent
                                                     if (isSelected) {
                                                         setSelectedCaseId(null);
                                                     } else {
                                                         setSelectedCaseId(tc.id);
                                                         setSelectedSuiteId(null); // Clear suite selection
+                                                        onSelectTestCase(tc.id); // Notify parent
                                                     }
                                                 }}
                                                 style={{ paddingLeft: 35 }}

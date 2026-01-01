@@ -73,9 +73,9 @@ export function useTestCaseHandlers({
             setSelectedOperation(null);
             setSelectedInterface(null);
             setResponse(null);
-            setActiveView(SidebarView.PROJECTS);
+            // Don't change activeView - let user stay on current sidebar tab
         }
-    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setResponse, setActiveView]);
+    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setResponse]);
 
     const handleSelectTestCase = useCallback((caseId: string) => {
         let foundCase: SoapTestCase | null = null;
@@ -99,11 +99,11 @@ export function useTestCaseHandlers({
             setSelectedOperation(null);
             setSelectedInterface(null);
             setResponse(null);
-            setActiveView(SidebarView.PROJECTS);
+            // Don't change activeView - let user stay on current sidebar tab
         } else {
             bridge.sendMessage({ command: 'error', message: `Could not find Test Case: ${caseId}` });
         }
-    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setResponse, setActiveView]);
+    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setResponse]);
 
     const handleAddAssertion = useCallback((data: { xpath: string, expectedContent: string }) => {
         console.log("handleAddAssertion Called.", data, "TC:", selectedTestCase?.id, "Step:", selectedStep?.id);
