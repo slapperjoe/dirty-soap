@@ -377,7 +377,38 @@ export function useTestCaseHandlers({
     }, []);
 
     const handleSaveExtractor = useCallback((data: { xpath: string, value: string, source: 'body' | 'header', variableName: string }) => {
-        if (!selectedTestCase || !selectedStep) return;
+        if (!selectedTestCase || !selectedStep) {
+            console.error('[handleSaveExtractor] Missing selection state', {
+                hasTestCase: !!selectedTestCase,
+                hasStep: !!selectedStep,
+                data
+            });
+            return;
+        }
+        // Build the new extractor
+        const newExtractor: SoapRequestExtractor = {
+            id: crypto.randomUUID(),
+            type: 'XPath',
+            path: data.xpath,
+            variable: data.variableName,
+            source: data.source
+        };
+
+        // Build the updated step for immediate UI update
+        let updatedStep: SoapTestStep | null = null;
+        if (selectedStep.type === 'request' && selectedStep.config.request) {
+            updatedStep = {
+                ...selectedStep,
+                config: {
+                    ...selectedStep.config,
+                    request: {
+                        ...selectedStep.config.request,
+                        extractors: [...(selectedStep.config.request.extractors || []), newExtractor],
+                        dirty: true
+                    }
+                }
+            };
+        }
 
         const nextProjects = projects.map(p => {
             const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
@@ -391,27 +422,7 @@ export function useTestCaseHandlers({
                         ...tc,
                         steps: tc.steps.map(s => {
                             if (s.id !== selectedStep.id) return s;
-                            if (s.type !== 'request' || !s.config.request) return s;
-
-                            const newExtractor: SoapRequestExtractor = {
-                                id: crypto.randomUUID(),
-                                type: 'XPath',
-                                path: data.xpath,
-                                variable: data.variableName,
-                                source: data.source
-                            };
-
-                            return {
-                                ...s,
-                                config: {
-                                    ...s.config,
-                                    request: {
-                                        ...s.config.request,
-                                        extractors: [...(s.config.request.extractors || []), newExtractor],
-                                        dirty: true
-                                    }
-                                }
-                            };
+                            return updatedStep || s;
                         })
                     };
                 })
@@ -423,7 +434,12 @@ export function useTestCaseHandlers({
         });
 
         setProjects(nextProjects);
-    }, [projects, selectedTestCase, selectedStep, setProjects, saveProject]);
+
+        // Update selectedStep so UI reflects the new extractor immediately
+        if (updatedStep) {
+            setSelectedStep(updatedStep);
+        }
+    }, [projects, selectedTestCase, selectedStep, setProjects, setSelectedStep, saveProject]);
 
     return {
         handleSelectTestSuite,
