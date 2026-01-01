@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { WildcardProcessor } from '../utils/WildcardProcessor';
 
 describe('WildcardProcessor', () => {
@@ -37,7 +37,7 @@ describe('WildcardProcessor', () => {
                 const result = WildcardProcessor.process('num: {{randomInt(1,10)}}', {}, {});
                 const match = result.match(/num: (\d+)/);
                 expect(match).not.toBeNull();
-                const num = parseInt(match![1]);
+                const num = parseInt(match?.[1] ?? '0');
                 expect(num).toBeGreaterThanOrEqual(1);
                 expect(num).toBeLessThanOrEqual(10);
             }

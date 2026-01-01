@@ -7,6 +7,9 @@ import {
     SoapTestStep,
     TestStepType,
     WatcherEvent,
+    MockConfig,
+    MockRule,
+    MockEvent
     // SidebarView
 } from '../models';
 
@@ -122,6 +125,52 @@ export interface SidebarTestsProps {
     onToggleSuiteExpand: (suiteId: string) => void;
     onToggleCaseExpand: (caseId: string) => void;
     deleteConfirm: string | null;
+}
+
+export interface SidebarMockProps {
+    isRunning: boolean;
+    config: MockConfig;
+    history: MockEvent[];
+    onStart: () => void;
+    onStop: () => void;
+    onUpdateConfig: (config: Partial<MockConfig>) => void;
+    onClear: () => void;
+    onSelectEvent: (event: MockEvent) => void;
+
+    // Rule management
+    rules: MockRule[];
+    onAddRule: (rule: MockRule) => void;
+    onUpdateRule: (id: string, updates: Partial<MockRule>) => void;
+    onDeleteRule: (id: string) => void;
+    onToggleRule: (id: string, enabled: boolean) => void;
+    onEditRule?: (rule: MockRule) => void;
+}
+
+export interface SidebarServerProps {
+    serverConfig: import('../models').ServerConfig;
+    isRunning: boolean;
+
+    onModeChange: (mode: import('../models').ServerMode) => void;
+    onStart: () => void;
+    onStop: () => void;
+    onOpenSettings: () => void;
+
+    // Combined traffic
+    proxyHistory: WatcherEvent[];
+    mockHistory: MockEvent[];
+    onSelectProxyEvent: (event: WatcherEvent) => void;
+    onSelectMockEvent: (event: MockEvent) => void;
+    onClearHistory: () => void;
+
+    // Mock Rules (mode = mock or both)
+    mockRules?: MockRule[];
+    onAddMockRule?: (rule: MockRule) => void;
+    onDeleteMockRule?: (id: string) => void;
+    onToggleMockRule?: (id: string, enabled: boolean) => void;
+
+    // Breakpoints (mode = proxy or both)
+    breakpoints?: import('../components/modals/BreakpointModal').Breakpoint[];
+    onUpdateBreakpoints?: (breakpoints: import('../components/modals/BreakpointModal').Breakpoint[]) => void;
 }
 
 // ============================================================================

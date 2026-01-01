@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WsdlParser } from '../WsdlParser';
-import * as path from 'path';
 
 // Integration tests using real WSDL file
 // Note: These tests use the soap library's actual parsing

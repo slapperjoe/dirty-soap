@@ -36,6 +36,8 @@ export interface DirtySoapConfig {
         orgUrl?: string;      // e.g., "https://dev.azure.com/myorg"
         project?: string;     // Selected from dropdown
     };
+    /** Last selected web.config path for config switcher */
+    configSwitcherPath?: string;
 }
 
 export interface ReplaceRuleSettings {

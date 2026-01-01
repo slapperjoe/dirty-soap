@@ -4,6 +4,7 @@ import * as os from 'os';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 import { ReplaceRule } from './ReplaceRuleApplier';
 import { Breakpoint } from '../services/ProxyService';
+import { MockConfig, MockRule } from '../models';
 
 export interface DirtySoapConfig {
     version: number;
@@ -34,6 +35,8 @@ export interface DirtySoapConfig {
     replaceRules?: ReplaceRule[];
     /** Breakpoints for proxy - pause on matching requests/responses */
     breakpoints?: Breakpoint[];
+    /** Mock server configuration */
+    mockServer?: MockConfig;
 }
 
 const DEFAULT_CONFIG: DirtySoapConfig = {
@@ -173,6 +176,20 @@ export class SettingsManager {
 
     public updateOpenProjects(paths: string[]) {
         this.updateConfigPath(['openProjects'], paths);
+    }
+
+    public updateMockConfig(config: Partial<MockConfig>) {
+        const current = this.getConfig();
+        const updated = { ...current.mockServer, ...config };
+        this.updateConfigPath(['mockServer'], updated);
+    }
+
+    public updateMockRules(rules: MockRule[]) {
+        this.updateConfigPath(['mockServer', 'rules'], rules);
+    }
+
+    public getMockConfig(): MockConfig | undefined {
+        return this.getConfig().mockServer;
     }
 
     public saveRawConfig(content: string) {

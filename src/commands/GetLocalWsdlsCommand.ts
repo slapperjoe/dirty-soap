@@ -12,7 +12,7 @@ export class GetLocalWsdlsCommand implements ICommand {
         private readonly _storagePath: string
     ) { }
 
-    async execute(message: any): Promise<void> {
+    async execute(_message: any): Promise<void> {
         try {
             const workspaceFolders = vscode.workspace.workspaceFolders;
             // Legacy priority: Workspace folder 'wsdl_files' > Extension storage 'wsdl_files'

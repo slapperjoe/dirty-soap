@@ -1,7 +1,6 @@
 
 import { ICommand } from './ICommand';
 import { SoapClient } from '../soapClient';
-import { WsdlParser } from '../WsdlParser';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';

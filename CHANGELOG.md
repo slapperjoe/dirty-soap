@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [0.8.0] - 2026-01-01
+### Added
+- **Mock Server**: Return predefined responses without hitting real backend
+    - Mock rules with URL, XPath, and regex matching
+    - Record mode to auto-capture real responses
+    - Passthrough for unmatched requests
+    - Latency simulation
+- **Unified Server Tab**: Combined Proxy and Mock into single Server view
+    - Mode toggle: Off, Mock, Proxy, Both
+    - Conditional sections show Mock Rules or Breakpoints based on mode
+- **Settings Tab Enum**: Refactored settings modal to use `SettingsTab` enum
+- **Updated Help Modal**: Added Server and Mock Server documentation sections
+
+### Changed
+- Removed separate Proxy and Mock tabs from sidebar
+- Settings cog on Server tab now opens Settings directly to Server tab
+
 ## [0.7.6] - 2025-12-31
 ### Changes
 - **Status Bar Launch**: Added "🧪 Dirty SOAP" button in the status bar for quick access

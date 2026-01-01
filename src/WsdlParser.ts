@@ -22,7 +22,7 @@ export class WsdlParser {
         return this.client;
     }
 
-    public async parseWsdl(url: string, localWsdlDir?: string): Promise<SoapService[]> {
+    public async parseWsdl(url: string, _localWsdlDir?: string): Promise<SoapService[]> {
         this.log(`Attempting to parse WSDL: ${url}`);
 
         const options: any = {};
@@ -147,7 +147,7 @@ export class WsdlParser {
         }
     }
 
-    public getOperationSchema(operationName: string, portName?: string): SoapSchemaNode | null {
+    public getOperationSchema(operationName: string, _portName?: string): SoapSchemaNode | null {
         if (!this.client) return null;
 
         const definitions = (this.client as any).wsdl.definitions;

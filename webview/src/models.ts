@@ -171,7 +171,9 @@ export enum SidebarView {
     EXPLORER = 'explorer',
     TESTS = 'tests',
     WATCHER = 'watcher',
-    PROXY = 'proxy'
+    PROXY = 'proxy',
+    MOCK = 'mock',
+    SERVER = 'server'  // Unified server tab (replaces PROXY + MOCK)
 }
 
 /**
@@ -195,6 +197,106 @@ export interface ReplaceRule {
     isRegex?: boolean;
     /** Rule is active */
     enabled: boolean;
+}
+
+// ============================================
+// Unified Server Types
+// ============================================
+
+/** Server operating mode */
+export type ServerMode = 'off' | 'proxy' | 'mock' | 'both';
+
+/** Unified server configuration */
+export interface ServerConfig {
+    mode: ServerMode;
+    port: number;
+    targetUrl: string;
+
+    /** Use system proxy for outgoing requests */
+    useSystemProxy?: boolean;
+
+    /** Mock rules (active when mode is 'mock' or 'both') */
+    mockRules: MockRule[];
+
+    /** Forward unmatched requests to target */
+    passthroughEnabled: boolean;
+
+    /** Auto-capture real responses as mocks */
+    recordMode?: boolean;
+}
+
+// ============================================
+// Mock Server Types
+// ============================================
+
+/** Single match condition within a mock rule */
+export interface MockMatchCondition {
+    type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains';
+    pattern: string;
+    isRegex?: boolean;
+    /** For header matching */
+    headerName?: string;
+}
+
+/** Mock rule with multiple conditions (AND logic) */
+export interface MockRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+
+    /** All conditions must match (AND logic) */
+    conditions: MockMatchCondition[];
+
+    /** Response configuration */
+    statusCode: number;
+    responseBody: string;
+    responseHeaders?: Record<string, string>;
+    contentType?: string;
+    /** Simulate latency (ms) */
+    delayMs?: number;
+
+    /** Metadata for recorded mocks */
+    recordedFrom?: string;
+    recordedAt?: number;
+    /** How many times this rule has been matched */
+    hitCount?: number;
+}
+
+/** Mock server configuration */
+export interface MockConfig {
+    enabled: boolean;
+    port: number;
+
+    /** Where to forward unmatched requests */
+    targetUrl: string;
+
+    /** Mock rules */
+    rules: MockRule[];
+
+    /** Forward unmatched requests to target (true) or return 404 (false) */
+    passthroughEnabled: boolean;
+    /** Route passthrough through Dirty Proxy instead of direct */
+    routeThroughProxy: boolean;
+
+    /** Auto-capture real responses as mocks */
+    recordMode?: boolean;
+}
+
+/** Mock event for traffic log */
+export interface MockEvent {
+    id: string;
+    timestamp: number;
+    timestampLabel: string;
+    method: string;
+    url: string;
+    requestHeaders: Record<string, any>;
+    requestBody: string;
+    status?: number;
+    responseHeaders?: Record<string, any>;
+    responseBody?: string;
+    duration?: number;
+    matchedRule?: string;
+    passthrough?: boolean;
 }
 
 export interface DirtySoapConfig {
@@ -231,5 +333,11 @@ export interface DirtySoapConfig {
         orgUrl?: string;
         project?: string;
     };
+    /** Mock server configuration (legacy, use server instead) */
+    mockServer?: MockConfig;
+    /** Unified server configuration */
+    server?: ServerConfig;
+    /** Last selected web.config path for config switcher */
+    configSwitcherPath?: string;
 }
 

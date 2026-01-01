@@ -197,6 +197,63 @@ export interface ReplaceRule {
     enabled: boolean;
 }
 
+// ============================================
+// Mock Server Types
+// ============================================
+
+/** Single match condition within a mock rule */
+export interface MockMatchCondition {
+    type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains';
+    pattern: string;
+    isRegex?: boolean;
+    /** For header matching */
+    headerName?: string;
+}
+
+/** Mock rule with multiple conditions (AND logic) */
+export interface MockRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+
+    /** All conditions must match (AND logic) */
+    conditions: MockMatchCondition[];
+
+    /** Response configuration */
+    statusCode: number;
+    responseBody: string;
+    responseHeaders?: Record<string, string>;
+    contentType?: string;
+    /** Simulate latency (ms) */
+    delayMs?: number;
+
+    /** Metadata for recorded mocks */
+    recordedFrom?: string;
+    recordedAt?: number;
+    /** How many times this rule has been matched */
+    hitCount?: number;
+}
+
+/** Mock server configuration */
+export interface MockConfig {
+    enabled: boolean;
+    port: number;
+
+    /** Where to forward unmatched requests */
+    targetUrl: string;
+
+    /** Mock rules */
+    rules: MockRule[];
+
+    /** Forward unmatched requests to target (true) or return 404 (false) */
+    passthroughEnabled: boolean;
+    /** Route passthrough through Dirty Proxy instead of direct */
+    routeThroughProxy: boolean;
+
+    /** Auto-capture real responses as mocks */
+    recordMode?: boolean;
+}
+
 export interface DirtySoapConfig {
     version: number;
     network?: {
@@ -231,5 +288,7 @@ export interface DirtySoapConfig {
         orgUrl?: string;
         project?: string;
     };
+    /** Mock server configuration */
+    mockServer?: MockConfig;
 }
 

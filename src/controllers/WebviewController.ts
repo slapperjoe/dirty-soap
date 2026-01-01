@@ -13,6 +13,7 @@ import { ProxyService } from '../services/ProxyService';
 import { ConfigSwitcherService } from '../services/ConfigSwitcherService';
 import { TestRunnerService } from '../services/TestRunnerService';
 import { AzureDevOpsService } from '../services/AzureDevOpsService';
+import { MockService } from '../services/MockService';
 import { SoapUIProject, SoapTestSuite, SoapTestCase } from '../models';
 import { FolderProjectStorage } from '../FolderProjectStorage';
 
@@ -41,6 +42,19 @@ import {
     PickOperationForTestCaseCommand
 } from '../commands/TestCommands';
 
+import {
+    StartMockServerCommand,
+    StopMockServerCommand,
+    UpdateMockConfigCommand,
+    UpdateMockRulesCommand,
+    AddMockRuleCommand,
+    DeleteMockRuleCommand,
+    ToggleMockRuleCommand,
+    InjectMockConfigCommand,
+    RestoreMockConfigCommand,
+    GetMockStatusCommand
+} from '../commands/MockCommands';
+
 export class WebviewController {
     private _loadedProjects: Map<string, SoapUIProject> = new Map();
     private _commands: Map<string, ICommand> = new Map();
@@ -57,7 +71,8 @@ export class WebviewController {
         private readonly _proxyService: ProxyService,
         private readonly _configSwitcherService: ConfigSwitcherService,
         private readonly _testRunnerService: TestRunnerService,
-        private readonly _azureDevOpsService: AzureDevOpsService
+        private readonly _azureDevOpsService: AzureDevOpsService,
+        private readonly _mockService: MockService
     ) {
         // Initialize Commands
         this._commands.set('executeRequest', new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager));
@@ -93,10 +108,21 @@ export class WebviewController {
         this._commands.set('openCertificate', new OpenCertificateCommand(this._proxyService, this._soapClient));
         this._commands.set('resolveBreakpoint', new ResolveBreakpointCommand(this._proxyService));
 
-        // Test Commands
         this._commands.set('runTestSuite', new RunTestSuiteCommand(this._testRunnerService, this._loadedProjects));
         this._commands.set('runTestCase', new RunTestCaseCommand(this._testRunnerService, this._loadedProjects));
         this._commands.set('pickOperationForTestCase', new PickOperationForTestCaseCommand(this._panel, this._loadedProjects));
+
+        // Mock Commands
+        this._commands.set('startMockServer', new StartMockServerCommand(this._mockService));
+        this._commands.set('stopMockServer', new StopMockServerCommand(this._mockService));
+        this._commands.set('updateMockConfig', new UpdateMockConfigCommand(this._mockService, this._settingsManager));
+        this._commands.set('updateMockRules', new UpdateMockRulesCommand(this._mockService, this._settingsManager));
+        this._commands.set('addMockRule', new AddMockRuleCommand(this._mockService, this._settingsManager));
+        this._commands.set('deleteMockRule', new DeleteMockRuleCommand(this._mockService, this._settingsManager));
+        this._commands.set('toggleMockRule', new ToggleMockRuleCommand(this._mockService, this._settingsManager));
+        this._commands.set('injectMockConfig', new InjectMockConfigCommand(this._panel, this._configSwitcherService, this._mockService));
+        this._commands.set('restoreMockConfig', new RestoreMockConfigCommand(this._panel, this._configSwitcherService));
+        this._commands.set('getMockStatus', new GetMockStatusCommand(this._panel, this._mockService));
 
         // Setup Update Callback
         this._fileWatcherService.setCallback((history) => {
@@ -122,6 +148,23 @@ export class WebviewController {
         // Test Runner Callback
         this._testRunnerService.setCallback((data) => {
             this._panel.webview.postMessage({ command: 'testRunnerUpdate', data });
+        });
+
+        // Mock Server Callbacks
+        this._mockService.on('log', (event) => {
+            this._panel.webview.postMessage({ command: 'mockLog', event });
+        });
+        this._mockService.on('status', (running) => {
+            this._panel.webview.postMessage({ command: 'mockStatus', running });
+        });
+        this._mockService.on('rulesUpdated', (rules) => {
+            this._panel.webview.postMessage({ command: 'mockRulesUpdated', rules });
+        });
+        this._mockService.on('mockHit', (data) => {
+            this._panel.webview.postMessage({ command: 'mockHit', ...data });
+        });
+        this._mockService.on('mockRecorded', (rule) => {
+            this._panel.webview.postMessage({ command: 'mockRecorded', rule });
         });
     }
 

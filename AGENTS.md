@@ -84,6 +84,42 @@ Rules are stored in `~/.dirty-soap/config.jsonc` under `replaceRules`:
 3. Before forwarding response → applies rules with `target = "response"` or `"both"`.
 4. XPath-scoped: Only replaces text within elements matching the XPath's target element name.
 
+## Mock Server
+
+The Mock Server returns predefined responses without hitting the real backend.
+
+### Key Files
+-   **`src/services/MockServerService.ts`**: HTTP server that matches requests against mock rules.
+-   **`src/commands/MockCommands.ts`**: Command handlers for start/stop and rule management.
+
+### Mock Rules
+
+Rules are stored in `~/.dirty-soap/mock-rules.jsonc`:
+
+```jsonc
+[
+  {
+    "id": "uuid",
+    "name": "GetUser Success",
+    "enabled": true,
+    "conditions": [
+      { "type": "url", "pattern": "/api/user", "isRegex": false }
+    ],
+    "statusCode": 200,
+    "responseBody": "<Response>...</Response>",
+    "delayMs": 100
+  }
+]
+```
+
+**Matching**:
+- `url`: Match against request URL path
+- `xpath`: Match against request body XML content
+- `regex`: Advanced pattern matching
+
+**Unified Server Tab**:
+The webview provides a unified `Server` tab with mode toggle (Off, Mock, Proxy, Both).
+
 ## Setup Instructions
 
 If you are an agent or developer setting this up from scratch:

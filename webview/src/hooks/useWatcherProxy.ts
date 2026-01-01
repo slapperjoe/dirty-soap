@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { WatcherEvent, SoapUIRequest, SoapUIOperation, SoapUIInterface, SidebarView } from '../models';
+import { WatcherEvent, SoapUIRequest, SoapUIOperation, SoapUIInterface, SidebarView, MockEvent, MockConfig } from '../models';
 import { formatXml } from '../utils/xmlFormatter';
 
 interface UseWatcherProxyParams {
@@ -40,6 +40,20 @@ interface UseWatcherProxyReturn {
 
     // Handlers
     handleSelectWatcherEvent: (event: WatcherEvent) => void;
+
+    // Mock State
+    mockHistory: MockEvent[];
+    setMockHistory: React.Dispatch<React.SetStateAction<MockEvent[]>>;
+    mockRunning: boolean;
+    setMockRunning: React.Dispatch<React.SetStateAction<boolean>>;
+    mockConfig: MockConfig;
+    setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
+    handleSelectMockEvent: (event: MockEvent) => void;
+    handleClearMockHistory: () => void;
+
+    // Unified Server Mode
+    serverMode: 'off' | 'proxy' | 'mock' | 'both';
+    setServerMode: React.Dispatch<React.SetStateAction<'off' | 'proxy' | 'mock' | 'both'>>;
 }
 
 export function useWatcherProxy({
@@ -61,6 +75,21 @@ export function useWatcherProxy({
     const [proxyHistory, setProxyHistory] = useState<WatcherEvent[]>([]);
     const [proxyRunning, setProxyRunning] = useState(false);
     const [proxyConfig, setProxyConfig] = useState({ port: 9000, target: 'http://localhost:8080', systemProxyEnabled: true });
+
+    // Mock State
+    const [mockHistory, setMockHistory] = useState<MockEvent[]>([]);
+    const [mockRunning, setMockRunning] = useState(false);
+    const [mockConfig, setMockConfig] = useState<MockConfig>({
+        enabled: false,
+        port: 9001,
+        targetUrl: 'http://localhost:8080',
+        rules: [],
+        passthroughEnabled: true,
+        routeThroughProxy: false
+    });
+
+    // Unified Server Mode (controlled by UI, not derived from running states)
+    const [serverMode, setServerMode] = useState<'off' | 'proxy' | 'mock' | 'both'>('off');
 
     const handleSelectWatcherEvent = useCallback((event: WatcherEvent) => {
         let requestBody = event.formattedBody;
@@ -123,6 +152,58 @@ export function useWatcherProxy({
         }
     }, [activeView, inlineElementValues, hideCausalityData, setSelectedInterface, setSelectedOperation, setSelectedRequest, setSelectedTestCase, setResponse]);
 
+    // Mock Event Selection Handler
+    const handleSelectMockEvent = useCallback((event: MockEvent) => {
+        const requestBody = formatXml(event.requestBody || '', true, inlineElementValues, hideCausalityData);
+
+        const tempRequest: SoapUIRequest = {
+            id: event.id,
+            name: `Mock: ${event.timestampLabel}`,
+            request: requestBody,
+            dirty: false,
+            headers: event.requestHeaders || {},
+            endpoint: event.url || '',
+            method: event.method || 'POST'
+        };
+
+        const tempOp: SoapUIOperation = {
+            name: event.matchedRule ? `Mock: ${event.matchedRule}` : 'Mock Request',
+            input: '',
+            requests: [tempRequest],
+            action: 'MockAction'
+        };
+
+        const tempIface: SoapUIInterface = {
+            name: 'Mock Server',
+            type: 'wsdl',
+            soapVersion: '1.1',
+            definition: '',
+            operations: [tempOp],
+            bindingName: 'MockBinding'
+        };
+
+        setSelectedInterface(tempIface);
+        setSelectedOperation(tempOp);
+        setSelectedRequest(tempRequest);
+        setSelectedTestCase(null);
+
+        if (event.responseBody) {
+            setResponse({
+                rawResponse: event.responseBody,
+                duration: event.duration || 0,
+                lineCount: event.responseBody.split(/\r\n|\r|\n/).length,
+                success: event.status ? event.status >= 200 && event.status < 300 : false,
+                headers: event.responseHeaders
+            });
+        } else {
+            setResponse(null);
+        }
+    }, [inlineElementValues, hideCausalityData, setSelectedInterface, setSelectedOperation, setSelectedRequest, setSelectedTestCase, setResponse]);
+
+    const handleClearMockHistory = useCallback(() => {
+        setMockHistory([]);
+    }, []);
+
     return {
         // Watcher
         watcherHistory,
@@ -137,6 +218,18 @@ export function useWatcherProxy({
         proxyConfig,
         setProxyConfig,
         // Handler
-        handleSelectWatcherEvent
+        handleSelectWatcherEvent,
+        // Mock
+        mockHistory,
+        setMockHistory,
+        mockRunning,
+        setMockRunning,
+        mockConfig,
+        setMockConfig,
+        handleSelectMockEvent,
+        handleClearMockHistory,
+        // Unified Server Mode
+        serverMode,
+        setServerMode
     };
 }

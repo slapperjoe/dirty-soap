@@ -10,6 +10,7 @@ import { ProxyService } from '../services/ProxyService';
 import { ConfigSwitcherService } from '../services/ConfigSwitcherService';
 import { TestRunnerService } from '../services/TestRunnerService';
 import { AzureDevOpsService } from '../services/AzureDevOpsService';
+import { MockService } from '../services/MockService';
 
 export class SoapPanel {
     public static currentPanel: SoapPanel | undefined;
@@ -27,6 +28,7 @@ export class SoapPanel {
     private _configSwitcherService: ConfigSwitcherService;
     private _testRunnerService: TestRunnerService;
     private _azureDevOpsService: AzureDevOpsService;
+    private _mockService: MockService;
     private _controller: WebviewController;
     private _disposables: vscode.Disposable[] = [];
     private _autosaveTimeout: NodeJS.Timeout | undefined;
@@ -94,6 +96,21 @@ export class SoapPanel {
         this._testRunnerService = new TestRunnerService(this._soapClient, this._outputChannel);
         this._azureDevOpsService = new AzureDevOpsService(SoapPanel._extensionContext);
 
+        // Mock Service
+        this._mockService = new MockService();
+        this._mockService.setLogger(msg => this._outputChannel.appendLine(msg));
+        this._mockService.setProxyPort(this._proxyService.getConfig().port);
+
+        // Mock Service Events
+        this._mockService.on('log', (event: any) => {
+            if (event.type === 'request') {
+                this._outputChannel.appendLine(`[Mock] Request: ${event.method} ${event.url}`);
+            } else {
+                const status = event.matchedRule ? `MOCK (${event.matchedRule})` : event.passthrough ? 'PASSTHROUGH' : 'NO_MATCH';
+                this._outputChannel.appendLine(`[Mock] Response: ${event.method} ${event.url} -> ${event.status} [${status}] (${event.duration}s)`);
+            }
+        });
+
         this._controller = new WebviewController(
             this._panel,
             this._extensionUri,
@@ -106,7 +123,8 @@ export class SoapPanel {
             this._proxyService,
             this._configSwitcherService,
             this._testRunnerService,
-            this._azureDevOpsService
+            this._azureDevOpsService,
+            this._mockService
         );
 
         // Watcher starts stopped by default.
@@ -173,6 +191,11 @@ export class SoapPanel {
         // Dispose Proxy Service
         if (this._proxyService) {
             this._proxyService.stop();
+        }
+
+        // Dispose Mock Service
+        if (this._mockService) {
+            this._mockService.stop();
         }
 
         // Dispose panel

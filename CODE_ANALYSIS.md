@@ -2,22 +2,24 @@
 
 This document outlines observations and actionable recommendations for simplifying and improving the Dirty SOAP codebase.
 
-**Last Updated**: 2025-12-31
+**Last Updated**: 2026-01-01
 
 ---
 
 ## Executive Summary
 
 The codebase has been significantly improved. Key accomplishments:
-- ✅ **App.tsx reduced** from 2,190 → 941 lines (57% reduction) via hooks extraction
+- ✅ **App.tsx reduced** from 2,190 → ~1,100 lines via hooks extraction
 - ✅ **Dead files removed** (ProxyService.ts.original, main.js)
 - ✅ **Stale comments cleaned** (Tauri references removed from bridge.ts)
 - ✅ **Storage classes documented** in AGENTS.md
+- ✅ **Mock Server implemented** with unified Server tab
+- ✅ **Settings modal refactored** with SettingsTab enum
 
 **Remaining work**:
 - 🔲 Consolidate duplicate models.ts files
 - 🔲 Split WorkspaceLayout.tsx into sub-components
-- 🔲 Add automated tests
+- 🔲 Add more automated tests
 
 ---
 
@@ -121,11 +123,11 @@ The codebase has been significantly improved. Key accomplishments:
 ## Appendix: Current File Size Summary
 
 ```
-Top Source Files (Updated 2025-12-31):
+Top Source Files (Updated 2026-01-01):
 1. webview/src/components/WorkspaceLayout.tsx   ~925 lines
-2. webview/src/App.tsx                          ~941 lines (down from 2190)
-3. webview/src/components/modals/SettingsEditorModal.tsx  ~700 lines
-4. src/ProjectStorage.ts                        ~379 lines
+2. webview/src/App.tsx                          ~1,100 lines
+3. webview/src/components/modals/SettingsEditorModal.tsx  ~485 lines
+4. webview/src/components/sidebar/ServerUi.tsx  ~400 lines
 5. src/services/ProxyService.ts                 ~400 lines
 ```
 

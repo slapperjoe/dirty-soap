@@ -133,6 +133,9 @@ function App() {
         setIsResizing,
         showSettings,
         setShowSettings,
+        initialSettingsTab,
+        setInitialSettingsTab,
+        openSettings,
         showHelp,
         setShowHelp,
         showDevOpsModal,
@@ -250,7 +253,7 @@ function App() {
     });
 
     // ==========================================================================
-    // WATCHER/PROXY - from useWatcherProxy hook
+    // WATCHER/PROXY/MOCK - from useWatcherProxy hook
     // ==========================================================================
     const {
         watcherHistory,
@@ -263,7 +266,19 @@ function App() {
         setProxyRunning,
         proxyConfig,
         setProxyConfig,
-        handleSelectWatcherEvent
+        handleSelectWatcherEvent,
+        // Mock state
+        mockHistory,
+        setMockHistory: _setMockHistory, // Will be used in message handler
+        mockRunning,
+        setMockRunning: _setMockRunning, // Will be used in message handler
+        mockConfig,
+        setMockConfig,
+        handleSelectMockEvent,
+        handleClearMockHistory,
+        // Unified Server Mode
+        serverMode,
+        setServerMode
     } = useWatcherProxy({
         activeView,
         inlineElementValues,
@@ -722,6 +737,85 @@ function App() {
                     onToggleCaseExpand: handleToggleCaseExpand,
                     deleteConfirm
                 }}
+                mockProps={{
+                    isRunning: mockRunning,
+                    config: mockConfig,
+                    history: mockHistory,
+                    onStart: () => bridge.sendMessage({ command: 'startMockServer' }),
+                    onStop: () => bridge.sendMessage({ command: 'stopMockServer' }),
+                    onUpdateConfig: (cfg) => {
+                        setMockConfig(prev => ({ ...prev, ...cfg }));
+                        bridge.sendMessage({ command: 'updateMockConfig', config: cfg });
+                    },
+                    onClear: handleClearMockHistory,
+                    onSelectEvent: handleSelectMockEvent,
+                    rules: mockConfig.rules || [],
+                    onAddRule: (rule) => bridge.sendMessage({ command: 'addMockRule', rule }),
+                    onUpdateRule: (id, updates) => bridge.sendMessage({ command: 'updateMockRule', ruleId: id, updates }),
+                    onDeleteRule: (id) => bridge.sendMessage({ command: 'deleteMockRule', ruleId: id }),
+                    onToggleRule: (id, enabled) => bridge.sendMessage({ command: 'toggleMockRule', ruleId: id, enabled })
+                }}
+                serverProps={{
+                    serverConfig: {
+                        mode: serverMode,  // Use dedicated state instead of deriving from running
+                        port: proxyConfig.port || 9000,
+                        targetUrl: proxyConfig.target || '',
+                        mockRules: mockConfig.rules || [],
+                        passthroughEnabled: mockConfig.passthroughEnabled ?? true
+                    },
+                    isRunning: serverMode !== 'off',
+                    onModeChange: (mode) => {
+                        // Update UI state immediately
+                        setServerMode(mode);
+
+                        // Then send commands to backend
+                        if (mode === 'off') {
+                            bridge.sendMessage({ command: 'stopProxy' });
+                            bridge.sendMessage({ command: 'stopMockServer' });
+                        } else if (mode === 'proxy') {
+                            bridge.sendMessage({ command: 'startProxy' });
+                            bridge.sendMessage({ command: 'stopMockServer' });
+                        } else if (mode === 'mock') {
+                            bridge.sendMessage({ command: 'stopProxy' });
+                            bridge.sendMessage({ command: 'startMockServer' });
+                        } else if (mode === 'both') {
+                            bridge.sendMessage({ command: 'startProxy' });
+                            bridge.sendMessage({ command: 'startMockServer' });
+                        }
+                    },
+                    onStart: () => {
+                        setServerMode('proxy');
+                        bridge.sendMessage({ command: 'startProxy' });
+                    },
+                    onStop: () => {
+                        setServerMode('off');
+                        bridge.sendMessage({ command: 'stopProxy' });
+                        bridge.sendMessage({ command: 'stopMockServer' });
+                    },
+                    onOpenSettings: () => openSettings('server'),
+                    proxyHistory,
+                    mockHistory,
+                    onSelectProxyEvent: handleSelectWatcherEvent,
+                    onSelectMockEvent: handleSelectMockEvent,
+                    onClearHistory: () => {
+                        handleClearProxy();
+                        handleClearMockHistory();
+                    },
+                    // Mock Rules
+                    mockRules: mockConfig.rules || [],
+                    onAddMockRule: (rule) => bridge.sendMessage({ command: 'addMockRule', rule }),
+                    onDeleteMockRule: (id) => bridge.sendMessage({ command: 'deleteMockRule', ruleId: id }),
+                    onToggleMockRule: (id, enabled) => bridge.sendMessage({ command: 'toggleMockRule', ruleId: id, enabled }),
+                    // Breakpoints
+                    breakpoints: config?.breakpoints || [],
+                    onUpdateBreakpoints: (bps) => {
+                        if (config) {
+                            const updatedConfig = { ...config, breakpoints: bps };
+                            setConfig(updatedConfig);
+                            bridge.sendMessage({ command: 'saveSettings', config: updatedConfig });
+                        }
+                    }
+                }}
                 activeView={activeView}
                 onChangeView={setActiveView}
                 backendConnected={backendConnected}
@@ -809,11 +903,16 @@ function App() {
                 showSettings && (
                     <SettingsEditorModal
                         rawConfig={rawConfig}
-                        onClose={() => setShowSettings(false)}
+                        onClose={() => {
+                            setShowSettings(false);
+                            setInitialSettingsTab(null);
+                        }}
                         onSave={(content, config) => {
                             bridge.sendMessage({ command: 'saveSettings', raw: !config, content, config });
                             setShowSettings(false);
+                            setInitialSettingsTab(null);
                         }}
+                        initialTab={initialSettingsTab}
                     />
                 )
             }

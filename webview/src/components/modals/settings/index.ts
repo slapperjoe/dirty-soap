@@ -9,4 +9,5 @@ export { EnvironmentsTab } from './EnvironmentsTab';
 export { GlobalsTab } from './GlobalsTab';
 export { ReplaceRulesTab } from './ReplaceRulesTab';
 export { IntegrationsTab } from './IntegrationsTab';
+export { ServerTab } from './ServerTab';
 export * from './SettingsTypes';

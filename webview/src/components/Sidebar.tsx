@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, HelpCircle, Eye, Globe, Compass, FolderOpen as FolderIcon, FlaskConical } from 'lucide-react';
+import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network } from 'lucide-react';
 import { SidebarView } from '../models';
 
 // Components
@@ -8,6 +8,8 @@ import { WsdlExplorer } from './sidebar/WsdlExplorer';
 import { WatcherPanel } from './sidebar/WatcherPanel';
 import { ProxyUi } from './sidebar/ProxyUi';
 import { TestsUi } from './sidebar/TestsUi';
+import { MockUi } from './sidebar/MockUi';
+import { ServerUi } from './sidebar/ServerUi';
 
 // Prop Groups
 import {
@@ -18,7 +20,9 @@ import {
     SidebarTestRunnerProps,
     SidebarWatcherProps,
     SidebarProxyProps,
-    SidebarTestsProps
+    SidebarTestsProps,
+    SidebarMockProps,
+    SidebarServerProps
 } from '../types/props';
 
 interface SidebarProps {
@@ -30,6 +34,8 @@ interface SidebarProps {
     watcherProps: SidebarWatcherProps;
     proxyProps: SidebarProxyProps;
     testsProps: SidebarTestsProps;
+    mockProps: SidebarMockProps;
+    serverProps?: SidebarServerProps;  // Unified server tab
 
     // View State
     activeView: SidebarView;
@@ -57,6 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     watcherProps,
     proxyProps,
     testsProps,
+    mockProps,
+    serverProps,
     backendConnected,
     workspaceDirty,
     onOpenSettings,
@@ -136,16 +144,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     title="File Watcher"
                 />
                 <NavItem
-                    icon={Globe}
-                    active={activeView === SidebarView.PROXY}
-                    onClick={() => onChangeView(SidebarView.PROXY)}
-                    title="Dirty Proxy"
-                />
-                <NavItem
                     icon={FlaskConical}
                     active={activeView === SidebarView.TESTS}
                     onClick={() => onChangeView(SidebarView.TESTS)}
                     title="Tests"
+                />
+                <NavItem
+                    icon={Network}
+                    active={activeView === SidebarView.SERVER}
+                    onClick={() => onChangeView(SidebarView.SERVER)}
+                    title="Server"
                 />
 
                 <div style={{ flex: 1 }}></div>
@@ -177,6 +185,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onOpenCertificate={onOpenCertificate}
                         breakpoints={breakpoints}
                         onUpdateBreakpoints={onUpdateBreakpoints}
+                    />
+                )}
+
+                {activeView === SidebarView.MOCK && (
+                    <MockUi
+                        isRunning={mockProps.isRunning}
+                        config={mockProps.config}
+                        history={mockProps.history}
+                        onStart={mockProps.onStart}
+                        onStop={mockProps.onStop}
+                        onUpdateConfig={mockProps.onUpdateConfig}
+                        onClear={mockProps.onClear}
+                        onSelectEvent={mockProps.onSelectEvent}
+                        rules={mockProps.rules}
+                        onAddRule={mockProps.onAddRule}
+                        onUpdateRule={mockProps.onUpdateRule}
+                        onDeleteRule={mockProps.onDeleteRule}
+                        onToggleRule={mockProps.onToggleRule}
+                        onEditRule={mockProps.onEditRule}
+                    />
+                )}
+
+                {activeView === SidebarView.SERVER && serverProps && (
+                    <ServerUi
+                        serverConfig={serverProps.serverConfig}
+                        isRunning={serverProps.isRunning}
+                        onModeChange={serverProps.onModeChange}
+                        onStart={serverProps.onStart}
+                        onStop={serverProps.onStop}
+                        onOpenSettings={serverProps.onOpenSettings}
+                        proxyHistory={serverProps.proxyHistory}
+                        mockHistory={serverProps.mockHistory}
+                        onSelectProxyEvent={serverProps.onSelectProxyEvent}
+                        onSelectMockEvent={serverProps.onSelectMockEvent}
+                        onClearHistory={serverProps.onClearHistory}
                     />
                 )}
 

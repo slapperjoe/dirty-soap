@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Editor from '@monaco-editor/react';
-import { X, Save, AlertTriangle, Settings, FileJson, Server, Globe, Replace, Cloud } from 'lucide-react';
-import { GeneralTab, EnvironmentsTab, GlobalsTab, ReplaceRulesTab, IntegrationsTab, DirtySoapConfig, ReplaceRuleSettings } from './settings';
+import { X, Save, AlertTriangle, Settings, FileJson, Server, Globe, Replace, Cloud, Network } from 'lucide-react';
+import { GeneralTab, EnvironmentsTab, GlobalsTab, ReplaceRulesTab, IntegrationsTab, ServerTab, DirtySoapConfig, ReplaceRuleSettings } from './settings';
 import { bridge } from '../../utils/bridge';
+import { ServerConfig } from '../../models';
 
 const ModalOverlay = styled.div`
     position: fixed;
@@ -118,14 +119,28 @@ const PrimaryButton = styled.button`
 
 // Types imported from ./settings/SettingsTypes.ts
 
+/** Enum for settings modal tab names */
+export enum SettingsTab {
+    GUI = 'gui',
+    ENVIRONMENTS = 'environments',
+    GLOBALS = 'globals',
+    REPLACE_RULES = 'replaceRules',
+    INTEGRATIONS = 'integrations',
+    SERVER = 'server',
+    JSON = 'json'
+}
+
 interface SettingsEditorModalProps {
     rawConfig: string;
     onClose: () => void;
     onSave: (content: string, config?: any) => void;
+    initialTab?: string | null;
 }
 
-export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawConfig, onClose, onSave }) => {
-    const [activeTab, setActiveTab] = useState<'gui' | 'environments' | 'globals' | 'replaceRules' | 'integrations' | 'json'>('gui');
+export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawConfig, onClose, onSave, initialTab }) => {
+    const [activeTab, setActiveTab] = useState<SettingsTab>(
+        (initialTab as SettingsTab) || SettingsTab.GUI
+    );
     const [jsonContent, setJsonContent] = useState(rawConfig || '{}');
     const [guiConfig, setGuiConfig] = useState<DirtySoapConfig>({});
     const [parseError, setParseError] = useState<string | null>(null);
@@ -136,6 +151,15 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
     const [selectedGlobalKey, setSelectedGlobalKey] = useState<string | null>(null);
     // Replace Rules State
     const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+
+    // Server Config State
+    const [serverConfig, setServerConfig] = useState<ServerConfig>({
+        mode: 'off',
+        port: 9000,
+        targetUrl: '',
+        mockRules: [],
+        passthroughEnabled: true
+    });
 
     // Initial Parse
     useEffect(() => {
@@ -153,13 +177,13 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
         } catch (e) {
             console.error("Failed to parse initial config", e);
             setParseError("Could not parse config JSON. Defaulting to JSON view.");
-            setActiveTab('json');
+            setActiveTab(SettingsTab.JSON);
         }
     }, [rawConfig]);
 
-    const handleTabSwitch = (tab: 'gui' | 'environments' | 'globals' | 'replaceRules' | 'integrations' | 'json') => {
-        if (tab === 'json') {
-            setActiveTab('json');
+    const handleTabSwitch = (tab: SettingsTab) => {
+        if (tab === SettingsTab.JSON) {
+            setActiveTab(SettingsTab.JSON);
             return;
         }
 
@@ -341,32 +365,35 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                 </ModalHeader>
 
                 <TabContainer>
-                    <Tab active={activeTab === 'gui'} onClick={() => handleTabSwitch('gui')}>
+                    <Tab active={activeTab === SettingsTab.GUI} onClick={() => handleTabSwitch(SettingsTab.GUI)}>
                         <Settings size={14} /> General
                     </Tab>
-                    <Tab active={activeTab === 'environments'} onClick={() => handleTabSwitch('environments')}>
+                    <Tab active={activeTab === SettingsTab.ENVIRONMENTS} onClick={() => handleTabSwitch(SettingsTab.ENVIRONMENTS)}>
                         <Server size={14} /> Environments
                     </Tab>
-                    <Tab active={activeTab === 'globals'} onClick={() => handleTabSwitch('globals')}>
+                    <Tab active={activeTab === SettingsTab.GLOBALS} onClick={() => handleTabSwitch(SettingsTab.GLOBALS)}>
                         <Globe size={14} /> Globals
                     </Tab>
-                    <Tab active={activeTab === 'replaceRules'} onClick={() => handleTabSwitch('replaceRules')}>
+                    <Tab active={activeTab === SettingsTab.REPLACE_RULES} onClick={() => handleTabSwitch(SettingsTab.REPLACE_RULES)}>
                         <Replace size={14} /> Replace Rules
                     </Tab>
-                    <Tab active={activeTab === 'integrations'} onClick={() => handleTabSwitch('integrations')}>
+                    <Tab active={activeTab === SettingsTab.INTEGRATIONS} onClick={() => handleTabSwitch(SettingsTab.INTEGRATIONS)}>
                         <Cloud size={14} /> Integrations
                     </Tab>
-                    <Tab active={activeTab === 'json'} onClick={() => handleTabSwitch('json')} style={{ marginLeft: 'auto', borderRight: 'none', borderLeft: '1px solid var(--vscode-panel-border)' }}>
+                    <Tab active={activeTab === SettingsTab.SERVER} onClick={() => handleTabSwitch(SettingsTab.SERVER)}>
+                        <Network size={14} /> Server
+                    </Tab>
+                    <Tab active={activeTab === SettingsTab.JSON} onClick={() => handleTabSwitch(SettingsTab.JSON)} style={{ marginLeft: 'auto', borderRight: 'none', borderLeft: '1px solid var(--vscode-panel-border)' }}>
                         <FileJson size={14} /> JSON (Advanced)
                     </Tab>
                 </TabContainer>
 
                 <ContentContainer>
-                    {activeTab === 'gui' && (
+                    {activeTab === SettingsTab.GUI && (
                         <GeneralTab config={guiConfig} onChange={handleGuiChange} />
                     )}
 
-                    {activeTab === 'environments' && (
+                    {activeTab === SettingsTab.ENVIRONMENTS && (
                         <EnvironmentsTab
                             config={guiConfig}
                             selectedEnvKey={selectedEnvKey}
@@ -378,7 +405,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                         />
                     )}
 
-                    {activeTab === 'globals' && (
+                    {activeTab === SettingsTab.GLOBALS && (
                         <GlobalsTab
                             config={guiConfig}
                             selectedGlobalKey={selectedGlobalKey}
@@ -390,7 +417,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                         />
                     )}
 
-                    {activeTab === 'replaceRules' && (
+                    {activeTab === SettingsTab.REPLACE_RULES && (
                         <ReplaceRulesTab
                             rules={replaceRules}
                             selectedRuleId={selectedRuleId}
@@ -401,7 +428,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                         />
                     )}
 
-                    {activeTab === 'integrations' && (
+                    {activeTab === SettingsTab.INTEGRATIONS && (
                         <IntegrationsTab
                             config={guiConfig}
                             onConfigChange={(field, value) => setGuiConfig(prev => ({ ...prev, [field]: value }))}
@@ -409,7 +436,19 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                         />
                     )}
 
-                    {activeTab === 'json' && (
+                    {activeTab === SettingsTab.SERVER && (
+                        <ServerTab
+                            config={guiConfig}
+                            serverConfig={serverConfig}
+                            onServerConfigChange={(updates) => setServerConfig(prev => ({ ...prev, ...updates }))}
+                            configPath={guiConfig.configSwitcherPath || null}
+                            onSelectConfigFile={() => bridge.sendMessage({ command: 'selectConfigFile' })}
+                            onInjectConfig={() => bridge.sendMessage({ command: 'injectProxyConfig' })}
+                            onRestoreConfig={() => bridge.sendMessage({ command: 'restoreConfig' })}
+                        />
+                    )}
+
+                    {activeTab === SettingsTab.JSON && (
                         <>
                             {parseError && (
                                 <div style={{ padding: '8px', background: 'var(--vscode-inputValidation-errorBackground)', color: 'var(--vscode-inputValidation-errorForeground)' }}>

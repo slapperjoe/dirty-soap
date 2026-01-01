@@ -9,14 +9,14 @@ import * as fs from 'fs';
 
 export class StartProxyCommand implements ICommand {
     constructor(private readonly _proxyService: ProxyService) { }
-    async execute(message: any): Promise<void> {
+    async execute(_message: any): Promise<void> {
         this._proxyService.start();
     }
 }
 
 export class StopProxyCommand implements ICommand {
     constructor(private readonly _proxyService: ProxyService) { }
-    async execute(message: any): Promise<void> {
+    async execute(_message: any): Promise<void> {
         this._proxyService.stop();
     }
 }

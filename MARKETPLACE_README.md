@@ -32,6 +32,14 @@ Need to debug traffic or mock responses?
 - **Debugger**: Catch requests and responses in the proxy and modify by hand before they leave!
 - **Privacy**: Mask sensitive data (like SSNs) in responses automatically.
 
+### 📡 Mock Server
+Test without a real backend!
+- **Mock Rules**: Define responses for specific endpoints using URL, XPath, or regex matching.
+- **Record Mode**: Auto-capture real responses as mock rules.
+- **Passthrough**: Forward unmatched requests to the real backend.
+- **Latency Simulation**: Test how your app handles slow responses.
+- **Unified Server Tab**: Toggle between Off, Mock, Proxy, or Both modes instantly.
+
 ### 🧪 Test Suite and Runner
 - **Create Scripts**: Run a batch of scenarios together in one test run.
 - **Multiple Steps**: Add multiple requests and delays in a single Test Case.

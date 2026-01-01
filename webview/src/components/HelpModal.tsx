@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { X, MonitorPlay, Eye, FileJson } from 'lucide-react';
+import { X, MonitorPlay, Eye, FileJson, Network, Radio } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const ModalOverlay = styled.div`
@@ -128,34 +128,131 @@ The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore 
 `
   },
   {
+    id: 'server',
+    label: 'Server (Unified)',
+    icon: Network,
+    content: `
+# Unified Server
+
+The **Server** tab provides a unified interface for both Proxy and Mock server functionality. Choose from four modes:
+
+## Server Modes
+
+| Mode | Description |
+|------|-------------|
+| **Off** | Server stopped |
+| **Mock** | Return canned responses matching your rules |
+| **Proxy** | Traffic logging with breakpoints and replace rules |
+| **Both** | Mock + Proxy combined |
+
+## Using the Server Tab
+
+1. **Select Mode**: Click the mode button (Mock, Proxy, or Both)
+2. **Start Server**: Click the Play button to start
+3. **Monitor Traffic**: View combined traffic history below
+
+## Mode-Specific Features
+
+When **Mock** or **Both** is selected:
+- **Mock Rules** section appears for managing mock responses
+- Add, edit, toggle, and delete rules directly from the sidebar
+
+When **Proxy** or **Both** is selected:
+- **Breakpoints** section appears for request/response interception
+- Pause and modify traffic in real-time
+
+## Settings
+
+Click the **Gear** icon to open settings with:
+- Port and Target URL configuration
+- Replace Rules management
+- Advanced mock options (passthrough, record mode)
+`
+  },
+  {
     id: 'dirty-proxy',
     label: 'Dirty Proxy',
     icon: MonitorPlay,
     content: `
 # Dirty Proxy
 
-The "Dirty Proxy" allows you to intercept and monitor HTTP/S traffic between your application and backend SOAP services without setting up complex tools like Fiddler or Wireshark.
+The Dirty Proxy intercepts and monitors HTTP/S traffic between your application and backend SOAP services.
 
-## getting Started
+## Getting Started
 
-1.  **Configure**: Set the **Port** (e.g., 3000) and **Target URL** (the real backend service) in the Proxy tab.
-2.  **Start**: Click "Start Proxy". The indicator will turn Green.
-3.  **Route Traffic**: Point your application (or \`web.config\`) to \`http://localhost:3000\` instead of the real URL.
-4.  **Monitor**: Requests will appear in the "Live Traffic" list.
+1.  **Configure**: Set the **Port** (e.g., 9000) and **Target URL** in Settings → Server tab
+2.  **Start**: Select **Proxy** or **Both** mode in the Server tab, then click Start
+3.  **Route Traffic**: Point your application to \`http://localhost:9000\` instead of the real URL
+4.  **Monitor**: Requests appear in the Traffic history
 
-## advanced Features
+## Breakpoints
 
-### HTTPS Support
-The proxy automatically generates a self-signed certificate to handle HTTPS traffic.
-- If your target is \`https://\`, the proxy will listen on HTTPS as well.
-- You may need to trust the generated certificate or ignore SSL errors in your client application.
+Breakpoints let you pause and modify requests/responses in real-time:
 
-### Comparison & Diffing
-- Click on any traffic item to inspect the Request and Response.
-- **Single Save**: Click the **Download** icon next to an item to save a Markdown report of that specific transaction.
+- **Add Breakpoint**: Click + in the Breakpoints section
+- **Pattern Matching**: Match by URL, operation name, or custom regex
+- **Target**: Choose to break on Request, Response, or Both
+- **Timeout**: Set auto-resume timeout (default 30s)
 
-### Persistence
-- The last used Proxy Target is remembered across sessions.
+## Replace Rules
+
+Replace Rules automatically modify content in-flight:
+- Configure in **Settings → Replace Rules** tab
+- XPath-scoped replacement for surgical edits
+- Apply to requests, responses, or both
+
+## HTTPS Support
+
+The proxy automatically generates certificates for HTTPS traffic.
+- Trust the certificate or ignore SSL errors in your client
+`
+  },
+  {
+    id: 'mock-server',
+    label: 'Mock Server',
+    icon: Radio,
+    content: `
+# Mock Server
+
+The Mock Server returns predefined responses without hitting the real backend. Ideal for:
+- Offline development
+- Testing error scenarios
+- Simulating slow responses
+
+## Getting Started
+
+1. Select **Mock** or **Both** mode in the Server tab
+2. Add mock rules to define responses
+3. Start the server
+4. Point your application to the mock server
+
+## Mock Rules
+
+Each rule defines when and what to respond:
+
+### Matching Conditions
+- **URL Path**: Match specific endpoints
+- **XPath**: Match XML content within requests
+- **Regex**: Advanced pattern matching
+
+### Response Configuration
+- **Status Code**: HTTP status (200, 500, etc.)
+- **Response Body**: The XML/JSON to return
+- **Headers**: Custom response headers
+- **Delay**: Simulate network latency
+
+## Special Features
+
+### Record Mode
+Enable to auto-capture real responses as mock rules:
+1. Turn on "Record Mode" in settings
+2. Send requests through the mock server
+3. Real responses are saved as new rules
+
+### Passthrough
+Unmatched requests can be forwarded to the real backend:
+- Enable "Forward unmatched requests" in settings
+- Optionally route passthrough through Dirty Proxy
 `
   },
   {
@@ -165,22 +262,22 @@ The proxy automatically generates a self-signed certificate to handle HTTPS traf
     content: `
 # File Watcher
 
-The File Watcher allows Dirty SOAP to act as a viewer for external processes that write SOAP requests/responses to disk (common in legacy enterprise systems).
+The File Watcher monitors external processes that write SOAP requests/responses to disk.
 
 ## Setup
 
-1.  Create a folder named \`.dirty-soap/watch\` in your workspace.
+1.  Create a folder named \`.dirty-soap/watch\` in your workspace
 2.  Configure your external application to write:
     -   Outgoing XML to \`requestXML.xml\`
     -   Incoming XML to \`responseXML.xml\`
-3.  Click **Start Watcher** in the Dirty SOAP sidebar.
+3.  Click **Start Watcher** in the Dirty SOAP sidebar
 
 ## Functionality
 
-- **Real-time Updates**: The sidebar list will update automatically whenever these files change.
-- **Smart Naming**: The watcher attempts to name the event based on the first child element of \`soap:Body\`.
-- **Read-Only View**: Watcher items are read-only but can be inspected just like regular requests.
-- **Debouncing**: Rapid file writes are debounced to prevent flooding the UI.
+- **Real-time Updates**: The sidebar updates when files change
+- **Smart Naming**: Events are named based on the first child of \`soap:Body\`
+- **Read-Only View**: Watcher items can be inspected but not edited
+- **Debouncing**: Rapid file writes are batched to prevent UI flooding
 `
   }
 ];
