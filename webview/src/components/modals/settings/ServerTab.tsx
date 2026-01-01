@@ -295,7 +295,7 @@ export const ServerTab: React.FC<ServerTabProps> = ({
                 <div style={{ display: 'flex', gap: 8 }}>
                     <Input
                         type="text"
-                        value={configPath || config.configSwitcherPath || ''}
+                        value={configPath || config.lastConfigPath || ''}
                         placeholder="Select a config file..."
                         readOnly
                         style={{ flex: 1 }}
@@ -309,16 +309,16 @@ export const ServerTab: React.FC<ServerTabProps> = ({
             <div style={{ display: 'flex', gap: 10 }}>
                 <PrimaryButton
                     onClick={onInjectConfig}
-                    disabled={!configPath && !config.configSwitcherPath}
-                    style={{ opacity: (!configPath && !config.configSwitcherPath) ? 0.5 : 1 }}
+                    disabled={!configPath && !config.lastConfigPath}
+                    style={{ opacity: (!configPath && !config.lastConfigPath) ? 0.5 : 1 }}
                 >
                     <Power size={12} /> Inject Server URL
                 </PrimaryButton>
                 <PrimaryButton
                     onClick={onRestoreConfig}
-                    disabled={!configPath && !config.configSwitcherPath}
+                    disabled={!configPath && !config.lastConfigPath}
                     style={{
-                        opacity: (!configPath && !config.configSwitcherPath) ? 0.5 : 1,
+                        opacity: (!configPath && !config.lastConfigPath) ? 0.5 : 1,
                         background: 'var(--vscode-button-secondaryBackground)',
                         color: 'var(--vscode-button-secondaryForeground)'
                     }}

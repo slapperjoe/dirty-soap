@@ -402,6 +402,13 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                             onDeleteEnv={handleDeleteEnv}
                             onSetActive={handleSetActive}
                             onEnvChange={handleEnvChange}
+                            onImportEnvironments={(envs, activeEnv) => {
+                                setGuiConfig(prev => ({
+                                    ...prev,
+                                    environments: { ...prev.environments, ...envs },
+                                    activeEnvironment: activeEnv || prev.activeEnvironment
+                                }));
+                            }}
                         />
                     )}
 
@@ -441,7 +448,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                             config={guiConfig}
                             serverConfig={serverConfig}
                             onServerConfigChange={(updates) => setServerConfig(prev => ({ ...prev, ...updates }))}
-                            configPath={guiConfig.configSwitcherPath || null}
+                            configPath={guiConfig.lastConfigPath || null}
                             onSelectConfigFile={() => bridge.sendMessage({ command: 'selectConfigFile' })}
                             onInjectConfig={() => bridge.sendMessage({ command: 'injectProxyConfig' })}
                             onRestoreConfig={() => bridge.sendMessage({ command: 'restoreConfig' })}

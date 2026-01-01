@@ -4,8 +4,8 @@
  * Environment profiles management for the Settings modal.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Check, Download, Upload } from 'lucide-react';
 import styled, { keyframes, css } from 'styled-components';
 import {
     DirtySoapConfig,
@@ -44,6 +44,7 @@ interface EnvironmentsTabProps {
     onDeleteEnv: (key: string) => void;
     onSetActive: (key: string) => void;
     onEnvChange: (envKey: string, field: string, value: string) => void;
+    onImportEnvironments?: (environments: Record<string, any>, activeEnv?: string) => void;
 }
 
 export const EnvironmentsTab: React.FC<EnvironmentsTabProps> = ({
@@ -54,9 +55,11 @@ export const EnvironmentsTab: React.FC<EnvironmentsTabProps> = ({
     onDeleteEnv,
     onSetActive,
     onEnvChange,
+    onImportEnvironments,
 }) => {
     const environments = config.environments || {};
     const envKeys = Object.keys(environments);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Delete confirmation state
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -77,14 +80,67 @@ export const EnvironmentsTab: React.FC<EnvironmentsTabProps> = ({
         }
     };
 
+    const handleExport = () => {
+        const exportData = {
+            environments: config.environments || {},
+            activeEnvironment: config.activeEnvironment
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dirty-soap-environments.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !onImportEnvironments) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target?.result as string);
+                if (data.environments && typeof data.environments === 'object') {
+                    onImportEnvironments(data.environments, data.activeEnvironment);
+                }
+            } catch (err) {
+                console.error('Failed to parse environments file:', err);
+            }
+        };
+        reader.readAsText(file);
+        // Reset input so same file can be selected again
+        e.target.value = '';
+    };
+
     return (
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
             <EnvList>
                 <div style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--vscode-panel-border)' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600 }}>Profiles</span>
-                    <IconButton onClick={onAddEnv} title="Add Environment">
-                        <Plus size={14} />
-                    </IconButton>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                        <IconButton onClick={handleExport} title="Export Environments">
+                            <Download size={14} />
+                        </IconButton>
+                        <IconButton onClick={handleImportClick} title="Import Environments">
+                            <Upload size={14} />
+                        </IconButton>
+                        <IconButton onClick={onAddEnv} title="Add Environment">
+                            <Plus size={14} />
+                        </IconButton>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".json"
+                            style={{ display: 'none' }}
+                            onChange={handleFileChange}
+                        />
+                    </div>
                 </div>
                 {envKeys.map(key => (
                     <EnvItem

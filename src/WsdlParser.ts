@@ -28,7 +28,6 @@ export class WsdlParser {
         const options: any = {};
 
         // Always use our custom request handler to ensure Axios is used (better proxy/header support)
-        // Always use our custom request handler to ensure Axios is used (better proxy/header support)
 
         try {
             const client = await soap.createClientAsync(url, options);

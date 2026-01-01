@@ -21,15 +21,18 @@ Return canned responses for operations. Useful for frontend devs or offline test
 ---
 
 ## Priority 2: Environment Variables UI (Feature #5)
-**Status**: 📋 Planned
+**Status**: 🔄 Partially Complete
 
 Visual editor for environments (Dev/Test/Prod).
 
-### Capabilities
-- [ ] Visual editor for environments
-- [ ] Quick environment switcher in toolbar
-- [ ] Environment indicator badge
-- [ ] Import/export environments
+### Already Done
+- [x] Visual editor for environments (Settings → Environments tab)
+- [x] Quick environment switcher in toolbar
+- [x] Active environment indicator in Settings
+- [x] Environment indicator badge in sidebar (nav rail)
+- [x] Import/export environments
+
+### Remaining
 - [ ] Encrypted secrets support
 
 ---

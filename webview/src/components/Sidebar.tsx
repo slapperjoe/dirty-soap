@@ -49,6 +49,9 @@ interface SidebarProps {
     onOpenSettings?: () => void;
     onOpenHelp?: () => void;
 
+    // Environment indicator
+    activeEnvironment?: string;
+
     // Legacy/Unused or to be cleaned up
     savedProjects?: Set<string>; // Duplicate of projectProps.savedProjects
     explorerExpanded?: boolean; // Duplicate
@@ -70,7 +73,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onOpenSettings,
     onOpenHelp,
     activeView,
-    onChangeView
+    onChangeView,
+    activeEnvironment
 }) => {
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
     const { projects, savedProjects, loadProject, saveProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation } = projectProps;
@@ -157,6 +161,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
 
                 <div style={{ flex: 1 }}></div>
+
+                {/* Environment Badge */}
+                {activeEnvironment && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            padding: '8px 4px',
+                            marginBottom: 5,
+                            cursor: 'pointer'
+                        }}
+                        onClick={onOpenSettings}
+                        title={`Active Environment: ${activeEnvironment}\nClick to manage environments`}
+                    >
+                        <div style={{
+                            fontSize: 9,
+                            fontWeight: 600,
+                            color: 'var(--vscode-charts-green)',
+                            textAlign: 'center',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            maxWidth: 45,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {activeEnvironment}
+                        </div>
+                        <div style={{
+                            fontSize: 7,
+                            color: 'var(--vscode-activityBar-inactiveForeground)',
+                            marginTop: 2
+                        }}>
+                            ENV
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ paddingBottom: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                     <NavItem icon={Settings} onClick={onOpenSettings} title="Settings" />

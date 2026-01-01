@@ -337,7 +337,5 @@ export interface DirtySoapConfig {
     mockServer?: MockConfig;
     /** Unified server configuration */
     server?: ServerConfig;
-    /** Last selected web.config path for config switcher */
-    configSwitcherPath?: string;
 }
 

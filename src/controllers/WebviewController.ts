@@ -255,6 +255,23 @@ export class WebviewController {
             case 'clearWatcherHistory':
                 this._fileWatcherService.clearHistory();
                 break;
+            case 'selectConfigFile':
+                const options: vscode.OpenDialogOptions = {
+                    canSelectMany: false,
+                    openLabel: 'Select Config File',
+                    filters: {
+                        'Config Files': ['config', 'xml'],
+                        'All Files': ['*']
+                    },
+                    title: 'Select Web.config or App.config'
+                };
+                const fileUri = await vscode.window.showOpenDialog(options);
+                if (fileUri && fileUri[0]) {
+                    const configPath = fileUri[0].fsPath;
+                    this._settingsManager.updateLastConfigPath(configPath);
+                    this.sendSettingsToWebview();
+                }
+                break;
 
             // Azure DevOps Integration
             case 'adoStorePat':

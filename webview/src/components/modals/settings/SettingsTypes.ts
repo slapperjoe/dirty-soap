@@ -37,7 +37,7 @@ export interface DirtySoapConfig {
         project?: string;     // Selected from dropdown
     };
     /** Last selected web.config path for config switcher */
-    configSwitcherPath?: string;
+    lastConfigPath?: string;
 }
 
 export interface ReplaceRuleSettings {

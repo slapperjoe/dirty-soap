@@ -824,6 +824,7 @@ function App() {
                 onOpenSettings={() => setShowSettings(true)}
                 onOpenHelp={() => setShowHelp(true)}
                 onSaveUiState={handleSaveUiState}
+                activeEnvironment={config?.activeEnvironment}
             />
 
             {/* WorkspaceLayout with consolidated props */}
