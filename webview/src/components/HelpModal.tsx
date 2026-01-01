@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { X, MonitorPlay, Eye, FileJson, Network, Radio } from 'lucide-react';
+import { X, MonitorPlay, Eye, FileJson, Network, Radio, Layout } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const ModalOverlay = styled.div`
@@ -81,6 +81,7 @@ const ContentArea = styled.div`
     li { margin-bottom: 5px; }
     code { background: var(--vscode-textCodeBlock-background); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
     pre { background: var(--vscode-textCodeBlock-background); padding: 15px; border-radius: 4px; overflow-x: auto; margin-bottom: 15px; }
+    img { max-width: 100%; height: auto; border: 1px solid var(--vscode-panel-border); margin: 10px 0; border-radius: 4px; }
 `;
 
 const CloseButton = styled.button`
@@ -97,6 +98,33 @@ interface HelpModalProps {
 
 const SECTIONS = [
   {
+    id: 'workspace',
+    label: 'Workspace',
+    icon: Layout,
+    content: `
+# Workspace & Projects
+
+Dirty Soap retrieves order from chaos by organizing your work into a structured hierarchy.
+
+![Workspace Hierarchy](help/workspace_hierarchy.png)
+
+## Structure
+
+- **Project**: A collection of related interfaces (e.g., "Billing Service"). Saved as \`.soap\` files.
+- **Interface**: Represents a Port Type or Service definition from a WSDL.
+- **Operation**: A specific soap action (e.g., \`GetCustomer\`).
+- **Request**: An instance of an operation call. You can have multiple requests per operation (e.g., "Success Case", "Error Case").
+
+## Context Actions
+
+Right-click on items in the Explorer to access context actions:
+- **Clone Request**: Duplicate a request.
+- **Delete**: Remove an item.
+- **Rename**: Rename a request for better organization.
+- **Add to Project**: (On WSDL Explorer items) Import operations into your active project.
+`
+  },
+  {
     id: 'wsdl-editor',
     label: 'WSDL Editor',
     icon: FileJson,
@@ -104,6 +132,8 @@ const SECTIONS = [
 # WSDL Request Editor
 
 The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore SOAP services, construct requests, and analyze responses directly within VS Code.
+
+![WSDL Editor Diagram](help/wsdl_editor_diagram.png)
 
 ## Key Features
 
@@ -125,6 +155,13 @@ The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore 
 ### 4. User JS Wildcards
 - Use \`{{js:MyScript}}\` to execute custom JavaScript located in \`.dirty-soap/scripts/MyScript.js\`.
 - The script should export a function returning a string.
+
+## Toolbar Actions
+
+- **Run (Play Icon)**: Execute the current request.
+- **Environment Dropdown**: Select the active environment for variable substitution.
+- **Align Left**: Format the XML request body.
+- **Bug**: Remove VS Debugger causality data from the request body.
 `
   },
   {
@@ -135,6 +172,8 @@ The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore 
 # Unified Server
 
 The **Server** tab provides a unified interface for both Proxy and Mock server functionality. Choose from four modes:
+
+![Proxy Flow](help/proxy_flow_diagram.png)
 
 ## Server Modes
 
@@ -157,16 +196,18 @@ When **Mock** or **Both** is selected:
 - **Mock Rules** section appears for managing mock responses
 - Add, edit, toggle, and delete rules directly from the sidebar
 
+![Mock Rules](help/mock_rules_diagram.png)
+
 When **Proxy** or **Both** is selected:
 - **Breakpoints** section appears for request/response interception
 - Pause and modify traffic in real-time
 
-## Settings
+## Settings & Controls
 
-Click the **Gear** icon to open settings with:
-- Port and Target URL configuration
-- Replace Rules management
-- Advanced mock options (passthrough, record mode)
+- **Gear Icon**: Open settings (Port, Target URL, Replace Rules).
+- **Trash Icon**: Clear the traffic history.
+- **Plus (+)**: Add a new Mock Rule or Breakpoint.
+- **Toggle Switch**: Enable or disable specific rules/breakpoints.
 `
   },
   {
@@ -263,6 +304,8 @@ Unmatched requests can be forwarded to the real backend:
 # File Watcher
 
 The File Watcher monitors external processes that write SOAP requests/responses to disk.
+
+![Watcher Flow](help/watcher_flow_graphic.png)
 
 ## Setup
 

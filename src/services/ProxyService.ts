@@ -11,7 +11,10 @@ import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
 import { ReplaceRuleApplier, ReplaceRule } from '../utils/ReplaceRuleApplier';
+import type { MockService } from './MockService';
+import { MockRule } from '../models';
 
+export type ServerMode = 'off' | 'mock' | 'proxy' | 'both';
 export interface ProxyConfig {
     port: number;
     targetUrl: string;
@@ -65,6 +68,8 @@ export class ProxyService extends EventEmitter {
     private breakpoints: Breakpoint[] = [];
     private pendingBreakpoints: Map<string, PendingBreakpoint> = new Map();
     private static BREAKPOINT_TIMEOUT_MS = 45000; // 45 seconds
+    private mockService: MockService | null = null;
+    private serverMode: ServerMode = 'proxy';
 
     constructor(initialConfig: ProxyConfig = { port: 9000, targetUrl: 'http://localhost:8080', systemProxyEnabled: true }) {
         super();
@@ -101,6 +106,20 @@ export class ProxyService extends EventEmitter {
     public setBreakpoints(breakpoints: Breakpoint[]) {
         this.breakpoints = breakpoints;
         this.logDebug(`[ProxyService] Updated breakpoints: ${breakpoints.length} breakpoints`);
+    }
+
+    public setMockService(mockService: MockService) {
+        this.mockService = mockService;
+        this.logDebug('[ProxyService] MockService linked for middleware mode');
+    }
+
+    public setServerMode(mode: ServerMode) {
+        this.serverMode = mode;
+        this.logDebug(`[ProxyService] Server mode set to: ${mode}`);
+    }
+
+    public getServerMode(): ServerMode {
+        return this.serverMode;
     }
 
     /**
@@ -282,6 +301,35 @@ export class ProxyService extends EventEmitter {
             };
 
             this.emit('log', { ...event, type: 'request' });
+
+            // MOCK MIDDLEWARE: Check mock rules first when in 'mock' or 'both' mode
+            if ((this.serverMode === 'mock' || this.serverMode === 'both') && this.mockService) {
+                const matchedRule = this.mockService.findMatchingRule(req, reqBody);
+                if (matchedRule) {
+                    this.logDebug(`[ProxyService] Mock rule matched: ${matchedRule.name} - returning mock response`);
+                    await this.mockService.sendMockResponse(res, matchedRule, {
+                        eventId,
+                        startTime,
+                        method: req.method || 'GET',
+                        url: req.url || '/',
+                        requestHeaders: req.headers,
+                        requestBody: reqBody
+                    });
+                    return; // Skip proxy forwarding
+                }
+
+                // If mode is 'mock' only and no match, return 404 (unless passthrough enabled)
+                if (this.serverMode === 'mock' && !this.mockService.getConfig().passthroughEnabled) {
+                    this.logDebug('[ProxyService] Mock mode: No matching rule, returning 404');
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end('No matching mock rule');
+                    event.status = 404;
+                    event.responseBody = 'No matching mock rule';
+                    event.duration = (Date.now() - startTime) / 1000;
+                    this.emit('log', event);
+                    return;
+                }
+            }
 
             try {
                 const targetBase = this.config.targetUrl.replace(/\/$/, '');

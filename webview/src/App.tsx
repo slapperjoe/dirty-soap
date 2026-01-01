@@ -262,7 +262,7 @@ function App() {
         setWatcherRunning,
         proxyHistory,
         setProxyHistory,
-        proxyRunning,
+        proxyRunning: _proxyRunning,
         setProxyRunning,
         proxyConfig,
         setProxyConfig,
@@ -270,10 +270,10 @@ function App() {
         // Mock state
         mockHistory,
         setMockHistory: _setMockHistory, // Will be used in message handler
-        mockRunning,
+        mockRunning: _mockRunning,
         setMockRunning: _setMockRunning, // Will be used in message handler
         mockConfig,
-        setMockConfig,
+        setMockConfig: _setMockConfig,
         handleSelectMockEvent,
         handleClearMockHistory,
         // Unified Server Mode
@@ -303,12 +303,12 @@ function App() {
         handleStartWatcher,
         handleStopWatcher,
         handleClearWatcher,
-        handleStartProxy,
-        handleStopProxy,
-        handleUpdateProxyConfig,
+        handleStartProxy: _handleStartProxy,
+        handleStopProxy: _handleStopProxy,
+        handleUpdateProxyConfig: _handleUpdateProxyConfig,
         handleClearProxy,
-        handleInjectProxy,
-        handleRestoreProxy,
+        handleInjectProxy: _handleInjectProxy,
+        handleRestoreProxy: _handleRestoreProxy,
         handleSaveUiState
     } = useSidebarCallbacks({
         projects,
@@ -700,29 +700,6 @@ function App() {
                     onStop: handleStopWatcher,
                     onClear: handleClearWatcher
                 }}
-                proxyProps={{
-                    isRunning: proxyRunning,
-                    onStart: handleStartProxy,
-                    onStop: handleStopProxy,
-                    config: proxyConfig,
-                    onUpdateConfig: handleUpdateProxyConfig,
-                    history: proxyHistory,
-                    onClear: handleClearProxy,
-                    configPath,
-                    onSelectConfigFile: () => bridge.sendMessage({ command: 'selectConfigFile' }),
-                    onOpenCertificate: () => bridge.sendMessage({ command: 'installCertificate' }),
-                    onSaveHistory: (content) => bridge.sendMessage({ command: 'saveProxyHistory', content }),
-                    onInject: handleInjectProxy,
-                    onRestore: handleRestoreProxy,
-                    breakpoints: config?.breakpoints || [],
-                    onUpdateBreakpoints: (bps) => {
-                        if (config) {
-                            const updatedConfig = { ...config, breakpoints: bps };
-                            setConfig(updatedConfig);
-                            bridge.sendMessage({ command: 'saveSettings', config: updatedConfig });
-                        }
-                    }
-                }}
                 testsProps={{
                     projects,
                     onAddSuite: handleAddSuite,
@@ -737,24 +714,6 @@ function App() {
                     onToggleCaseExpand: handleToggleCaseExpand,
                     deleteConfirm
                 }}
-                mockProps={{
-                    isRunning: mockRunning,
-                    config: mockConfig,
-                    history: mockHistory,
-                    onStart: () => bridge.sendMessage({ command: 'startMockServer' }),
-                    onStop: () => bridge.sendMessage({ command: 'stopMockServer' }),
-                    onUpdateConfig: (cfg) => {
-                        setMockConfig(prev => ({ ...prev, ...cfg }));
-                        bridge.sendMessage({ command: 'updateMockConfig', config: cfg });
-                    },
-                    onClear: handleClearMockHistory,
-                    onSelectEvent: handleSelectMockEvent,
-                    rules: mockConfig.rules || [],
-                    onAddRule: (rule) => bridge.sendMessage({ command: 'addMockRule', rule }),
-                    onUpdateRule: (id, updates) => bridge.sendMessage({ command: 'updateMockRule', ruleId: id, updates }),
-                    onDeleteRule: (id) => bridge.sendMessage({ command: 'deleteMockRule', ruleId: id }),
-                    onToggleRule: (id, enabled) => bridge.sendMessage({ command: 'toggleMockRule', ruleId: id, enabled })
-                }}
                 serverProps={{
                     serverConfig: {
                         mode: serverMode,  // Use dedicated state instead of deriving from running
@@ -763,34 +722,21 @@ function App() {
                         mockRules: mockConfig.rules || [],
                         passthroughEnabled: mockConfig.passthroughEnabled ?? true
                     },
-                    isRunning: serverMode !== 'off',
+                    isRunning: _proxyRunning,
                     onModeChange: (mode) => {
                         // Update UI state immediately
                         setServerMode(mode);
 
-                        // Then send commands to backend
-                        if (mode === 'off') {
-                            bridge.sendMessage({ command: 'stopProxy' });
-                            bridge.sendMessage({ command: 'stopMockServer' });
-                        } else if (mode === 'proxy') {
-                            bridge.sendMessage({ command: 'startProxy' });
-                            bridge.sendMessage({ command: 'stopMockServer' });
-                        } else if (mode === 'mock') {
-                            bridge.sendMessage({ command: 'stopProxy' });
-                            bridge.sendMessage({ command: 'startMockServer' });
-                        } else if (mode === 'both') {
-                            bridge.sendMessage({ command: 'startProxy' });
-                            bridge.sendMessage({ command: 'startMockServer' });
-                        }
+                        // Send unified command to backend
+                        bridge.sendMessage({ command: 'setServerMode', mode });
                     },
                     onStart: () => {
                         setServerMode('proxy');
-                        bridge.sendMessage({ command: 'startProxy' });
+                        bridge.sendMessage({ command: 'setServerMode', mode: 'proxy' });
                     },
                     onStop: () => {
                         setServerMode('off');
-                        bridge.sendMessage({ command: 'stopProxy' });
-                        bridge.sendMessage({ command: 'stopMockServer' });
+                        bridge.sendMessage({ command: 'setServerMode', mode: 'off' });
                     },
                     onOpenSettings: () => openSettings('server'),
                     proxyHistory,
@@ -861,7 +807,7 @@ function App() {
                     defaultEndpoint: selectedInterface?.definition || wsdlUrl,
                     changelog,
                     onChangeEnvironment: (env) => bridge.sendMessage({ command: 'updateActiveEnvironment', envName: env }),
-                    isReadOnly: activeView === SidebarView.WATCHER || activeView === SidebarView.PROXY
+                    isReadOnly: activeView === SidebarView.WATCHER || activeView === SidebarView.SERVER
                 }}
                 stepActions={{
                     onRunTestCase: handleRunTestCaseWrapper,

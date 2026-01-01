@@ -191,6 +191,61 @@ export class MockService extends EventEmitter {
         return this.isRunning;
     }
 
+    /**
+     * Send a mock response for a matched rule. Used by ProxyService in 'both' mode.
+     * Returns true if response was sent, false otherwise.
+     */
+    public async sendMockResponse(
+        res: http.ServerResponse,
+        rule: MockRule,
+        eventInfo: { eventId: string; startTime: number; method: string; url: string; requestHeaders: any; requestBody: string }
+    ): Promise<boolean> {
+        try {
+            // Increment hit count
+            rule.hitCount = (rule.hitCount || 0) + 1;
+
+            this.logDebug(`[MockService] Sending mock response for rule: ${rule.name}`);
+
+            // Apply delay if configured
+            if (rule.delayMs && rule.delayMs > 0) {
+                await this.delay(rule.delayMs);
+            }
+
+            // Send mock response
+            const headers: Record<string, string> = {
+                'Content-Type': rule.contentType || 'text/xml; charset=utf-8',
+                ...rule.responseHeaders
+            };
+
+            res.writeHead(rule.statusCode, headers);
+            res.end(rule.responseBody);
+
+            // Emit mock hit event
+            const event: MockEvent = {
+                id: eventInfo.eventId,
+                timestamp: eventInfo.startTime,
+                timestampLabel: new Date(eventInfo.startTime).toLocaleTimeString(),
+                method: eventInfo.method,
+                url: eventInfo.url,
+                requestHeaders: eventInfo.requestHeaders,
+                requestBody: eventInfo.requestBody,
+                status: rule.statusCode,
+                responseHeaders: headers,
+                responseBody: rule.responseBody,
+                duration: (Date.now() - eventInfo.startTime) / 1000,
+                matchedRule: rule.name
+            };
+
+            this.emit('log', event);
+            this.emit('mockHit', { rule, event });
+
+            return true;
+        } catch (error: any) {
+            this.logDebug(`[MockService] Error sending mock response: ${error.message}`);
+            return false;
+        }
+    }
+
     private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
         const startTime = Date.now();
         const eventId = `mock-${startTime}-${Math.random().toString(36).substr(2, 9)}`;
@@ -275,7 +330,7 @@ export class MockService extends EventEmitter {
         });
     }
 
-    private findMatchingRule(req: http.IncomingMessage, body: string): MockRule | null {
+    public findMatchingRule(req: http.IncomingMessage, body: string): MockRule | null {
         for (const rule of this.config.rules) {
             if (!rule.enabled) continue;
 

@@ -6,9 +6,7 @@ import { SidebarView } from '../models';
 import { ProjectList } from './sidebar/ProjectList';
 import { WsdlExplorer } from './sidebar/WsdlExplorer';
 import { WatcherPanel } from './sidebar/WatcherPanel';
-import { ProxyUi } from './sidebar/ProxyUi';
 import { TestsUi } from './sidebar/TestsUi';
-import { MockUi } from './sidebar/MockUi';
 import { ServerUi } from './sidebar/ServerUi';
 
 // Prop Groups
@@ -19,9 +17,7 @@ import {
     SidebarSelectionProps,
     SidebarTestRunnerProps,
     SidebarWatcherProps,
-    SidebarProxyProps,
     SidebarTestsProps,
-    SidebarMockProps,
     SidebarServerProps
 } from '../types/props';
 
@@ -32,9 +28,7 @@ interface SidebarProps {
     selectionProps: SidebarSelectionProps;
     testRunnerProps: SidebarTestRunnerProps;
     watcherProps: SidebarWatcherProps;
-    proxyProps: SidebarProxyProps;
     testsProps: SidebarTestsProps;
-    mockProps: SidebarMockProps;
     serverProps?: SidebarServerProps;  // Unified server tab
 
     // View State
@@ -64,9 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     selectionProps,
     testRunnerProps: _testRunnerProps, // Legacy, tests now use testsProps
     watcherProps,
-    proxyProps,
     testsProps,
-    mockProps,
     serverProps,
     backendConnected,
     workspaceDirty,
@@ -92,12 +84,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         history: watcherHistory, onSelectEvent: onSelectWatcherEvent, isRunning: watcherRunning,
         onStart: onStartWatcher, onStop: onStopWatcher, onClear: onClearWatcher
     } = watcherProps;
-    const {
-        history: proxyHistory, isRunning: proxyRunning, config: proxyConfig,
-        onStart: onStartProxy, onStop: onStopProxy, onUpdateConfig: onUpdateProxyConfig, onClear: onClearProxy,
-        onSaveHistory: onSaveProxyHistory, configPath, onSelectConfigFile, onInject: onInjectProxy, onRestore: onRestoreProxy, onOpenCertificate,
-        breakpoints, onUpdateBreakpoints
-    } = proxyProps;
 
     // Sidebar Navigation Rail Item
     const NavItem = ({ icon: Icon, active, onClick, title }: any) => (
@@ -206,46 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Content Area */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: 'var(--vscode-sideBar-background)' }}>
-
-                {activeView === SidebarView.PROXY && (
-                    <ProxyUi
-                        isRunning={proxyRunning}
-                        config={proxyConfig}
-                        history={proxyHistory}
-                        onStart={onStartProxy}
-                        onStop={onStopProxy}
-                        onUpdateConfig={onUpdateProxyConfig}
-                        onClear={onClearProxy}
-                        onSelectEvent={onSelectWatcherEvent}
-                        onSaveHistory={onSaveProxyHistory}
-                        configPath={configPath}
-                        onSelectConfigFile={onSelectConfigFile}
-                        onInjectProxy={onInjectProxy}
-                        onRestoreProxy={onRestoreProxy}
-                        onOpenCertificate={onOpenCertificate}
-                        breakpoints={breakpoints}
-                        onUpdateBreakpoints={onUpdateBreakpoints}
-                    />
-                )}
-
-                {activeView === SidebarView.MOCK && (
-                    <MockUi
-                        isRunning={mockProps.isRunning}
-                        config={mockProps.config}
-                        history={mockProps.history}
-                        onStart={mockProps.onStart}
-                        onStop={mockProps.onStop}
-                        onUpdateConfig={mockProps.onUpdateConfig}
-                        onClear={mockProps.onClear}
-                        onSelectEvent={mockProps.onSelectEvent}
-                        rules={mockProps.rules}
-                        onAddRule={mockProps.onAddRule}
-                        onUpdateRule={mockProps.onUpdateRule}
-                        onDeleteRule={mockProps.onDeleteRule}
-                        onToggleRule={mockProps.onToggleRule}
-                        onEditRule={mockProps.onEditRule}
-                    />
-                )}
 
                 {activeView === SidebarView.SERVER && serverProps && (
                     <ServerUi

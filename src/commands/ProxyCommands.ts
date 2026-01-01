@@ -184,3 +184,20 @@ export class ResolveBreakpointCommand implements ICommand {
         this._proxyService.resolveBreakpoint(breakpointId, content || '', cancelled || false);
     }
 }
+
+export class SetServerModeCommand implements ICommand {
+    constructor(private readonly _proxyService: ProxyService) { }
+
+    async execute(message: any): Promise<void> {
+        const { mode } = message;
+        console.log(`[ProxyCommands] Setting server mode to: ${mode}`);
+        this._proxyService.setServerMode(mode);
+
+        if (mode === 'off') {
+            this._proxyService.stop();
+        } else {
+            // Ensure server is started if not already
+            this._proxyService.start();
+        }
+    }
+}

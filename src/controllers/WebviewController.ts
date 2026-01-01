@@ -33,7 +33,8 @@ import {
     InjectProxyCommand,
     RestoreProxyCommand,
     OpenCertificateCommand,
-    ResolveBreakpointCommand
+    ResolveBreakpointCommand,
+    SetServerModeCommand
 } from '../commands/ProxyCommands';
 
 import {
@@ -107,6 +108,7 @@ export class WebviewController {
         this._commands.set('restoreProxy', new RestoreProxyCommand(this._panel, this._configSwitcherService));
         this._commands.set('openCertificate', new OpenCertificateCommand(this._proxyService, this._soapClient));
         this._commands.set('resolveBreakpoint', new ResolveBreakpointCommand(this._proxyService));
+        this._commands.set('setServerMode', new SetServerModeCommand(this._proxyService));
 
         this._commands.set('runTestSuite', new RunTestSuiteCommand(this._testRunnerService, this._loadedProjects));
         this._commands.set('runTestCase', new RunTestCaseCommand(this._testRunnerService, this._loadedProjects));
@@ -123,6 +125,9 @@ export class WebviewController {
         this._commands.set('injectMockConfig', new InjectMockConfigCommand(this._panel, this._configSwitcherService, this._mockService));
         this._commands.set('restoreMockConfig', new RestoreMockConfigCommand(this._panel, this._configSwitcherService));
         this._commands.set('getMockStatus', new GetMockStatusCommand(this._panel, this._mockService));
+
+        // Wire MockService into ProxyService for middleware mode
+        this._proxyService.setMockService(this._mockService);
 
         // Setup Update Callback
         this._fileWatcherService.setCallback((history) => {

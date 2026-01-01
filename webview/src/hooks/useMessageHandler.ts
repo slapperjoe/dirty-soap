@@ -452,6 +452,50 @@ export function useMessageHandler(state: MessageHandlerState) {
                     setConfigPath(message.path);
                     break;
 
+                case 'mockStatus':
+                    debugLog('mockStatus', { running: message.running });
+                    // Mock status updates handled by context if needed
+                    break;
+
+                case 'mockLog':
+                    debugLog('mockLog (no-op for now)');
+                    // Could be handled similarly to proxyLog if needed
+                    break;
+
+                case 'mockRulesUpdated':
+                    debugLog('mockRulesUpdated', { ruleCount: message.rules?.length });
+                    // Mock rules updated notification
+                    break;
+
+                case 'mockHit':
+                    debugLog('mockHit (no-op)');
+                    break;
+
+                case 'mockRecorded':
+                    debugLog('mockRecorded (no-op)');
+                    break;
+
+                case 'adoHasPatResult':
+                    debugLog('adoHasPatResult', { hasPat: message.hasPat });
+                    // ADO PAT check result - handled by IntegrationsTab
+                    break;
+
+                case 'adoProjectsResult':
+                    debugLog('adoProjectsResult (no-op)');
+                    break;
+
+                case 'adoTestConnectionResult':
+                    debugLog('adoTestConnectionResult (no-op)');
+                    break;
+
+                case 'adoAddCommentResult':
+                    debugLog('adoAddCommentResult (no-op)');
+                    break;
+
+                case 'clipboardText':
+                    debugLog('clipboardText (no-op)');
+                    break;
+
                 case 'configSwitched':
                 case 'configRestored':
                     debugLog(`${message.command} (no-op)`);

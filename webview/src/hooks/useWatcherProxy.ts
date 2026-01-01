@@ -98,7 +98,7 @@ export function useWatcherProxy({
             requestBody = formatXml(raw, true, inlineElementValues, hideCausalityData);
 
             // Cache the formatted body so it doesn't re-format on next click
-            if (activeView === SidebarView.PROXY) {
+            if (activeView === SidebarView.SERVER) {
                 setProxyHistory(prev => prev.map(e => e.id === event.id ? { ...e, formattedBody: requestBody } : e));
             } else {
                 setWatcherHistory(prev => prev.map(e => e.id === event.id ? { ...e, formattedBody: requestBody } : e));

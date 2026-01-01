@@ -171,8 +171,6 @@ export enum SidebarView {
     EXPLORER = 'explorer',
     TESTS = 'tests',
     WATCHER = 'watcher',
-    PROXY = 'proxy',
-    MOCK = 'mock',
     SERVER = 'server'  // Unified server tab (replaces PROXY + MOCK)
 }
 
