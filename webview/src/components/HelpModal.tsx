@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { X, MonitorPlay, Eye, FileJson, Network, Radio, Layout } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
 import ReactMarkdown from 'react-markdown';
 
 const ModalOverlay = styled.div`
@@ -139,13 +140,16 @@ The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore 
 
 ### 1. Request Construction
 - **Auto-Generation**: Requests are automatically generated from the WSDL schema with placeholder "wildcards" (e.g., \`?\`).
-- **Inline Formatting**: Toggle between "Block" and "Inline" value formatting using the **Align Left** icon in the editor toolbar.
+- **Inline Formatting**: Toggle between "Block" and "Inline" value formatting using the **Align Left** (|≡) icon in the editor toolbar.
 - **Causality Data Stripping**: Hide annoying VS Debugger causality data (comments and elements) using the **Bug** icon.
+- **Attribute Alignment**: Toggle whether attributes are aligned vertically using the **Wrap Text** icon.
+- **Prettify**: Manually re-format the XML at any time using the **Braces** ({ }) icon.
 
 ### 2. Response Analysis
 - **Syntax Highlighting**: Responses are formatted and highlighted as XML.
 - **Headers Tab**: View both Request headers (editable) and Response headers (read-only).
 - **Assertions**: Define XPath or Regex assertions to validate responses automatically (Green/Red indicators in the sidebar).
+- **Extractors**: Right-click response content or select text to create extractors that save values into variables for later use.
 
 ### 3. Environment Variables
 - Use \`{{variable}}\` syntax in your requests or headers.
@@ -159,9 +163,13 @@ The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore 
 ## Toolbar Actions
 
 - **Run (Play Icon)**: Execute the current request.
+- **Stop (Square Icon)**: Cancel a running request.
 - **Environment Dropdown**: Select the active environment for variable substitution.
-- **Align Left**: Format the XML request body.
+- **Align Left**: Toggle Inline vs Block formatting for element values.
+- **Wrap Text**: Toggle vertical alignment of XML attributes.
 - **Bug**: Remove VS Debugger causality data from the request body.
+- **Braces**: Re-format (prettify) the XML in the editor.
+- **Revert (Rotate Icon)**: Reset the request body to the original WSDL-generated template (loses changes!).
 `
   },
   {
@@ -180,9 +188,9 @@ The **Server** tab provides a unified interface for both Proxy and Mock server f
 | Mode | Description |
 |------|-------------|
 | **Off** | Server stopped |
-| **Mock** | Return canned responses matching your rules |
+| **Moxy** | Return canned responses matching your rules |
 | **Proxy** | Traffic logging with breakpoints and replace rules |
-| **Both** | Mock + Proxy combined |
+| **Both** | Moxy + Proxy combined |
 
 ## Using the Server Tab
 
@@ -192,11 +200,11 @@ The **Server** tab provides a unified interface for both Proxy and Mock server f
 
 ## Mode-Specific Features
 
-When **Mock** or **Both** is selected:
-- **Mock Rules** section appears for managing mock responses
+When **Moxy** or **Both** is selected:
+- **Dirty Moxy Rules** section appears for managing mock responses
 - Add, edit, toggle, and delete rules directly from the sidebar
 
-![Mock Rules](help/mock_rules_diagram.png)
+![Dirty Moxy Rules](help/mock_rules_diagram.png)
 
 When **Proxy** or **Both** is selected:
 - **Breakpoints** section appears for request/response interception
@@ -204,10 +212,13 @@ When **Proxy** or **Both** is selected:
 
 ## Settings & Controls
 
+- **Start/Stop (Play/Square)**: Control the unified server.
 - **Gear Icon**: Open settings (Port, Target URL, Replace Rules).
 - **Trash Icon**: Clear the traffic history.
 - **Plus (+)**: Add a new Mock Rule or Breakpoint.
 - **Toggle Switch**: Enable or disable specific rules/breakpoints.
+- **Edit Icon**: Modify an existing rule or breakpoint.
+- **Record Mode**: (In settings) Automatically save proxy traffic as mock rules.
 `
   },
   {
@@ -250,12 +261,12 @@ The proxy automatically generates certificates for HTTPS traffic.
   },
   {
     id: 'mock-server',
-    label: 'Mock Server',
+    label: 'Dirty Moxy',
     icon: Radio,
     content: `
-# Mock Server
+# Dirty Moxy
 
-The Mock Server returns predefined responses without hitting the real backend. Ideal for:
+The Dirty Moxy server returns predefined responses without hitting the real backend. Ideal for:
 - Offline development
 - Testing error scenarios
 - Simulating slow responses
@@ -267,7 +278,7 @@ The Mock Server returns predefined responses without hitting the real backend. I
 3. Start the server
 4. Point your application to the mock server
 
-## Mock Rules
+## Dirty Moxy Rules
 
 Each rule defines when and what to respond:
 
@@ -352,7 +363,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             ))}
           </Sidebar>
           <ContentArea>
-            <ReactMarkdown>{activeSection.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeSection.content}</ReactMarkdown>
           </ContentArea>
         </ModalBody>
       </ModalContent>

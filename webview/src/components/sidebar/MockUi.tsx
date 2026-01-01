@@ -72,7 +72,7 @@ export const MockUi: React.FC<MockUiProps> = ({
             <div style={{ display: 'flex', borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)', padding: '5px 10px', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Radio size={14} />
-                    Mock Server
+                    Dirty Moxy
                 </div>
             </div>
 
@@ -111,9 +111,9 @@ export const MockUi: React.FC<MockUiProps> = ({
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingBottom: 1 }}>
                             {!isRunning ? (
-                                <HeaderButton onClick={onStart} style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Start Mock Server"><Play size={14} /></HeaderButton>
+                                <HeaderButton onClick={onStart} style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Start Dirty Moxy"><Play size={14} /></HeaderButton>
                             ) : (
-                                <HeaderButton onClick={onStop} style={{ color: 'var(--vscode-testing-iconFailed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Stop Mock Server"><Square size={14} /></HeaderButton>
+                                <HeaderButton onClick={onStop} style={{ color: 'var(--vscode-testing-iconFailed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Stop Dirty Moxy"><Square size={14} /></HeaderButton>
                             )}
                         </div>
                     </div>
@@ -306,7 +306,7 @@ export const MockUi: React.FC<MockUiProps> = ({
                                         <span style={{ fontWeight: 'bold' }}>{event.method}</span>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                             {event.matchedRule && (
-                                                <span style={{ color: 'var(--vscode-charts-green)', fontSize: '0.8em' }}>MOCK</span>
+                                                <span style={{ color: 'var(--vscode-charts-green)', fontSize: '0.8em' }}>MOXY</span>
                                             )}
                                             {event.passthrough && (
                                                 <span style={{ color: 'var(--vscode-charts-blue)', fontSize: '0.8em', display: 'flex', alignItems: 'center' }}>

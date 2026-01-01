@@ -43,7 +43,7 @@ export interface ServerUiProps {
 
 const MODE_OPTIONS: { value: ServerMode; label: string; color?: string }[] = [
     { value: 'off', label: 'Off' },
-    { value: 'mock', label: 'Mock', color: 'var(--vscode-charts-green)' },
+    { value: 'mock', label: 'Moxy', color: 'var(--vscode-charts-green)' },
     { value: 'proxy', label: 'Proxy', color: 'var(--vscode-charts-blue)' },
     { value: 'both', label: 'Both', color: 'var(--vscode-charts-purple)' },
 ];
@@ -70,6 +70,17 @@ export const ServerUi: React.FC<ServerUiProps> = ({
     const totalEvents = proxyHistory.length + mockHistory.length;
     const showMockSection = serverConfig.mode === 'mock' || serverConfig.mode === 'both';
     const showProxySection = serverConfig.mode === 'proxy' || serverConfig.mode === 'both';
+
+    // DEBUG: Diagnose missing sections
+    console.log('[ServerUi] Render', {
+        mode: serverConfig.mode,
+        showMockSection,
+        showProxySection,
+        hasMockRulesHandler: !!onAddMockRule,
+        hasBreakpointHandler: !!onUpdateBreakpoints,
+        mockRulesCount: mockRules.length,
+        breakpointsCount: breakpoints.length
+    });
 
     // Modal states
     const [ruleModal, setRuleModal] = useState<{ open: boolean, rule?: MockRule | null }>({ open: false });
@@ -439,7 +450,7 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                                                     <span style={{ fontWeight: 'bold' }}>{(item.event as MockEvent).method}</span>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                                         {(item.event as MockEvent).matchedRule && (
-                                                            <span style={{ color: 'var(--vscode-charts-green)', fontSize: '0.8em' }}>MOCK</span>
+                                                            <span style={{ color: 'var(--vscode-charts-green)', fontSize: '0.8em' }}>MOXY</span>
                                                         )}
                                                         {(item.event as MockEvent).passthrough && (
                                                             <span style={{ color: 'var(--vscode-charts-blue)', fontSize: '0.8em', display: 'flex', alignItems: 'center' }}>

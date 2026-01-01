@@ -216,12 +216,14 @@ export class SoapPanel {
 
         const scriptUri = webview.asWebviewUri(scriptPathOnDisk);
         const styleUri = webview.asWebviewUri(stylePathOnDisk);
+        const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'webview-build', '/'));
 
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="${baseUri}">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-randomNonce' ${webview.cspSource} 'unsafe-eval'; worker-src blob:; font-src ${webview.cspSource} data:; img-src ${webview.cspSource} data:;">
     <title>Dirty SOAP</title>
     <link rel="stylesheet" type="text/css" href="${styleUri}">

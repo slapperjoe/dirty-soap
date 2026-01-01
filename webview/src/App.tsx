@@ -269,11 +269,11 @@ function App() {
         handleSelectWatcherEvent,
         // Mock state
         mockHistory,
-        setMockHistory: _setMockHistory, // Will be used in message handler
+        setMockHistory, // Will be used in message handler
         mockRunning: _mockRunning,
-        setMockRunning: _setMockRunning, // Will be used in message handler
+        setMockRunning, // Will be used in message handler
         mockConfig,
-        setMockConfig: _setMockConfig,
+        setMockConfig,
         handleSelectMockEvent,
         handleClearMockHistory,
         // Unified Server Mode
@@ -409,6 +409,9 @@ function App() {
         setTestExecution,
         setActiveView,
         setActiveBreakpoint,
+        setMockHistory,
+        setMockRunning,
+        setMockConfig,
         wsdlUrl,
         projects,
         proxyConfig,

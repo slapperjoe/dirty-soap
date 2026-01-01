@@ -14,7 +14,9 @@ import {
     SoapTestStep,
     SoapTestCase,
     WatcherEvent,
-    SidebarView
+    SidebarView,
+    MockEvent,
+    MockConfig
 } from '../models';
 
 // Debug logger - sends to VS Code output and console
@@ -87,6 +89,9 @@ export interface MessageHandlerState {
         timeoutMs: number;
         startTime: number;
     } | null>>;
+    setMockHistory: React.Dispatch<React.SetStateAction<MockEvent[]>>;
+    setMockRunning: React.Dispatch<React.SetStateAction<boolean>>;
+    setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
 
     // Current values needed for message handling
     wsdlUrl: string;
@@ -130,6 +135,9 @@ export function useMessageHandler(state: MessageHandlerState) {
         setTestExecution,
         setActiveView,
         setActiveBreakpoint,
+        setMockHistory,
+        setMockRunning,
+        setMockConfig,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -429,6 +437,39 @@ export function useMessageHandler(state: MessageHandlerState) {
                     setProxyRunning(message.running);
                     break;
 
+                case 'mockLog':
+                    debugLog('mockLog', { eventId: message.event?.id });
+                    setMockHistory(prev => {
+                        const existingIndex = prev.findIndex(e => e.id === message.event.id);
+                        if (existingIndex !== -1) {
+                            const updated = [...prev];
+                            updated[existingIndex] = { ...updated[existingIndex], ...message.event };
+                            return updated;
+                        }
+                        return [message.event, ...prev];
+                    });
+                    break;
+
+                case 'mockStatus':
+                    debugLog('mockStatus', { running: message.running });
+                    setMockRunning(message.running);
+                    break;
+
+                case 'mockRulesUpdated':
+                    debugLog('mockRulesUpdated', { ruleCount: message.rules?.length });
+                    setMockConfig(prev => ({ ...prev, rules: message.rules }));
+                    break;
+
+                case 'mockHit':
+                    debugLog('mockHit', { ruleId: message.rule?.id });
+                    // Visual feedback could be added here
+                    break;
+
+                case 'mockRecorded':
+                    debugLog('mockRecorded', { name: message.rule?.name });
+                    // Maybe a notification system later
+                    break;
+
                 case 'breakpointHit':
                     debugLog('breakpointHit', { breakpointId: message.breakpointId, type: message.type });
                     setActiveBreakpoint({
@@ -450,29 +491,6 @@ export function useMessageHandler(state: MessageHandlerState) {
                 case 'configFileSelected':
                     debugLog('configFileSelected', { path: message.path });
                     setConfigPath(message.path);
-                    break;
-
-                case 'mockStatus':
-                    debugLog('mockStatus', { running: message.running });
-                    // Mock status updates handled by context if needed
-                    break;
-
-                case 'mockLog':
-                    debugLog('mockLog (no-op for now)');
-                    // Could be handled similarly to proxyLog if needed
-                    break;
-
-                case 'mockRulesUpdated':
-                    debugLog('mockRulesUpdated', { ruleCount: message.rules?.length });
-                    // Mock rules updated notification
-                    break;
-
-                case 'mockHit':
-                    debugLog('mockHit (no-op)');
-                    break;
-
-                case 'mockRecorded':
-                    debugLog('mockRecorded (no-op)');
                     break;
 
                 case 'adoHasPatResult':

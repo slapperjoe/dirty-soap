@@ -134,19 +134,25 @@ export function useContextMenu({
     const handleCloneRequest = useCallback(() => {
         if (contextMenu && contextMenu.type === 'request' && !contextMenu.isExplorer) {
             const req = contextMenu.data as SoapUIRequest;
-            setProjects(prev => prev.map(p => ({
-                ...p,
-                interfaces: p.interfaces.map(i => ({
+            setProjects(prev => prev.map(p => {
+                let found = false;
+                const newInterfaces = p.interfaces.map(i => ({
                     ...i,
                     operations: i.operations.map(o => {
                         if (o.requests.includes(req)) {
-                            const newReq = { ...req, name: `${req.name} Copy` };
+                            found = true;
+                            const newReq = { ...req, name: `${req.name} Copy`, id: crypto.randomUUID(), dirty: true };
                             return { ...o, requests: [...o.requests, newReq] };
                         }
                         return o;
                     })
-                }))
-            })));
+                }));
+
+                if (found) {
+                    return { ...p, interfaces: newInterfaces, dirty: true };
+                }
+                return p;
+            }));
             closeContextMenu();
         }
     }, [contextMenu, setProjects, closeContextMenu]);
@@ -186,9 +192,7 @@ export function useContextMenu({
                 });
 
                 if (found) {
-                    const updatedProject = { ...p, interfaces: newInterfaces, dirty: true };
-                    saveProject(updatedProject);
-                    return updatedProject;
+                    return { ...p, interfaces: newInterfaces, dirty: true };
                 }
                 return p;
             }));
@@ -199,7 +203,7 @@ export function useContextMenu({
 
             if (contextMenu) closeContextMenu();
         }
-    }, [contextMenu, setProjects, saveProject, closeContextMenu, setSelectedRequest, setResponse]);
+    }, [contextMenu, setProjects, closeContextMenu, setSelectedRequest, setResponse]);
 
     const handleDeleteInterface = useCallback((iface: SoapUIInterface) => {
         setProjects(prev => {

@@ -110,6 +110,74 @@ export class MockService extends EventEmitter {
         this.emit('rulesUpdated', this.config.rules);
     }
 
+    /**
+     * Records a filtered proxy request/response pair into a new mock rule
+     */
+    public recordRequest(data: {
+        method: string,
+        url: string,
+        requestHeaders: Record<string, any>,
+        requestBody: string,
+        status: number,
+        responseHeaders: Record<string, any>,
+        responseBody: string
+    }) {
+        if (!this.config.recordMode) return;
+
+        this.logDebug(`[MockService] Recording request to: ${data.url}`);
+
+        // Try to find SOAP operation
+        let operationName = 'Recorded Rule';
+        try {
+            const soapAction = data.requestHeaders['soapaction'] || data.requestHeaders['SoapAction'];
+            if (typeof soapAction === 'string' && soapAction) {
+                operationName = soapAction.replace(/"/g, '').split('/').pop() || 'Operation';
+            } else {
+                // Try to parse body for operation name
+                const match = data.requestBody.match(/<(?:\w+:)?Body(?:\s+[^>]*?)?>\s*<(?:\w+:)?(\w+)/i);
+                if (match && match[1]) {
+                    operationName = match[1];
+                }
+            }
+        } catch (e) {
+            this.logDebug(`[MockService] Failed to extract operation name: ${e}`);
+        }
+
+        const ruleId = `recorded-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        // Filter headers to strings
+        const headers: Record<string, string> = {};
+        Object.entries(data.responseHeaders).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && k.toLowerCase() !== 'content-length' && k.toLowerCase() !== 'connection' && k.toLowerCase() !== 'transfer-encoding') {
+                headers[k] = String(v);
+            }
+        });
+
+        const newRule: MockRule = {
+            id: ruleId,
+            name: `${operationName} (Recorded)`,
+            enabled: true,
+            conditions: [
+                // For simplicity, record by URL and Operation if found
+                { type: 'url', pattern: data.url, isRegex: false }
+            ],
+            statusCode: data.status,
+            responseBody: data.responseBody,
+            responseHeaders: headers,
+            recordedAt: Date.now(),
+            recordedFrom: data.url,
+            hitCount: 0
+        };
+
+        // If we found an operation name, add a condition for it too
+        if (operationName !== 'Recorded Rule' && operationName !== 'Operation') {
+            newRule.conditions.push({ type: 'operation', pattern: operationName, isRegex: false });
+        }
+
+        this.addRule(newRule);
+        this.emit('mockRecorded', { ruleId, name: newRule.name });
+    }
+
     private async ensureCert(): Promise<{ key: string, cert: string }> {
         this.logDebug('[MockService] ensureCert called');
 

@@ -461,6 +461,19 @@ export class ProxyService extends EventEmitter {
 
                 this.emit('log', event);
 
+                // RECORD MODE: Capture this proxy traffic as a mock rule if enabled
+                if (this.mockService && this.mockService.getConfig().recordMode) {
+                    this.mockService.recordRequest({
+                        method: req.method || 'GET',
+                        url: req.url || '/',
+                        requestHeaders: req.headers as Record<string, any>,
+                        requestBody: reqBody,
+                        status: response.status,
+                        responseHeaders: response.headers as Record<string, any>,
+                        responseBody: responseData
+                    });
+                }
+
             } catch (error: any) {
                 const endTime = Date.now();
                 event.duration = (endTime - startTime) / 1000;

@@ -134,16 +134,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     title="File Watcher"
                 />
                 <NavItem
-                    icon={FlaskConical}
-                    active={activeView === SidebarView.TESTS}
-                    onClick={() => onChangeView(SidebarView.TESTS)}
-                    title="Tests"
-                />
-                <NavItem
                     icon={Network}
                     active={activeView === SidebarView.SERVER}
                     onClick={() => onChangeView(SidebarView.SERVER)}
                     title="Server"
+                />
+                <NavItem
+                    icon={FlaskConical}
+                    active={activeView === SidebarView.TESTS}
+                    onClick={() => onChangeView(SidebarView.TESTS)}
+                    title="Tests"
                 />
 
                 <div style={{ flex: 1 }}></div>
@@ -195,17 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {activeView === SidebarView.SERVER && serverProps && (
                     <ServerUi
-                        serverConfig={serverProps.serverConfig}
-                        isRunning={serverProps.isRunning}
-                        onModeChange={serverProps.onModeChange}
-                        onStart={serverProps.onStart}
-                        onStop={serverProps.onStop}
-                        onOpenSettings={serverProps.onOpenSettings}
-                        proxyHistory={serverProps.proxyHistory}
-                        mockHistory={serverProps.mockHistory}
-                        onSelectProxyEvent={serverProps.onSelectProxyEvent}
-                        onSelectMockEvent={serverProps.onSelectMockEvent}
-                        onClearHistory={serverProps.onClearHistory}
+                        {...serverProps}
                     />
                 )}
 
