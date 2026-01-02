@@ -110,7 +110,7 @@ export class WebviewController {
         this._commands.set('stopProxy', new StopProxyCommand(this._proxyService));
         this._commands.set('updateProxyConfig', new UpdateProxyConfigCommand(this._proxyService, this._settingsManager));
         this._commands.set('saveProxyHistory', new SaveProxyHistoryCommand());
-        this._commands.set('injectProxy', new InjectProxyCommand(this._panel, this._configSwitcherService, this._proxyService, this._soapClient));
+        this._commands.set('injectProxy', new InjectProxyCommand(this._panel, this._configSwitcherService, this._proxyService, this._soapClient, this._settingsManager));
         this._commands.set('restoreProxy', new RestoreProxyCommand(this._panel, this._configSwitcherService));
         this._commands.set('openCertificate', new OpenCertificateCommand(this._proxyService, this._soapClient));
         this._commands.set('resolveBreakpoint', new ResolveBreakpointCommand(this._proxyService));

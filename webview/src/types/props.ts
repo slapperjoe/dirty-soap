@@ -172,6 +172,9 @@ export interface SidebarServerProps {
     // Breakpoints (mode = proxy or both)
     breakpoints?: import('../components/modals/BreakpointModal').Breakpoint[];
     onUpdateBreakpoints?: (breakpoints: import('../components/modals/BreakpointModal').Breakpoint[]) => void;
+
+    // Certificate
+    onOpenCertificate?: () => void;
 }
 
 // ============================================================================

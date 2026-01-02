@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { X, MonitorPlay, Eye, FileJson, Network, Radio, Layout } from 'lucide-react';
+import { X, MonitorPlay, Eye, FileJson, Network, Radio, Layout, FlaskConical } from 'lucide-react';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from 'react-markdown';
 
@@ -332,6 +332,80 @@ The File Watcher monitors external processes that write SOAP requests/responses 
 - **Smart Naming**: Events are named based on the first child of \`soap:Body\`
 - **Read-Only View**: Watcher items can be inspected but not edited
 - **Debouncing**: Rapid file writes are batched to prevent UI flooding
+`
+  },
+  {
+    id: 'tests-assertions',
+    label: 'Tests & Assertions',
+    icon: FlaskConical,
+    content: `
+# Tests & Assertions
+
+Dirty Soap includes a powerful testing framework that allows you to automate and validate your SOAP services.
+
+![Tests Interface](help/tests_interface_screenshot.png)
+
+## Hierarchy
+
+The testing structure is organized as follows:
+
+- **Test Suite**: A logical container for related test cases (e.g., "User Management Tests").
+- **Test Case**: A specific scenario being tested (e.g., "Create User Successfully").
+- **Test Step**: An individual action within a case (e.g., "Login Request", "Create User Request").
+
+## Creating Tests
+
+1.  **From Project**: Click the **+** icon in the Tests sidebar to create a new Test Suite.
+2.  **Add Case**: Add Test Cases to your suite.
+3.  **Add Steps**:
+    -   **Drag & Drop**: Drag operations from the **WSDL Explorer** directly into a Test Case.
+    -   **Manual**: Use the **+** button on a Test Case to add a new Request Step.
+
+## Assertions
+
+Assertions validate that the response matches your expectations. If an assertion fails, the test step fails.
+
+### Adding Assertions
+
+1.  Run a Request Step.
+2.  Switch to the **Assertions** tab in the bottom panel.
+3.  Click **+** to add an assertion.
+
+### Assertion Types
+
+-   **XPath Match**: Validates that a specific XML element matches an expected value.
+    -   *Example XPath*: \`//ns1:GetUserResult/ns1:Email\`
+    -   *Example Expectation*: \`test@example.com\`
+-   **Contains**: Checks if the response body contains a specific string.
+-   **Not Contains**: Checks if the response body does *not* contain a specific string.
+-   **Status Code**: Validates the HTTP status code (e.g., 200).
+
+### Smart Assertions
+
+Right-click on any value in the Response Viewer and select **Add Assertion** to automatically generate an XPath assertion for that specific element.
+
+## Variables & Extractors
+
+Variables allow you to pass data between test steps (e.g., capture a Session ID from Step 1 and use it in Step 2).
+
+### Extractors
+Extractors capture data from a response and store it in a variable.
+
+1.  **Create**: In the Response Viewer, select the text you want to capture.
+2.  **Save**: Right-click and choose **Extract to Variable**.
+3.  **Configure**: Give the variable a name (e.g., \`sessionId\`).
+
+### Using Variables
+Use the \`{{variableName}}\` syntax in any Request XML or Header.
+
+*Example*:
+\`\`\`xml
+<soap:Header>
+    <SessionId>{{sessionId}}</SessionId>
+</soap:Header>
+\`\`\`
+
+When the test runs, \`{{sessionId}}\` will be replaced with the value captured by the extractor.
 `
   }
 ];

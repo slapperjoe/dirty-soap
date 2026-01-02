@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Play, Square, Trash2, Settings, Network, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare } from 'lucide-react';
+import { Play, Square, Trash2, Settings, Network, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield } from 'lucide-react';
 import { WatcherEvent, MockEvent, ServerMode, ServerConfig, MockRule } from '../../models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
@@ -41,6 +41,9 @@ export interface ServerUiProps {
     // Breakpoints (shown when mode = proxy or both)
     breakpoints?: Breakpoint[];
     onUpdateBreakpoints?: (breakpoints: Breakpoint[]) => void;
+
+    // Certificate
+    onOpenCertificate?: () => void;
 }
 
 const MODE_OPTIONS: { value: ServerMode; label: string; color?: string }[] = [
@@ -69,6 +72,7 @@ export const ServerUi: React.FC<ServerUiProps> = ({
     onToggleMockRule,
     breakpoints = [],
     onUpdateBreakpoints,
+    onOpenCertificate,
 }) => {
     const totalEvents = proxyHistory.length + mockHistory.length;
     const showMockSection = serverConfig.mode === 'mock' || serverConfig.mode === 'both';
@@ -230,6 +234,16 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                                 <Square size={12} />
                             </HeaderButton>
                         )
+                    )}
+                    {/* Certificate button for HTTPS targets */}
+                    {serverConfig.targetUrl?.toLowerCase().startsWith('https') && onOpenCertificate && (
+                        <HeaderButton
+                            onClick={onOpenCertificate}
+                            title="Install Certificate (Required for HTTPS)"
+                            style={{ color: 'var(--vscode-charts-yellow)', marginLeft: 4 }}
+                        >
+                            <Shield size={14} />
+                        </HeaderButton>
                     )}
                 </div>
 

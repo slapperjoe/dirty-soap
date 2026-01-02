@@ -763,7 +763,9 @@ function App() {
                             setConfig(updatedConfig);
                             bridge.sendMessage({ command: 'saveSettings', config: updatedConfig });
                         }
-                    }
+                    },
+                    // Certificate
+                    onOpenCertificate: () => bridge.sendMessage({ command: 'openCertificate' })
                 }}
                 activeView={activeView}
                 onChangeView={setActiveView}

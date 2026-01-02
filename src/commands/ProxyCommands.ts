@@ -36,9 +36,11 @@ export class UpdateProxyConfigCommand implements ICommand {
         };
 
         this._proxyService.updateConfig(proxyConfig);
-        if (proxyConfig.targetUrl) {
-            this._settingsManager.updateLastProxyTarget(proxyConfig.targetUrl);
-        }
+        // NOTE: We intentionally do NOT save lastProxyTarget here.
+        // The lastProxyTarget should only be saved when explicitly set via the
+        // injection flow (InjectProxyCommand), not when user manually changes
+        // the target URL field. This prevents the user from accidentally
+        // overwriting the correct backend URL with the proxy's own address.
     }
 }
 
@@ -66,41 +68,18 @@ export class InjectProxyCommand implements ICommand {
         private readonly _panel: vscode.WebviewPanel,
         private readonly _configSwitcherService: ConfigSwitcherService,
         private readonly _proxyService: ProxyService,
-        private readonly _soapClient: SoapClient
+        private readonly _soapClient: SoapClient,
+        private readonly _settingsManager: SettingsManager
     ) { }
 
     async execute(message: any): Promise<void> {
-        // First check certs before injecting?
-        // Original logic checked certs for 'openCertificate' and also for 'injectProxy' ?
-        // Line 229 in original WebviewController: case 'injectProxy': ... Force generation code ...
-        // Wait, 'injectProxy' logic in original file seemed to have TWO cases?
-        // Lines 195-210 AND 229-269?
-        // Oh, duplicate case labels? That would be a bug or I misread line numbers.
-        // Let's check view_file 10191.
-        // Line 195: case 'injectProxy': -> Switcher Service injection.
-        // Line 229: case 'injectProxy': -> Open Certificate logic?
-        // Wait, Duplicate case 'injectProxy'.
-        // VS Code TS would complain.
-        // Or maybe one was "openCertificate"?
-        // Line 220: case 'openCertificate': this.handleOpenCertificate().
-        // Line 229: case 'injectProxy' ... waits, this logic seems to be "checking certificate".
-        // Ah, maybe the user wants to Open Certificate.
-        // But duplicate case 'injectProxy' is definitely suspicious.
-        // Line 195 handles config injection.
-        // Line 229 handles certificate generation/opening?
-        // I will assume the second one (Line 229) was meant to be 'openCertificate' logic but maybe misplaced or I am reading it wrong.
-        // Actually, looking at Line 220, it calls `this.handleOpenCertificate()`.
-        // And `handleOpenCertificate` (Line 503) contains the logic seen at 230+.
-        // So Line 229 might be a copy-paste error in the source file I read?
-        // Or maybe 'injectProxy' DOES check certificates?
-        // But Line 195 returns.
-        // So Line 229 is unreachable if it's the same switch.
-        // I will extract the logic from 195.
-
         const injectResult = this._configSwitcherService.inject(message.path, message.proxyUrl);
         if (injectResult.success) {
             vscode.window.showInformationMessage(injectResult.message);
             if (injectResult.originalUrl) {
+                // Save the original URL to settings - this is the ONLY place lastProxyTarget should be set
+                this._settingsManager.updateLastProxyTarget(injectResult.originalUrl);
+
                 this._panel.webview.postMessage({
                     command: 'updateProxyTarget',
                     target: injectResult.originalUrl

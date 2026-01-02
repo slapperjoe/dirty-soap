@@ -133,7 +133,6 @@ export function useMessageHandler(state: MessageHandlerState) {
         setProxyHistory,
         setProxyRunning,
         setTestExecution,
-        setActiveView,
         setActiveBreakpoint,
         setMockHistory,
         setMockRunning,
@@ -294,7 +293,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                         setTimeout(() => saveProject(updatedProject), 0);
                         return updatedProject;
                     }));
-                    setActiveView(SidebarView.PROJECTS);
+                    // Don't change activeView - let user stay on current sidebar tab (Tests)
                     break;
 
                 case 'projectLoaded':

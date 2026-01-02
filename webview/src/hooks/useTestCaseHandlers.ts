@@ -438,8 +438,13 @@ export function useTestCaseHandlers({
         // Update selectedStep so UI reflects the new extractor immediately
         if (updatedStep) {
             setSelectedStep(updatedStep);
+
+            // CRITICAL: Also update selectedRequest, as ExtractorsPanel renders from selectedRequest.extractors
+            if (updatedStep.config.request) {
+                setSelectedRequest(updatedStep.config.request);
+            }
         }
-    }, [projects, selectedTestCase, selectedStep, setProjects, setSelectedStep, saveProject]);
+    }, [projects, selectedTestCase, selectedStep, setProjects, setSelectedStep, setSelectedRequest, saveProject]);
 
     return {
         handleSelectTestSuite,
