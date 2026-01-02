@@ -36,19 +36,74 @@ const extractSoapOperationName = (requestBody: string): string | null => {
     return null;
 };
 
+/**
+ * Extract all text parameter values from SOAP request body.
+ * Finds simple text content within elements (not nested elements).
+ * E.g., <LoginUser>BLDEV_MP744508</LoginUser> -> "BLDEV_MP744508"
+ * E.g., <PositionStatus>Active</PositionStatus> -> "Active"
+ */
+const extractSoapTextParameters = (requestBody: string): string[] => {
+    if (!requestBody) return [];
+
+    const params: string[] = [];
+    const seen = new Set<string>();
+
+    try {
+        // Match elements with simple text content (no nested elements)
+        // Pattern: <ElementName>text content</ElementName>
+        // Excludes elements that contain child elements (< after >)
+        const paramRegex = /<(?:\w+:)?(\w+)[^>]*>([^<]+)<\/(?:\w+:)?\1>/g;
+        let match;
+
+        while ((match = paramRegex.exec(requestBody)) !== null) {
+            // match[1] is element name (used for backreference in regex), match[2] is text content
+            const textContent = match[2].trim();
+
+            // Skip empty values, namespaces, and very short values
+            if (!textContent || textContent.length < 2) continue;
+
+            // Skip numeric-only values and common noise
+            if (/^\d+$/.test(textContent)) continue;
+            if (['true', 'false', 'null', 'undefined'].includes(textContent.toLowerCase())) continue;
+
+            // Avoid duplicate values
+            if (seen.has(textContent)) continue;
+            seen.add(textContent);
+
+            params.push(textContent);
+        }
+    } catch (e) {
+        console.warn('[mockUtils] Failed to extract SOAP parameters:', e);
+    }
+
+    return params;
+};
+
 export const createMockRuleFromSource = (data: MockSourceData): MockRule => {
     let name = 'Recorded Rule';
     let operationName: string | null = null;
+    const conditions: { type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains'; pattern: string; isRegex?: boolean }[] = [];
 
-    // First, try to extract SOAP operation name from request body
+    // Always add URL condition first
+    conditions.push({ type: 'url', pattern: data.url || '', isRegex: false });
+
+    // Extract SOAP operation name and parameters from request body
     if (data.requestBody) {
         operationName = extractSoapOperationName(data.requestBody);
         if (operationName) {
             name = operationName;
+            // Add operation name as an 'operation' condition
+            conditions.push({ type: 'operation', pattern: operationName, isRegex: false });
+        }
+
+        // Extract all text parameters as 'contains' conditions
+        const textParams = extractSoapTextParameters(data.requestBody);
+        for (const param of textParams) {
+            conditions.push({ type: 'contains', pattern: param, isRegex: false });
         }
     }
 
-    // Fallback: extract from URL path
+    // Fallback: extract name from URL path if no operation found
     if (!operationName) {
         try {
             if (data.url) {
@@ -70,9 +125,7 @@ export const createMockRuleFromSource = (data: MockSourceData): MockRule => {
         id: `imported-${Date.now()}`,
         name: `Mock: ${name}`,
         enabled: true,
-        conditions: [
-            { type: 'url', pattern: data.url || '', isRegex: false }
-        ],
+        conditions,
         statusCode: data.statusCode || 200,
         responseBody: data.responseBody || '',
         responseHeaders: (data.responseHeaders as Record<string, string>) || {},

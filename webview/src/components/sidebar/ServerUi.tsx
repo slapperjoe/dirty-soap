@@ -94,6 +94,7 @@ export const ServerUi: React.FC<ServerUiProps> = ({
     const [breakpointModal, setBreakpointModal] = useState<{ open: boolean, bp?: Breakpoint | null }>({ open: false });
     const [showRules, setShowRules] = useState(true);
     const [showBreakpoints, setShowBreakpoints] = useState(true);
+    const [notification, setNotification] = useState<string | null>(null);
 
     const handleSaveRule = (rule: MockRule) => {
         if (onAddMockRule) {
@@ -128,11 +129,34 @@ export const ServerUi: React.FC<ServerUiProps> = ({
             };
             const newRule = createMockRuleFromSource(sourceData);
             onAddMockRule(newRule);
+
+            // Show notification
+            setNotification(`Mock rule added: ${newRule.name}`);
+            setTimeout(() => setNotification(null), 3000);
         }
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Notification Toast */}
+            {notification && (
+                <div style={{
+                    position: 'absolute',
+                    top: 60,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'var(--vscode-notificationsInfoIcon-foreground)',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: 4,
+                    zIndex: 1000,
+                    fontSize: '0.85em',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    animation: 'fadeIn 0.2s ease'
+                }}>
+                    {notification}
+                </div>
+            )}
             {/* Header */}
             <div style={{
                 display: 'flex',
