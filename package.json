@@ -30,6 +30,12 @@
         "title": "Open Interface",
         "category": "Dirty Soap",
         "icon": "$(zap)"
+      },
+      {
+        "command": "dirty-soap.resetConfiguration",
+        "title": "Reset Configuration (Hard Reset)",
+        "category": "Dirty Soap",
+        "icon": "$(trash)"
       }
     ]
   },
