@@ -11,6 +11,8 @@ import { ConfigSwitcherService } from '../services/ConfigSwitcherService';
 import { TestRunnerService } from '../services/TestRunnerService';
 import { AzureDevOpsService } from '../services/AzureDevOpsService';
 import { MockService } from '../services/MockService';
+import { PerformanceService } from '../services/PerformanceService';
+import { ScheduleService } from '../services/ScheduleService';
 
 export class SoapPanel {
     public static currentPanel: SoapPanel | undefined;
@@ -29,6 +31,7 @@ export class SoapPanel {
     private _testRunnerService: TestRunnerService;
     private _azureDevOpsService: AzureDevOpsService;
     private _mockService: MockService;
+    private _performanceService: PerformanceService;
     private _controller: WebviewController;
     private _disposables: vscode.Disposable[] = [];
     private _autosaveTimeout: NodeJS.Timeout | undefined;
@@ -111,6 +114,19 @@ export class SoapPanel {
             }
         });
 
+        // Performance Service
+        this._performanceService = new PerformanceService(this._soapClient);
+        this._performanceService.setLogger(msg => this._outputChannel.appendLine(msg));
+
+        // Schedule Service
+        const scheduleService = new ScheduleService(this._performanceService);
+
+        // Load saved schedules
+        const config = this._settingsManager.getConfig();
+        if (config.performanceSchedules) {
+            scheduleService.loadSchedules(config.performanceSchedules);
+        }
+
         this._controller = new WebviewController(
             this._panel,
             this._extensionUri,
@@ -124,7 +140,9 @@ export class SoapPanel {
             this._configSwitcherService,
             this._testRunnerService,
             this._azureDevOpsService,
-            this._mockService
+            this._mockService,
+            this._performanceService,
+            scheduleService
         );
 
         // Watcher starts stopped by default.

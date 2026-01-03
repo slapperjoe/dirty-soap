@@ -1,7 +1,8 @@
 import React from 'react';
-import { Clock, Play, Square, Trash2 } from 'lucide-react';
+import { Clock, Play, Square, Trash2, Download } from 'lucide-react';
 import { WatcherEvent } from '../../models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
+import { exportWatcherEvents } from '../../utils/csvExport';
 
 export interface WatcherPanelProps {
     history: WatcherEvent[];
@@ -20,6 +21,20 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
     onClear,
     onSelectEvent
 }) => {
+    const handleExport = () => {
+        if (history.length === 0) return;
+        const exportData = history.map(e => ({
+            id: e.id,
+            timestamp: e.timestamp || Date.now(),
+            type: e.responseContent ? 'request_response' : 'request',
+            method: 'SOAP',
+            url: e.requestOperation || 'Unknown',
+            status: e.responseContent ? 200 : undefined,
+            duration: undefined
+        }));
+        exportWatcherEvents(exportData);
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Header */}
@@ -32,6 +47,14 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
                         style={{ color: isRunning ? 'var(--vscode-testing-iconFailed)' : 'var(--vscode-testing-iconPassed)' }}
                     >
                         {isRunning ? <Square size={14} /> : <Play size={14} />}
+                    </HeaderButton>
+                    <HeaderButton
+                        onClick={(e) => { e.stopPropagation(); handleExport(); }}
+                        title="Export to CSV"
+                        style={{ marginLeft: 5, opacity: history.length === 0 ? 0.5 : 1 }}
+                        disabled={history.length === 0}
+                    >
+                        <Download size={14} />
                     </HeaderButton>
                     <HeaderButton onClick={(e) => { e.stopPropagation(); onClear(); }} title="Clear History" style={{ marginLeft: 5 }}>
                         <Trash2 size={14} />

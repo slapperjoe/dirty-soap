@@ -4,6 +4,14 @@ import { SoapUIInterface, SoapUIOperation, SoapUIRequest } from '../../models';
 import { HeaderButton, SectionHeader, SectionTitle, Input } from './shared/SidebarStyles';
 import { ServiceTree } from './ServiceTree';
 
+// Default public SOAP services for testing
+const DEFAULT_WSDL_URLS = [
+    { url: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL', label: 'Country Info Service' },
+    { url: 'http://www.dneonline.com/calculator.asmx?WSDL', label: 'Calculator Service' },
+    { url: 'https://www.dataaccess.com/webservicesserver/numberconversion.wso?WSDL', label: 'Number Conversion' },
+    { url: 'https://www.w3schools.com/xml/tempconvert.asmx?WSDL', label: 'Temperature Converter' },
+];
+
 export interface WsdlExplorerProps {
     exploredInterfaces: SoapUIInterface[];
     backendConnected: boolean;
@@ -11,6 +19,7 @@ export interface WsdlExplorerProps {
     setInputType: (type: 'url' | 'file') => void;
     wsdlUrl: string;
     setWsdlUrl: (url: string) => void;
+    wsdlUrlHistory?: string[];
     selectedFile: string | null;
     loadWsdl: () => void;
     pickLocalWsdl: () => void;
@@ -43,6 +52,7 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
     setInputType,
     wsdlUrl,
     setWsdlUrl,
+    wsdlUrlHistory = [],
     selectedFile,
     loadWsdl,
     pickLocalWsdl,
@@ -108,7 +118,25 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
                 {/* Input Fields */}
                 {inputType === 'url' ? (
                     <div style={{ display: 'flex', gap: 5 }}>
-                        <Input value={wsdlUrl} onChange={(e) => setWsdlUrl(e.target.value)} placeholder="WSDL URL" />
+                        <div style={{ flex: 1, position: 'relative' }}>
+                            <Input
+                                value={wsdlUrl}
+                                onChange={(e) => setWsdlUrl(e.target.value)}
+                                placeholder="WSDL URL - type or select from history"
+                                list="wsdl-url-history"
+                                style={{ width: '100%' }}
+                            />
+                            <datalist id="wsdl-url-history">
+                                {/* User history first */}
+                                {wsdlUrlHistory.filter(url => !DEFAULT_WSDL_URLS.some(d => d.url === url)).map((url, i) => (
+                                    <option key={`history-${i}`} value={url} />
+                                ))}
+                                {/* Default public services */}
+                                {DEFAULT_WSDL_URLS.map((item, i) => (
+                                    <option key={`default-${i}`} value={item.url} label={item.label} />
+                                ))}
+                            </datalist>
+                        </div>
                         <HeaderButton onClick={loadWsdl} title="Load WSDL" style={{ border: '1px solid var(--vscode-button-border)', margin: 0 }}><Play size={14} /></HeaderButton>
                     </div>
                 ) : (

@@ -37,13 +37,40 @@ const extractSoapOperationName = (requestBody: string): string | null => {
 };
 
 /**
- * Extract all text parameter values from SOAP request body.
+ * Extract the content inside the operation element only.
+ * This excludes common headers like MessageProperties that are outside the main operation.
+ * E.g., for <GetEmployeeDetailsRequest>...<GetEmployeeDetailsInput>...</GetEmployeeDetailsInput></GetEmployeeDetailsRequest>
+ * it will return only the content inside GetEmployeeDetailsRequest.
+ */
+const extractOperationContent = (requestBody: string, operationName: string): string | null => {
+    if (!requestBody || !operationName) return null;
+
+    try {
+        // Match the operation element and its content
+        // Pattern: <ns:OperationName...>content</ns:OperationName>
+        const opRegex = new RegExp(
+            `<(?:\\w+:)?${operationName}[^>]*>([\\s\\S]*?)<\\/(?:\\w+:)?${operationName}>`,
+            'i'
+        );
+        const match = requestBody.match(opRegex);
+        if (match) {
+            return match[1];
+        }
+    } catch (e) {
+        console.warn('[mockUtils] Failed to extract operation content:', e);
+    }
+
+    return null;
+};
+
+/**
+ * Extract all text parameter values from a portion of SOAP request body.
  * Finds simple text content within elements (not nested elements).
  * E.g., <LoginUser>BLDEV_MP744508</LoginUser> -> "BLDEV_MP744508"
  * E.g., <PositionStatus>Active</PositionStatus> -> "Active"
  */
-const extractSoapTextParameters = (requestBody: string): string[] => {
-    if (!requestBody) return [];
+const extractSoapTextParameters = (content: string): string[] => {
+    if (!content) return [];
 
     const params: string[] = [];
     const seen = new Set<string>();
@@ -55,7 +82,7 @@ const extractSoapTextParameters = (requestBody: string): string[] => {
         const paramRegex = /<(?:\w+:)?(\w+)[^>]*>([^<]+)<\/(?:\w+:)?\1>/g;
         let match;
 
-        while ((match = paramRegex.exec(requestBody)) !== null) {
+        while ((match = paramRegex.exec(content)) !== null) {
             // match[1] is element name (used for backreference in regex), match[2] is text content
             const textContent = match[2].trim();
 
@@ -82,7 +109,7 @@ const extractSoapTextParameters = (requestBody: string): string[] => {
 export const createMockRuleFromSource = (data: MockSourceData): MockRule => {
     let name = 'Recorded Rule';
     let operationName: string | null = null;
-    const conditions: { type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains'; pattern: string; isRegex?: boolean }[] = [];
+    const conditions: { type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains' | 'templateName'; pattern: string; isRegex?: boolean }[] = [];
 
     // Always add URL condition first
     conditions.push({ type: 'url', pattern: data.url || '', isRegex: false });
@@ -94,12 +121,25 @@ export const createMockRuleFromSource = (data: MockSourceData): MockRule => {
             name = operationName;
             // Add operation name as an 'operation' condition
             conditions.push({ type: 'operation', pattern: operationName, isRegex: false });
-        }
 
-        // Extract all text parameters as 'contains' conditions
-        const textParams = extractSoapTextParameters(data.requestBody);
-        for (const param of textParams) {
-            conditions.push({ type: 'contains', pattern: param, isRegex: false });
+            // Special case: Also extract TemplateName from MessageProperties if present
+            // Uses specialized 'templateName' condition type for XPath-style matching
+            const templateNameMatch = data.requestBody.match(/<Property[^>]*Name="TemplateName"[^>]*>([^<]+)<\/Property>/i);
+            if (templateNameMatch) {
+                const templateName = templateNameMatch[1].trim();
+                if (templateName) {
+                    conditions.push({ type: 'templateName', pattern: templateName, isRegex: false });
+                }
+            }
+
+            // Extract text parameters ONLY from within the operation element
+            const operationContent = extractOperationContent(data.requestBody, operationName);
+            if (operationContent) {
+                const textParams = extractSoapTextParameters(operationContent);
+                for (const param of textParams) {
+                    conditions.push({ type: 'contains', pattern: param, isRegex: false });
+                }
+            }
         }
     }
 

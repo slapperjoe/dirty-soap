@@ -20,9 +20,12 @@ interface UseExplorerReturn {
     setExploredInterfaces: React.Dispatch<React.SetStateAction<SoapUIInterface[]>>;
     explorerExpanded: boolean;
     setExplorerExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+    pendingAddInterface: SoapUIInterface | null;
+    setPendingAddInterface: React.Dispatch<React.SetStateAction<SoapUIInterface | null>>;
 
     // Actions
     addToProject: (iface: SoapUIInterface) => void;
+    addInterfaceToNamedProject: (iface: SoapUIInterface, projectName: string, isNew: boolean) => void;
     addAllToProject: () => void;
     clearExplorer: () => void;
     removeFromExplorer: (iface: SoapUIInterface) => void;
@@ -39,6 +42,7 @@ export function useExplorer({
     // State
     const [exploredInterfaces, setExploredInterfaces] = useState<SoapUIInterface[]>([]);
     const [explorerExpanded, setExplorerExpanded] = useState(false);
+    const [pendingAddInterface, setPendingAddInterface] = useState<SoapUIInterface | null>(null);
 
     // Actions
     const clearExplorer = useCallback(() => {
@@ -46,38 +50,44 @@ export function useExplorer({
         setExplorerExpanded(false);
     }, []);
 
-    const addToProject = useCallback((iface: SoapUIInterface) => {
-        // Prevent duplicates
-        if (projects.length > 0 && projects[0].interfaces.some(i => i.name === iface.name)) {
-            console.warn(`Interface ${iface.name} already exists in project`);
-            return;
-        }
+    // Helper to remove interface from explorer after adding
+    const removeInterfaceFromExplorer = useCallback((ifaceName: string) => {
+        setExploredInterfaces(prev => {
+            const filtered = prev.filter(i => i.name !== ifaceName);
+            if (filtered.length === 0) {
+                setExplorerExpanded(false);
+            }
+            return filtered;
+        });
+    }, []);
 
-        if (projects.length === 0) {
-            setProjects([{
-                name: 'Project 1',
+    // Add interface to a specific named project (new or existing)
+    const addInterfaceToNamedProject = useCallback((iface: SoapUIInterface, projectName: string, isNew: boolean) => {
+        if (isNew) {
+            // Create new project with this interface
+            setProjects(prev => [...prev, {
+                name: projectName,
                 interfaces: [iface],
                 expanded: true,
                 dirty: true,
                 id: Date.now().toString()
             }]);
         } else {
-            setProjects(prev => prev.map((p, i) =>
-                i === 0 ? { ...p, interfaces: [...p.interfaces, iface], dirty: true } : p
+            // Add to existing project by name
+            setProjects(prev => prev.map(p =>
+                p.name === projectName
+                    ? { ...p, interfaces: [...p.interfaces, iface], dirty: true }
+                    : p
             ));
         }
         setWorkspaceDirty(true);
+        removeInterfaceFromExplorer(iface.name);
+    }, [setProjects, setWorkspaceDirty, removeInterfaceFromExplorer]);
 
-        // Clear from explorer
-        setExploredInterfaces(prev => prev.filter(i => i.name !== iface.name));
-        // Check if explorer should collapse
-        setExploredInterfaces(prev => {
-            if (prev.length === 0) {
-                setExplorerExpanded(false);
-            }
-            return prev;
-        });
-    }, [projects, setProjects, setWorkspaceDirty]);
+    const addToProject = useCallback((iface: SoapUIInterface) => {
+        // Set pending interface to trigger modal
+        setPendingAddInterface(iface);
+    }, []);
 
     const addAllToProject = useCallback(() => {
         if (projects.length === 0) {
@@ -136,9 +146,12 @@ export function useExplorer({
         setExploredInterfaces,
         explorerExpanded,
         setExplorerExpanded,
+        pendingAddInterface,
+        setPendingAddInterface,
 
         // Actions
         addToProject,
+        addInterfaceToNamedProject,
         addAllToProject,
         clearExplorer,
         removeFromExplorer,

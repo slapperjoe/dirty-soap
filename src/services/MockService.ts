@@ -64,6 +64,11 @@ export class MockService extends EventEmitter {
         this.emit('debugLog', msg);
     }
 
+    /** Escape special regex characters for use in RegExp constructor */
+    private escapeRegex(str: string): string {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     public updateConfig(newConfig: Partial<MockConfig>) {
         this.logDebug(`[MockService] updateConfig called with: ${JSON.stringify(newConfig)}`);
         this.config = { ...this.config, ...newConfig };
@@ -454,6 +459,14 @@ export class MockService extends EventEmitter {
                     this.logDebug(`[MockService] XPath error: ${e}`);
                     return false;
                 }
+            case 'templateName':
+                // Specialized match for MessageProperties TemplateName
+                // Matches <Property Name="TemplateName">value</Property> pattern
+                const templateRegex = new RegExp(
+                    `<Property[^>]*Name="TemplateName"[^>]*>\\s*${this.escapeRegex(condition.pattern)}\\s*</Property>`,
+                    'i'
+                );
+                return templateRegex.test(body);
             default:
                 return false;
         }

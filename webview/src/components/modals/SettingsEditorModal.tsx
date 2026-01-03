@@ -142,7 +142,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
         (initialTab as SettingsTab) || SettingsTab.GUI
     );
     const [jsonContent, setJsonContent] = useState(rawConfig || '{}');
-    const [guiConfig, setGuiConfig] = useState<DirtySoapConfig>({});
+    const [guiConfig, setGuiConfig] = useState<DirtySoapConfig>({ version: 1 });
     const [parseError, setParseError] = useState<string | null>(null);
 
     // Environments State

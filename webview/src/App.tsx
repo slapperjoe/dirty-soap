@@ -13,7 +13,8 @@ import { ExtractorModal } from './components/modals/ExtractorModal';
 import { SettingsEditorModal } from './components/modals/SettingsEditorModal';
 import { CreateReplaceRuleModal } from './components/modals/CreateReplaceRuleModal';
 import { AddToDevOpsModal } from './components/modals/AddToDevOpsModal';
-import { SoapUIRequest, SoapTestCase, SoapTestStep, SidebarView, ReplaceRule } from './models';
+import { AddToProjectModal } from './components/modals/AddToProjectModal';
+import { SoapUIRequest, SoapTestCase, SoapTestStep, SidebarView, ReplaceRule, PerformanceSuite, PerformanceRequest } from './models';
 import { useMessageHandler } from './hooks/useMessageHandler';
 import { useProject } from './contexts/ProjectContext';
 import { useSelection } from './contexts/SelectionContext';
@@ -78,7 +79,10 @@ function App() {
         response,
         setResponse,
         loading,
-        setLoading
+        setLoading,
+        selectedPerformanceSuite,
+        setSelectedPerformanceSuite,
+        clearSelection
     } = useSelection();
 
     // ==========================================================================
@@ -89,7 +93,10 @@ function App() {
         setExploredInterfaces,
         explorerExpanded,
         setExplorerExpanded,
+        pendingAddInterface,
+        setPendingAddInterface,
         addToProject,
+        addInterfaceToNamedProject,
         addAllToProject,
         clearExplorer,
         removeFromExplorer,
@@ -151,6 +158,7 @@ function App() {
     // UI State (remaining)
     const [inputType, setInputType] = useState<'url' | 'file'>('url');
     const [wsdlUrl, setWsdlUrl] = useState('http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL');
+    const [wsdlUrlHistory, setWsdlUrlHistory] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
 
@@ -164,6 +172,10 @@ function App() {
         timeoutMs: number;
         startTime: number;
     } | null>(null);
+
+    // Performance Run State
+    const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
+    const [performanceProgress, setPerformanceProgress] = useState<{ iteration: number; total: number } | null>(null);
 
     // NOTE: Watcher/Proxy state now comes from useWatcherProxy hook
 
@@ -327,6 +339,41 @@ function App() {
         config
     });
 
+    // Performance Handlers
+    const handleAddPerformanceSuite = (name: string) => bridge.sendMessage({ command: 'addPerformanceSuite', name });
+    const handleDeletePerformanceSuite = (id: string) => bridge.sendMessage({ command: 'deletePerformanceSuite', id });
+    const handleRunPerformanceSuite = (id: string) => { setActiveRunId(id); bridge.sendMessage({ command: 'runPerformanceSuite', id }); };
+    const handleStopPerformanceRun = () => { bridge.sendMessage({ command: 'abortPerformanceSuite' }); }; // Backend sends runCompleted event
+    const handleSelectPerformanceSuite = (id: string) => {
+        const suite = config?.performanceSuites?.find(s => s.id === id);
+        if (suite) {
+            clearSelection(); // Resets everything including current suite
+            // We need to set it back after clear, or update clearSelection to optional
+            // Implementation detail: clearSelection clears selectedPerformanceSuite too.
+            // So we set it immediately after.
+            setTimeout(() => setSelectedPerformanceSuite(suite), 0);
+        }
+    };
+    const handleUpdatePerformanceSuite = (suite: PerformanceSuite) => bridge.sendMessage({ command: 'updatePerformanceSuite', suite });
+    const handleAddPerformanceRequest = (suiteId: string) => bridge.sendMessage({ command: 'addPerformanceRequest', suiteId });
+    const handleDeletePerformanceRequest = (suiteId: string, requestId: string) => bridge.sendMessage({ command: 'deletePerformanceRequest', suiteId, requestId });
+    const handleUpdatePerformanceRequest = (suiteId: string, request: PerformanceRequest) => bridge.sendMessage({ command: 'updatePerformanceRequest', suiteId, request });
+
+
+    const sidebarPerformanceProps = {
+        suites: config?.performanceSuites || [],
+        onAddSuite: handleAddPerformanceSuite,
+        onDeleteSuite: handleDeletePerformanceSuite,
+        onRunSuite: handleRunPerformanceSuite,
+        onSelectSuite: handleSelectPerformanceSuite,
+        onStopRun: handleStopPerformanceRun,
+        isRunning: !!activeRunId,
+        activeRunId,
+        selectedSuiteId: selectedPerformanceSuite?.id,
+        deleteConfirm,
+        setDeleteConfirm
+    };
+
     // Extractor Modal State (needed before useWorkspaceCallbacks)
     const [extractorModal, setExtractorModal] = React.useState<{ xpath: string, value: string, source: 'body' | 'header', variableName: string } | null>(null);
 
@@ -337,9 +384,6 @@ function App() {
         handleSelectStep,
         handleDeleteStep,
         handleMoveStep,
-        handleUpdateStep,
-        handleBackToCase,
-        handleAddStep,
         handleToggleLayout,
         handleToggleLineNumbers,
         handleToggleInlineElementValues,
@@ -413,6 +457,8 @@ function App() {
         setMockHistory,
         setMockRunning,
         setMockConfig,
+        setActiveRunId,
+        setPerformanceProgress,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -568,6 +614,10 @@ function App() {
     const loadWsdl = () => {
         if (inputType === 'url' && wsdlUrl) {
             bridge.sendMessage({ command: 'loadWsdl', url: wsdlUrl, isLocal: false });
+            // Add to history if not already present
+            if (!wsdlUrlHistory.includes(wsdlUrl)) {
+                setWsdlUrlHistory(prev => [wsdlUrl, ...prev].slice(0, 10)); // Keep last 10
+            }
         } else if (inputType === 'file' && selectedFile) {
             bridge.sendMessage({ command: 'loadWsdl', url: selectedFile, isLocal: true });
         }
@@ -660,6 +710,7 @@ function App() {
                     setInputType,
                     wsdlUrl,
                     setWsdlUrl,
+                    wsdlUrlHistory,
                     selectedFile,
                     loadWsdl,
                     pickLocalWsdl,
@@ -718,6 +769,7 @@ function App() {
                     onToggleCaseExpand: handleToggleCaseExpand,
                     deleteConfirm
                 }}
+                performanceProps={sidebarPerformanceProps}
                 serverProps={{
                     serverConfig: {
                         mode: serverMode,  // Use dedicated state instead of deriving from running
@@ -784,7 +836,8 @@ function App() {
                     request: selectedRequest,
                     operation: selectedOperation,
                     testCase: selectedTestCase,
-                    testStep: selectedStep
+                    testStep: selectedStep,
+                    performanceSuite: selectedPerformanceSuite
                 }}
                 requestActions={{
                     onExecute: executeRequest,
@@ -807,20 +860,14 @@ function App() {
                     hideCausalityData,
                     onToggleHideCausalityData: handleToggleHideCausalityData
                 }}
-                configState={{
-                    config,
-                    defaultEndpoint: selectedInterface?.definition || wsdlUrl,
-                    changelog,
-                    onChangeEnvironment: (env) => bridge.sendMessage({ command: 'updateActiveEnvironment', envName: env }),
-                    isReadOnly: activeView === SidebarView.WATCHER || activeView === SidebarView.SERVER
-                }}
+                configState={{ config, defaultEndpoint: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL', changelog, onChangeEnvironment: (env) => bridge.sendMessage({ command: 'setActiveEnvironment', env }), isReadOnly: false, backendConnected }}
                 stepActions={{
                     onRunTestCase: handleRunTestCaseWrapper,
-                    onOpenStepRequest: (req) => setSelectedRequest(req),
-                    onBackToCase: handleBackToCase,
-                    onAddStep: handleAddStep,
+                    onOpenStepRequest: (req) => { setSelectedRequest(req); setActiveView(SidebarView.EXPLORER); console.warn('Legacy onOpenStepRequest called'); },
+                    onBackToCase: () => { setSelectedStep(null); setSelectedRequest(null); },
+                    onAddStep: (caseId, type) => bridge.sendMessage({ command: 'addTestStep', caseId, type }),
                     testExecution,
-                    onUpdateStep: handleUpdateStep,
+                    onUpdateStep: (step) => bridge.sendMessage({ command: 'updateTestStep', step }),
                     onSelectStep: handleSelectStep,
                     onDeleteStep: handleDeleteStep,
                     onMoveStep: handleMoveStep
@@ -833,6 +880,16 @@ function App() {
                     onAddMockRule: (rule) => bridge.sendMessage({ command: 'addMockRule', rule }),
                     onOpenDevOps: () => setShowDevOpsModal(true)
                 }}
+                onUpdateSuite={handleUpdatePerformanceSuite}
+                onAddRequest={handleAddPerformanceRequest}
+                onDeleteRequest={handleDeletePerformanceRequest}
+                onUpdateRequest={handleUpdatePerformanceRequest}
+                onRunSuite={handleRunPerformanceSuite}
+                onStopRun={handleStopPerformanceRun}
+                performanceProgress={performanceProgress}
+                performanceHistory={config?.performanceHistory || []}
+
+
                 breakpointState={{
                     activeBreakpoint,
                     onResolve: handleResolveBreakpoint
@@ -1055,6 +1112,24 @@ function App() {
                         config: { ...config, replaceRules: [...currentRules, newRule] }
                     });
                     setReplaceRuleModal({ open: false, xpath: '', matchText: '', target: 'response' });
+                }}
+            />
+
+            {/* Add to Project Modal */}
+            <AddToProjectModal
+                open={!!pendingAddInterface}
+                onClose={() => setPendingAddInterface(null)}
+                existingProjects={projects.map(p => p.name)}
+                interfaceName={pendingAddInterface?.name}
+                onSelectProject={(projectName) => {
+                    if (pendingAddInterface) {
+                        addInterfaceToNamedProject(pendingAddInterface, projectName, false);
+                    }
+                }}
+                onCreateProject={(projectName) => {
+                    if (pendingAddInterface) {
+                        addInterfaceToNamedProject(pendingAddInterface, projectName, true);
+                    }
                 }}
             />
 

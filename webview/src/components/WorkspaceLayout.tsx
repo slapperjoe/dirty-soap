@@ -16,6 +16,7 @@ import { MonacoSingleLineInput, MonacoSingleLineInputHandle } from './MonacoSing
 import { formatXml, stripCausalityData } from '../utils/xmlFormatter';
 import { XPathGenerator } from '../utils/xpathGenerator';
 import { WelcomePanel } from './workspace';
+import { PerformanceSuiteEditor } from './workspace/PerformanceSuiteEditor';
 
 // Styled components extracted to styles file
 // unused models removed
@@ -35,36 +36,14 @@ import {
 
 // Prop Groups
 import {
-    WorkspaceSelectionState,
-    WorkspaceRequestActions,
-    WorkspaceViewState,
-    WorkspaceConfigState,
-    WorkspaceStepActions,
-    WorkspaceToolsActions
+    WorkspaceLayoutProps
 } from '../types/props';
 
-interface WorkspaceBreakpointState {
-    activeBreakpoint: {
-        id: string;
-        type: 'request' | 'response';
-        content: string;
-        headers?: Record<string, any>;
-        breakpointName: string;
-        timeoutMs: number;
-        startTime: number;
-    } | null;
-    onResolve: (modifiedContent: string, cancelled?: boolean) => void;
-}
+// WorkspaceBreakpointState moved to props.ts
 
-interface WorkspaceLayoutProps {
-    selectionState: WorkspaceSelectionState;
-    requestActions: WorkspaceRequestActions;
-    viewState: WorkspaceViewState;
-    configState: WorkspaceConfigState;
-    stepActions: WorkspaceStepActions;
-    toolsActions: WorkspaceToolsActions;
-    breakpointState?: WorkspaceBreakpointState;
-}
+
+// Local definition removed, using imported WorkspaceLayoutProps
+
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     selectionState,
@@ -73,10 +52,19 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     configState,
     stepActions,
     toolsActions,
-    breakpointState
+    breakpointState,
+    onUpdateSuite,
+    onRunSuite,
+    onStopRun: onStopPerformanceRun,
+    onAddRequest: onAddPerformanceRequest,
+    onDeleteRequest: onDeletePerformanceRequest,
+    onUpdateRequest: onUpdatePerformanceRequest,
+    onImportFromWorkspace,
+    performanceProgress,
+    performanceHistory
 }) => {
     // Destructure groups
-    const { request: selectedRequest, operation: selectedOperation, testCase: selectedTestCase, testStep: selectedStep } = selectionState;
+    const { request: selectedRequest, operation: selectedOperation, testCase: selectedTestCase, testStep: selectedStep, performanceSuite: selectedPerformanceSuite } = selectionState;
     const { onExecute, onCancel, onUpdate: onUpdateRequest, onReset, response, loading } = requestActions;
     const {
         layoutMode, showLineNumbers, splitRatio, isResizing, onToggleLayout, onToggleLineNumbers, onStartResizing,
@@ -90,6 +78,11 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const {
         onAddExtractor, onAddAssertion, onAddExistenceAssertion, onAddReplaceRule, onAddMockRule, onOpenDevOps
     } = toolsActions;
+
+    // Performance Actions extracted in props destructuring above
+
+
+
     const [alignAttributes, setAlignAttributes] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth' | 'extractors'>('request');
     const [deleteConfirm, setDeleteConfirm] = React.useState<string | null>(null);
@@ -301,7 +294,26 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         );
     }
 
+
     if (!selectedRequest) {
+        if (selectedPerformanceSuite) {
+            return (
+                <PerformanceSuiteEditor
+                    suite={selectedPerformanceSuite}
+                    onUpdate={onUpdateSuite!}
+                    onRun={onRunSuite!}
+                    onStop={onStopPerformanceRun!}
+                    isRunning={!!performanceProgress}
+                    progress={performanceProgress}
+                    history={performanceHistory?.filter(r => r.suiteId === selectedPerformanceSuite.id) || []}
+                    onAddRequest={onAddPerformanceRequest}
+                    onDeleteRequest={onDeletePerformanceRequest}
+                    onUpdateRequest={onUpdatePerformanceRequest}
+                    onImportFromWorkspace={onImportFromWorkspace}
+                />
+            );
+        }
+
         if (selectedStep && selectedStep.type === 'delay' && !isReadOnly && onUpdateStep) {
             return (
                 <Content>

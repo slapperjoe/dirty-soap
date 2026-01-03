@@ -4,7 +4,7 @@ import * as os from 'os';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 import { ReplaceRule } from './ReplaceRuleApplier';
 import { Breakpoint } from '../services/ProxyService';
-import { MockConfig, MockRule } from '../models';
+import { MockConfig, MockRule, PerformanceSuite, PerformanceRun, PerformanceSchedule, ProxyRule } from '../models';
 
 export interface DirtySoapConfig {
     version: number;
@@ -12,6 +12,7 @@ export interface DirtySoapConfig {
         defaultTimeout?: number;
         retryCount?: number;
         proxy?: string;
+        proxyRules?: ProxyRule[];
     };
     ui?: {
         layoutMode?: 'vertical' | 'horizontal';
@@ -37,6 +38,12 @@ export interface DirtySoapConfig {
     breakpoints?: Breakpoint[];
     /** Mock server configuration */
     mockServer?: MockConfig;
+    /** Performance testing suites */
+    performanceSuites?: PerformanceSuite[];
+    /** Performance run history */
+    performanceHistory?: PerformanceRun[];
+    /** Scheduled performance runs */
+    performanceSchedules?: PerformanceSchedule[];
 }
 
 const DEFAULT_CONFIG: DirtySoapConfig = {
@@ -190,6 +197,18 @@ export class SettingsManager {
 
     public getMockConfig(): MockConfig | undefined {
         return this.getConfig().mockServer;
+    }
+
+    public updatePerformanceSuites(suites: PerformanceSuite[]) {
+        this.updateConfigPath(['performanceSuites'], suites);
+    }
+
+    public updatePerformanceHistory(history: PerformanceRun[]) {
+        this.updateConfigPath(['performanceHistory'], history);
+    }
+
+    public updatePerformanceSchedules(schedules: import('../models').PerformanceSchedule[]) {
+        this.updateConfigPath(['performanceSchedules'], schedules);
     }
 
     public saveRawConfig(content: string) {

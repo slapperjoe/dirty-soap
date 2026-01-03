@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Network, Power, Plus, Edit2, Trash2, FolderOpen, RotateCcw } from 'lucide-react';
+import { Network, Power, Plus, Edit2, Trash2, FolderOpen, RotateCcw, GripVertical } from 'lucide-react';
 import {
     DirtySoapConfig,
     ScrollableForm,
@@ -51,8 +51,51 @@ export const ServerTab: React.FC<ServerTabProps> = ({
 }) => {
     const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
     const [ruleModal, setRuleModal] = useState<{ open: boolean; rule?: MockRule | null }>({ open: false });
+    const [draggedId, setDraggedId] = useState<string | null>(null);
+    const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
     const rules = serverConfig.mockRules || [];
+
+    // Drag-drop handlers for rule reordering
+    const handleDragStart = (e: React.DragEvent, id: string) => {
+        setDraggedId(id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', id);
+    };
+
+    const handleDragOver = (e: React.DragEvent, id: string) => {
+        e.preventDefault();
+        if (draggedId && draggedId !== id) {
+            setDropTargetId(id);
+        }
+    };
+
+    const handleDragLeave = () => {
+        setDropTargetId(null);
+    };
+
+    const handleDrop = (e: React.DragEvent, targetId: string) => {
+        e.preventDefault();
+        if (!draggedId || draggedId === targetId) return;
+
+        const draggedIndex = rules.findIndex(r => r.id === draggedId);
+        const targetIndex = rules.findIndex(r => r.id === targetId);
+
+        if (draggedIndex >= 0 && targetIndex >= 0) {
+            const reordered = [...rules];
+            const [removed] = reordered.splice(draggedIndex, 1);
+            reordered.splice(targetIndex, 0, removed);
+            onServerConfigChange({ mockRules: reordered });
+        }
+
+        setDraggedId(null);
+        setDropTargetId(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedId(null);
+        setDropTargetId(null);
+    };
 
     const handleAddRule = () => {
         setRuleModal({ open: true, rule: null });
@@ -273,22 +316,34 @@ export const ServerTab: React.FC<ServerTabProps> = ({
                             {rules.map((rule, index) => (
                                 <div
                                     key={rule.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, rule.id)}
+                                    onDragOver={(e) => handleDragOver(e, rule.id)}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => handleDrop(e, rule.id)}
+                                    onDragEnd={handleDragEnd}
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 8,
                                         padding: '8px 12px',
-                                        background: selectedRuleId === rule.id
-                                            ? 'var(--vscode-list-activeSelectionBackground)'
-                                            : index % 2 === 0
-                                                ? 'var(--vscode-input-background)'
-                                                : 'transparent',
+                                        background: draggedId === rule.id
+                                            ? 'var(--vscode-editor-selectionBackground)'
+                                            : dropTargetId === rule.id
+                                                ? 'var(--vscode-list-hoverBackground)'
+                                                : selectedRuleId === rule.id
+                                                    ? 'var(--vscode-list-activeSelectionBackground)'
+                                                    : index % 2 === 0
+                                                        ? 'var(--vscode-input-background)'
+                                                        : 'transparent',
                                         borderBottom: index < rules.length - 1 ? '1px solid var(--vscode-input-border)' : 'none',
-                                        cursor: 'pointer',
-                                        opacity: rule.enabled ? 1 : 0.5
+                                        cursor: 'grab',
+                                        opacity: draggedId === rule.id ? 0.5 : rule.enabled ? 1 : 0.5,
+                                        borderTop: dropTargetId === rule.id ? '2px solid var(--vscode-focusBorder)' : 'none'
                                     }}
                                     onClick={() => setSelectedRuleId(rule.id)}
                                 >
+                                    <GripVertical size={12} style={{ cursor: 'grab', opacity: 0.5 }} />
                                     <input
                                         type="checkbox"
                                         checked={rule.enabled}

@@ -20,6 +20,9 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "bin": {
+    "dirty-soap": "./out/cli/index.js"
+  },
   "contributes": {
     "commands": [
       {
@@ -44,7 +47,20 @@
     "version-bump-major": "node scripts/bump.js major",
     "version-bump-minor": "node scripts/bump.js minor",
     "version-bump-patch": "node scripts/bump.js patch",
-    "prepare": "npx simple-git-hooks"
+    "prepare": "npx simple-git-hooks",
+    "build-cli": "tsc -p ./ && chmod +x ./out/cli/index.js 2>/dev/null || true",
+    "cli": "node ./out/cli/index.js",
+    "build-binary": "npm run compile && pkg ./out/cli/index.js --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path ./bin",
+    "build-binary-win": "npm run compile && pkg ./out/cli/index.js --targets node18-win-x64 --out-path ./bin"
+  },
+  "pkg": {
+    "scripts": [
+      "out/cli/**/*.js",
+      "out/services/**/*.js",
+      "out/models.js"
+    ],
+    "assets": [],
+    "outputPath": "bin"
   },
   "simple-git-hooks": {
     "pre-commit": ""
@@ -57,6 +73,7 @@
     "@types/sax": "^1.2.7",
     "@types/selfsigned": "^2.0.4",
     "@types/vscode": "^1.80.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^5.59.8",
     "@typescript-eslint/parser": "^5.59.8",
     "@vitest/coverage-v8": "^4.0.16",
@@ -70,13 +87,19 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
+    "@types/node-cron": "^3.0.11",
     "@types/uuid": "^10.0.0",
     "axios": "^1.13.2",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.2",
     "fast-xml-parser": "^5.3.3",
     "https-proxy-agent": "^7.0.6",
     "jsonc-parser": "^3.3.1",
+    "node-cron": "^4.2.1",
     "selfsigned": "^5.4.0",
     "soap": "^1.0.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ws": "^8.18.3"
   }
 }

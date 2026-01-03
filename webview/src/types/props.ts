@@ -9,7 +9,8 @@ import {
     WatcherEvent,
     MockConfig,
     MockRule,
-    MockEvent
+    MockEvent,
+    PerformanceSuite
     // SidebarView
 } from '../models';
 
@@ -48,6 +49,7 @@ export interface SidebarWsdlProps {
     setInputType: (type: 'url' | 'file') => void;
     wsdlUrl: string;
     setWsdlUrl: (url: string) => void;
+    wsdlUrlHistory?: string[];
     selectedFile: string | null;
     loadWsdl: () => void;
     pickLocalWsdl: () => void;
@@ -177,6 +179,20 @@ export interface SidebarServerProps {
     onOpenCertificate?: () => void;
 }
 
+export interface SidebarPerformanceProps {
+    suites: import('../models').PerformanceSuite[];
+    onAddSuite: (name: string) => void;
+    onDeleteSuite: (id: string) => void;
+    onRunSuite: (id: string) => void;
+    onSelectSuite: (id: string) => void;
+    onStopRun: () => void;
+    isRunning: boolean;
+    activeRunId?: string;
+    selectedSuiteId?: string;
+    deleteConfirm: string | null;
+    setDeleteConfirm: (id: string | null) => void;
+}
+
 // ============================================================================
 // WORKSPACE PROP GROUPS
 // ============================================================================
@@ -186,6 +202,7 @@ export interface WorkspaceSelectionState {
     operation: SoapUIOperation | null;
     testCase?: SoapTestCase | null;
     testStep?: SoapTestStep | null;
+    performanceSuite?: PerformanceSuite | null;
 }
 
 export interface WorkspaceRequestActions {
@@ -239,4 +256,39 @@ export interface WorkspaceToolsActions {
     onAddReplaceRule?: (data: { xpath: string, matchText: string, target: 'request' | 'response' }) => void;
     onAddMockRule?: (rule: import('../models').MockRule) => void;
     onOpenDevOps?: () => void;
+}
+
+export interface WorkspacePerformanceActions {
+    onUpdateSuite?: (suite: import('../models').PerformanceSuite) => void;
+    onAddRequest?: (suiteId: string) => void;
+    onDeleteRequest?: (suiteId: string, requestId: string) => void;
+    onUpdateRequest?: (suiteId: string, request: import('../models').PerformanceRequest) => void;
+    onImportFromWorkspace?: (suiteId: string) => void;
+    onRunSuite?: (id: string) => void;
+    onStopRun?: () => void;
+    performanceProgress?: { iteration: number; total: number } | null;
+    performanceHistory?: import('../models').PerformanceRun[];
+}
+
+export interface WorkspaceBreakpointState {
+    activeBreakpoint: {
+        id: string;
+        type: 'request' | 'response';
+        content: string;
+        headers?: Record<string, any>;
+        breakpointName: string;
+        timeoutMs: number;
+        startTime: number;
+    } | null;
+    onResolve: (modifiedContent: string, cancelled?: boolean) => void;
+}
+
+export interface WorkspaceLayoutProps extends WorkspacePerformanceActions {
+    selectionState: WorkspaceSelectionState;
+    requestActions: WorkspaceRequestActions;
+    viewState: WorkspaceViewState;
+    configState: WorkspaceConfigState;
+    stepActions: WorkspaceStepActions;
+    toolsActions: WorkspaceToolsActions;
+    breakpointState?: WorkspaceBreakpointState;
 }

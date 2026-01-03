@@ -15,6 +15,7 @@ import {
     CheckboxLabel,
     SectionHeader,
 } from './SettingsTypes';
+import { ProxyRulesEditor } from './ProxyRulesEditor';
 
 interface GeneralTabProps {
     config: DirtySoapConfig;
@@ -131,6 +132,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
                     </FormGroup>
                 </div>
 
+
                 {/* Right Column: Network */}
                 <div style={{ flex: 1 }}>
                     <SectionHeader style={{ marginTop: 0 }}>Network</SectionHeader>
@@ -161,8 +163,10 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
                             onChange={e => onChange('network', 'proxy', e.target.value)}
                         />
                     </FormGroup>
+
+                    <ProxyRulesEditor config={config} onChange={onChange} />
                 </div>
             </div>
-        </ScrollableForm>
+        </ScrollableForm >
     );
 };

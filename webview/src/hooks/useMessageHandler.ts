@@ -92,6 +92,9 @@ export interface MessageHandlerState {
     setMockHistory: React.Dispatch<React.SetStateAction<MockEvent[]>>;
     setMockRunning: React.Dispatch<React.SetStateAction<boolean>>;
     setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
+    setActiveRunId: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setPerformanceProgress: React.Dispatch<React.SetStateAction<{ iteration: number; total: number } | null>>;
+
 
     // Current values needed for message handling
     wsdlUrl: string;
@@ -137,6 +140,8 @@ export function useMessageHandler(state: MessageHandlerState) {
         setMockHistory,
         setMockRunning,
         setMockConfig,
+        setActiveRunId,
+        setPerformanceProgress,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -354,6 +359,10 @@ export function useMessageHandler(state: MessageHandlerState) {
                     if (message.config.lastProxyTarget) {
                         setProxyConfig((prev: any) => ({ ...prev, target: message.config.lastProxyTarget! }));
                     }
+                    // Load mock server config including saved rules
+                    if (message.config.mockServer) {
+                        setMockConfig(message.config.mockServer);
+                    }
                     break;
 
                 case 'restoreAutosave':
@@ -455,9 +464,23 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case 'mockRulesUpdated':
-                    debugLog('mockRulesUpdated', { ruleCount: message.rules?.length });
-                    setMockConfig(prev => ({ ...prev, rules: message.rules }));
+                    if (message.rules) {
+                        setMockConfig(prev => ({ ...prev, rules: message.rules }));
+                    }
                     break;
+
+                case 'performanceRunComplete':
+                    debugLog('Performance Run Complete', message.run);
+                    setActiveRunId(undefined);
+                    setPerformanceProgress(null); // Reset progress when run completes
+                    // We rely on settings update for history, but could manually update if needed
+                    break;
+
+                case 'performanceIterationComplete':
+                    debugLog(`Iteration ${message.data.iteration}/${message.data.total}`);
+                    setPerformanceProgress({ iteration: message.data.iteration + 1, total: message.data.total });
+                    break;
+
 
                 case 'mockHit':
                     debugLog('mockHit', { ruleId: message.rule?.id });

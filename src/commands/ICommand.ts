@@ -1,4 +1,4 @@
 
 export interface ICommand {
-    execute(message: any): Promise<void> | void;
+    execute(message: any): Promise<any> | any;
 }

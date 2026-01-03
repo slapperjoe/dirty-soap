@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network } from 'lucide-react';
+import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity } from 'lucide-react';
 import { SidebarView } from '../models';
 
 // Components
@@ -8,6 +8,7 @@ import { WsdlExplorer } from './sidebar/WsdlExplorer';
 import { WatcherPanel } from './sidebar/WatcherPanel';
 import { TestsUi } from './sidebar/TestsUi';
 import { ServerUi } from './sidebar/ServerUi';
+import { PerformanceUi } from './sidebar/PerformanceUi';
 
 // Prop Groups
 import {
@@ -18,7 +19,8 @@ import {
     SidebarTestRunnerProps,
     SidebarWatcherProps,
     SidebarTestsProps,
-    SidebarServerProps
+    SidebarServerProps,
+    SidebarPerformanceProps
 } from '../types/props';
 
 interface SidebarProps {
@@ -29,7 +31,8 @@ interface SidebarProps {
     testRunnerProps: SidebarTestRunnerProps;
     watcherProps: SidebarWatcherProps;
     testsProps: SidebarTestsProps;
-    serverProps?: SidebarServerProps;  // Unified server tab
+    serverProps?: SidebarServerProps;
+    performanceProps?: SidebarPerformanceProps;
 
     // View State
     activeView: SidebarView;
@@ -45,10 +48,6 @@ interface SidebarProps {
 
     // Environment indicator
     activeEnvironment?: string;
-
-    // Legacy/Unused or to be cleaned up
-    savedProjects?: Set<string>; // Duplicate of projectProps.savedProjects
-    explorerExpanded?: boolean; // Duplicate
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     watcherProps,
     testsProps,
     serverProps,
+    performanceProps,
     backendConnected,
     workspaceDirty,
     onOpenSettings,
@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
     const { projects, savedProjects, loadProject, saveProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation } = projectProps;
     const { exploredInterfaces, addToProject, addAllToProject, clearExplorer, removeFromExplorer, toggleExploredInterface, toggleExploredOperation } = explorerProps;
-    const { inputType, setInputType, wsdlUrl, setWsdlUrl, selectedFile, loadWsdl, pickLocalWsdl, downloadStatus } = wsdlProps;
+    const { inputType, setInputType, wsdlUrl, setWsdlUrl, wsdlUrlHistory, selectedFile, loadWsdl, pickLocalWsdl, downloadStatus } = wsdlProps;
     const {
         selectedProjectName, setSelectedProjectName,
         selectedInterface, setSelectedInterface,
@@ -145,6 +145,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => onChangeView(SidebarView.TESTS)}
                     title="Tests"
                 />
+                <NavItem
+                    icon={Activity}
+                    active={activeView === SidebarView.PERFORMANCE}
+                    onClick={() => onChangeView(SidebarView.PERFORMANCE)}
+                    title="Performance"
+                />
+
 
                 <div style={{ flex: 1 }}></div>
 
@@ -227,6 +234,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                 )}
 
+                {activeView === SidebarView.PERFORMANCE && performanceProps && (
+                    <PerformanceUi
+                        {...performanceProps}
+                    />
+                )}
+
                 {activeView === SidebarView.EXPLORER && (
                     <WsdlExplorer
                         exploredInterfaces={exploredInterfaces}
@@ -235,6 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setInputType={setInputType}
                         wsdlUrl={wsdlUrl}
                         setWsdlUrl={setWsdlUrl}
+                        wsdlUrlHistory={wsdlUrlHistory}
                         selectedFile={selectedFile}
                         loadWsdl={loadWsdl}
                         pickLocalWsdl={pickLocalWsdl}

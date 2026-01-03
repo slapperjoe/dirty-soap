@@ -171,7 +171,8 @@ export enum SidebarView {
     EXPLORER = 'explorer',
     TESTS = 'tests',
     WATCHER = 'watcher',
-    SERVER = 'server'  // Unified server tab (replaces PROXY + MOCK)
+    SERVER = 'server',  // Unified server tab (replaces PROXY + MOCK)
+    PERFORMANCE = 'performance'
 }
 
 /**
@@ -229,7 +230,7 @@ export interface ServerConfig {
 
 /** Single match condition within a mock rule */
 export interface MockMatchCondition {
-    type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains';
+    type: 'operation' | 'url' | 'soapAction' | 'xpath' | 'header' | 'contains' | 'templateName';
     pattern: string;
     isRegex?: boolean;
     /** For header matching */
@@ -297,12 +298,21 @@ export interface MockEvent {
     passthrough?: boolean;
 }
 
+/** Rule for proxy routing */
+export interface ProxyRule {
+    id: string; // valid UUID
+    pattern: string; // e.g. "*.local", "api.google.com"
+    useProxy: boolean; // true = use configured/system proxy, false = direct
+    enabled: boolean;
+}
+
 export interface DirtySoapConfig {
     version: number;
     network?: {
         defaultTimeout?: number;
         retryCount?: number;
         proxy?: string;
+        proxyRules?: ProxyRule[];
     };
     ui?: {
         layoutMode?: 'vertical' | 'horizontal';
@@ -334,7 +344,134 @@ export interface DirtySoapConfig {
     };
     /** Mock server configuration (legacy, use server instead) */
     mockServer?: MockConfig;
+    /** Performance testing suites */
+    performanceSuites?: PerformanceSuite[];
+    /** Performance run history (last 5 per suite) */
+    performanceHistory?: PerformanceRun[];
+    /** Scheduled performance runs */
+    performanceSchedules?: PerformanceSchedule[];
     /** Unified server configuration */
     server?: ServerConfig;
 }
+
+// ============================================
+// Performance Testing Types
+// ============================================
+
+/** Configuration for a performance test suite */
+export interface PerformanceSuite {
+    id: string;
+    name: string;
+    description?: string;
+    requests: PerformanceRequest[];
+    /** How many times to run the full sequence */
+    iterations: number;
+    /** Delay between requests in ms (0 for sequential, no delay) */
+    delayBetweenRequests: number;
+    /** Number of warmup runs to discard before measuring */
+    warmupRuns: number;
+    /** Concurrency level for parallel execution (1 = sequential) */
+    concurrency: number;
+    /** Created timestamp */
+    createdAt: number;
+    /** Last modified timestamp */
+    modifiedAt: number;
+    /** Source if imported from test suite */
+    importedFrom?: {
+        type: 'testSuite';
+        suiteId: string;
+        suiteName: string;
+    };
+}
+
+/** Single request within a performance suite */
+export interface PerformanceRequest {
+    id: string;
+    name: string;
+    endpoint: string;
+    method?: string;
+    soapAction?: string;
+    requestBody: string;
+    headers?: Record<string, string>;
+    /** Extractors for passing values between requests */
+    extractors: SoapRequestExtractor[];
+    /** Expected max response time in ms */
+    slaThreshold?: number;
+    /** Order in the sequence */
+    order: number;
+}
+
+/** Result of a single performance run */
+export interface PerformanceRun {
+    id: string;
+    suiteId: string;
+    suiteName: string;
+    startTime: number;
+    endTime: number;
+    status: 'completed' | 'aborted' | 'failed';
+    results: PerformanceResult[];
+    summary: PerformanceStats;
+    /** Environment used if any */
+    environment?: string;
+}
+
+/** Result for a single request execution */
+export interface PerformanceResult {
+    requestId: string;
+    requestName: string;
+    iteration: number;
+    duration: number;
+    status: number;
+    success: boolean;
+    slaBreached: boolean;
+    error?: string;
+    extractedValues?: Record<string, string>;
+    timestamp: number;
+}
+
+/** Aggregate statistics for a performance run */
+export interface PerformanceStats {
+    totalRequests: number;
+    successCount: number;
+    failureCount: number;
+    successRate: number;
+    avgResponseTime: number;
+    minResponseTime: number;
+    maxResponseTime: number;
+    /** Median response time */
+    p50: number;
+    /** 95th percentile */
+    p95: number;
+    /** 99th percentile */
+    p99: number;
+    slaBreachCount: number;
+    totalDuration: number;
+}
+
+// ============================================
+// Performance Scheduling Types
+// ============================================
+
+/** Scheduled performance run configuration */
+export interface PerformanceSchedule {
+    id: string;
+    /** Reference to the suite to run */
+    suiteId: string;
+    suiteName: string;
+    /** Cron expression (e.g., "0 3 * * *" for daily at 3am) */
+    cronExpression: string;
+    /** Human-readable description */
+    description?: string;
+    /** Whether this schedule is active */
+    enabled: boolean;
+    /** Timestamp of last run */
+    lastRun?: number;
+    /** Result status of last run */
+    lastRunStatus?: 'completed' | 'failed' | 'aborted';
+    /** Next scheduled run time */
+    nextRun?: number;
+    /** Creation timestamp */
+    createdAt: number;
+}
+
 

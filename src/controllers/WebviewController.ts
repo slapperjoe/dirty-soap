@@ -57,6 +57,30 @@ import {
     GetMockStatusCommand
 } from '../commands/MockCommands';
 
+import {
+    GetPerformanceSuitesCommand,
+    AddPerformanceSuiteCommand,
+    UpdatePerformanceSuiteCommand,
+    DeletePerformanceSuiteCommand,
+    AddPerformanceRequestCommand,
+    UpdatePerformanceRequestCommand,
+    DeletePerformanceRequestCommand,
+    RunPerformanceSuiteCommand,
+    AbortPerformanceSuiteCommand,
+    GetPerformanceHistoryCommand,
+    ImportTestSuiteToPerformanceCommand,
+    ExportPerformanceResultsCommand
+} from '../commands/PerformanceCommands';
+import {
+    GetSchedulesCommand,
+    AddScheduleCommand,
+    UpdateScheduleCommand,
+    DeleteScheduleCommand,
+    ToggleScheduleCommand
+} from '../commands/ScheduleCommands';
+import { PerformanceService } from '../services/PerformanceService';
+import { ScheduleService } from '../services/ScheduleService';
+
 export class WebviewController {
     private _loadedProjects: Map<string, SoapUIProject> = new Map();
     private _commands: Map<string, ICommand> = new Map();
@@ -74,7 +98,9 @@ export class WebviewController {
         private readonly _configSwitcherService: ConfigSwitcherService,
         private readonly _testRunnerService: TestRunnerService,
         private readonly _azureDevOpsService: AzureDevOpsService,
-        private readonly _mockService: MockService
+        private readonly _mockService: MockService,
+        private readonly _performanceService: PerformanceService,
+        private readonly _scheduleService: ScheduleService
     ) {
         // Initialize Commands
         this._commands.set('executeRequest', new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager));
@@ -135,6 +161,27 @@ export class WebviewController {
         // Wire MockService into ProxyService for middleware mode
         this._proxyService.setMockService(this._mockService);
 
+        // Performance Commands
+        this._commands.set('getPerformanceSuites', new GetPerformanceSuitesCommand(this._performanceService));
+        this._commands.set('addPerformanceSuite', new AddPerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set('updatePerformanceSuite', new UpdatePerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set('deletePerformanceSuite', new DeletePerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set('addPerformanceRequest', new AddPerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set('updatePerformanceRequest', new UpdatePerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set('deletePerformanceRequest', new DeletePerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set('runPerformanceSuite', new RunPerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set('abortPerformanceSuite', new AbortPerformanceSuiteCommand(this._performanceService));
+        this._commands.set('getPerformanceHistory', new GetPerformanceHistoryCommand(this._performanceService));
+        this._commands.set('importTestSuiteToPerformance', new ImportTestSuiteToPerformanceCommand(this._performanceService, this._settingsManager));
+        this._commands.set('exportPerformanceResults', new ExportPerformanceResultsCommand(this._performanceService));
+
+        // Schedule Commands
+        this._commands.set('getSchedules', new GetSchedulesCommand(this._scheduleService));
+        this._commands.set('addSchedule', new AddScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set('updateSchedule', new UpdateScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set('deleteSchedule', new DeleteScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set('toggleSchedule', new ToggleScheduleCommand(this._scheduleService, this._settingsManager));
+
         // Setup Update Callback
         this._fileWatcherService.setCallback((history) => {
             this._panel.webview.postMessage({ command: 'watcherUpdate', history });
@@ -170,6 +217,15 @@ export class WebviewController {
         });
         this._mockService.on('rulesUpdated', (rules) => {
             this._panel.webview.postMessage({ command: 'mockRulesUpdated', rules });
+        });
+
+        // Performance Callbacks
+        this._performanceService.on('runCompleted', (run) => {
+            this._panel.webview.postMessage({ command: 'performanceRunComplete', run });
+            this._settingsManager.updatePerformanceHistory(run); // Ensure history is saved (redundant if service does it, but safer)
+        });
+        this._performanceService.on('iterationComplete', (data) => {
+            this._panel.webview.postMessage({ command: 'performanceIterationComplete', data });
         });
         this._mockService.on('mockHit', (data) => {
             this._panel.webview.postMessage({ command: 'mockHit', ...data });
@@ -235,6 +291,8 @@ export class WebviewController {
                 this._proxyService.setReplaceRules(rules);
                 const breakpoints = this._settingsManager.getConfig().breakpoints || [];
                 this._proxyService.setBreakpoints(breakpoints);
+                const proxyRules = this._settingsManager.getConfig().network?.proxyRules || [];
+                this._proxyService.setProxyRules(proxyRules);
                 break;
             case 'getSettings':
                 console.log('[WebviewController] Received getSettings. Sending settings to webview.');
@@ -411,9 +469,14 @@ export class WebviewController {
             // Sync replace rules and breakpoints to proxy service on config load
             this._proxyService.setReplaceRules(config.replaceRules || []);
             this._proxyService.setBreakpoints(config.breakpoints || []);
+            this._proxyService.setProxyRules(config.network?.proxyRules || []);
             // Sync last proxy target to proxy service so it has the correct backend URL
             if (config.lastProxyTarget) {
                 this._proxyService.updateConfig({ targetUrl: config.lastProxyTarget });
+            }
+            // Sync saved mock rules to mock service
+            if (config.mockServer?.rules) {
+                this._mockService.setRules(config.mockServer.rules);
             }
         }
     }

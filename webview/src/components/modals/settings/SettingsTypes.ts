@@ -5,51 +5,16 @@
  */
 
 import styled from 'styled-components';
+import { DirtySoapConfig, ReplaceRule } from '../../../models';
+
+export type { DirtySoapConfig };
+export type ReplaceRuleSettings = ReplaceRule;
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface DirtySoapConfig {
-    version?: number;
-    network?: {
-        defaultTimeout?: number;
-        retryCount?: number;
-        proxy?: string;
-    };
-    ui?: {
-        layoutMode?: 'vertical' | 'horizontal';
-        showLineNumbers?: boolean;
-        alignAttributes?: boolean;
-        inlineElementValues?: boolean;
-        splitRatio?: number;
-        autoFoldElements?: string[];
-    };
-    activeEnvironment?: string;
-    environments?: Record<string, {
-        endpoint_url?: string;
-        env?: string;
-        [key: string]: string | undefined;
-    }>;
-    globals?: Record<string, string>;
-    replaceRules?: ReplaceRuleSettings[];
-    azureDevOps?: {
-        orgUrl?: string;      // e.g., "https://dev.azure.com/myorg"
-        project?: string;     // Selected from dropdown
-    };
-    /** Last selected web.config path for config switcher */
-    lastConfigPath?: string;
-}
 
-export interface ReplaceRuleSettings {
-    id: string;
-    name?: string;
-    xpath: string;
-    matchText: string;
-    replaceWith: string;
-    target: 'request' | 'response' | 'both';
-    enabled: boolean;
-}
 
 // =============================================================================
 // STYLED COMPONENTS

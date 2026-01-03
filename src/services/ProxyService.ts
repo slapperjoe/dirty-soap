@@ -12,7 +12,7 @@ import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
 import { ReplaceRuleApplier, ReplaceRule } from '../utils/ReplaceRuleApplier';
 import type { MockService } from './MockService';
-import { MockRule } from '../models';
+import { MockRule, ProxyRule } from '../models';
 
 export type ServerMode = 'off' | 'mock' | 'proxy' | 'both';
 export interface ProxyConfig {
@@ -65,6 +65,7 @@ export class ProxyService extends EventEmitter {
     private certPath: string | null = null;
     private keyPath: string | null = null;
     private replaceRules: ReplaceRule[] = [];
+    private proxyRules: ProxyRule[] = [];
     private breakpoints: Breakpoint[] = [];
     private pendingBreakpoints: Map<string, PendingBreakpoint> = new Map();
     private static BREAKPOINT_TIMEOUT_MS = 45000; // 45 seconds
@@ -101,6 +102,11 @@ export class ProxyService extends EventEmitter {
     public setReplaceRules(rules: ReplaceRule[]) {
         this.replaceRules = rules;
         this.logDebug(`[ProxyService] Updated replace rules: ${rules.length} rules`);
+    }
+
+    public setProxyRules(rules: ProxyRule[]) {
+        this.proxyRules = rules;
+        this.logDebug(`[ProxyService] Updated proxy rules: ${rules.length} rules`);
     }
 
     public setBreakpoints(breakpoints: Breakpoint[]) {
@@ -254,6 +260,17 @@ export class ProxyService extends EventEmitter {
         return this.ensureCert();
     }
 
+    private matchesRule(host: string, pattern: string): boolean {
+        try {
+            // Simple glob-to-regex: escape dots, replace * with .*
+            const regexStr = '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$';
+            return new RegExp(regexStr, 'i').test(host);
+        } catch (e) {
+            this.logDebug(`[ProxyService] Invalid regex for rule pattern '${pattern}': ${e}`);
+            return false;
+        }
+    }
+
     public async start() {
         if (this.isRunning) return;
 
@@ -349,7 +366,22 @@ export class ProxyService extends EventEmitter {
 
                 let agent: any;
 
-                if (proxyUrl && this.config.systemProxyEnabled !== false) {
+                let useSystemProxy = this.config.systemProxyEnabled !== false;
+
+                // Check Proxy Rules
+                if (this.proxyRules.length > 0) {
+                    const targetHost = new URL(fullTargetUrl).hostname;
+                    for (const rule of this.proxyRules) {
+                        if (!rule.enabled) continue;
+                        if (this.matchesRule(targetHost, rule.pattern)) {
+                            this.logDebug(`[Proxy] Match Rule: ${rule.pattern} -> UseProxy: ${rule.useProxy}`);
+                            useSystemProxy = rule.useProxy;
+                            break; // First match wins
+                        }
+                    }
+                }
+
+                if (proxyUrl && useSystemProxy) {
                     this.logDebug(`[Proxy] Using System Proxy: ${proxyUrl}`);
                     const { HttpsProxyAgent } = require('https-proxy-agent');
                     // Enable support for self-signed certs in corporate proxies
