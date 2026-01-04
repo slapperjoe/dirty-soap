@@ -76,10 +76,10 @@ export class SoapPanel {
         this._diagnosticService = DiagnosticService.getInstance();
         this._diagnosticService.log('BACKEND', 'SoapPanel Initialized');
 
-        this._soapClient = new SoapClient(this._outputChannel);
+        this._settingsManager = new SettingsManager();
+        this._soapClient = new SoapClient(this._settingsManager, this._outputChannel);
         this._projectStorage = new ProjectStorage(this._outputChannel);
         this._folderStorage = new FolderProjectStorage(this._outputChannel);
-        this._settingsManager = new SettingsManager();
         this._wildcardProcessor = new WildcardProcessor();
 
         this._fileWatcherService = new FileWatcherService(this._outputChannel);

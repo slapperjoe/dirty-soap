@@ -46,7 +46,7 @@ export class LoadWsdlCommand implements ICommand {
             }
 
             // Instantiate Parser with proxy option
-            const parser = new WsdlParser(null, { useProxy });
+            const parser = new WsdlParser(null, {});
 
             // Use instance method
             const parsed = await parser.parseWsdl(url);

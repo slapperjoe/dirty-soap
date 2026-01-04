@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react';
 import { bridge } from '../utils/bridge';
+import { BackendCommand, FrontendCommand } from '../messages';
 import {
     SoapUIInterface,
     SoapUIProject,
@@ -24,7 +25,7 @@ const debugLog = (context: string, data?: any) => {
     const msg = `[useMessageHandler] ${context}`;
     console.log(msg, data || '');
     // Also send to extension for VS Code output window
-    bridge.sendMessage({ command: 'log', message: msg, data: JSON.stringify(data || {}) });
+    bridge.sendMessage({ command: FrontendCommand.Log, message: msg, data: JSON.stringify(data || {}) });
 };
 
 // Helper function to generate initial XML from operation input schema
@@ -160,7 +161,7 @@ export function useMessageHandler(state: MessageHandlerState) {
             debugLog(`Received: ${message.command}`, { hasData: !!message.data || !!message.result });
 
             switch (message.command) {
-                case 'wsdlParsed':
+                case BackendCommand.WsdlParsed:
                     debugLog('wsdlParsed', { serviceCount: message.services?.length });
                     // Convert raw SoapService to SoapUIInterface, Splitting by Port
                     const splitInterfaces: SoapUIInterface[] = [];
@@ -212,7 +213,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     setExplorerExpanded(true);
                     break;
 
-                case 'response':
+                case BackendCommand.Response:
                     debugLog('response', { hasResult: !!message.result });
                     setLoading(false);
                     const endTime = Date.now();
@@ -243,29 +244,29 @@ export function useMessageHandler(state: MessageHandlerState) {
                     setResponse({ ...res, rawResponse: displayResponse, duration, lineCount, assertionResults: message.assertionResults });
                     break;
 
-                case 'error':
+                case BackendCommand.Error:
                     debugLog('error', { message: message.message });
                     setLoading(false);
                     setResponse({ error: message.message });
                     break;
 
-                case 'downloadComplete':
+                case BackendCommand.DownloadComplete:
                     debugLog('downloadComplete', { fileCount: message.files?.length });
                     setDownloadStatus(message.files);
                     setTimeout(() => setDownloadStatus(null), 5000);
                     break;
 
-                case 'wsdlSelected':
+                case BackendCommand.WsdlSelected:
                     debugLog('wsdlSelected', { path: message.path });
                     setSelectedFile(message.path);
                     break;
 
-                case 'sampleSchema':
+                case BackendCommand.SampleSchema:
                     debugLog('sampleSchema', { operationName: message.operationName });
                     setSampleModal({ open: true, schema: message.schema, operationName: message.operationName });
                     break;
 
-                case 'addStepToCase':
+                case BackendCommand.AddStepToCase:
                     debugLog('addStepToCase', { caseId: message.caseId });
                     const op = message.operation;
                     setProjects(prev => prev.map(p => {
@@ -303,7 +304,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     // Don't change activeView - let user stay on current sidebar tab (Tests)
                     break;
 
-                case 'addOperationToPerformance':
+                case BackendCommand.AddOperationToPerformance:
                     debugLog('addOperationToPerformance', { suiteId: message.suiteId, operation: message.operation?.name });
                     console.log('[useMessageHandler] ADD_OP_PERF: Received message', JSON.stringify(message));
 
@@ -372,7 +373,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                 // Send to backend FIRST (side effect outside setConfig)
                                 const nextRequests = [...(suite.requests || []), newRequest];
                                 const nextSuite = { ...suite, requests: nextRequests };
-                                bridge.sendMessage({ command: 'updatePerformanceSuite', suiteId: nextSuite.id, updates: nextSuite });
+                                bridge.sendMessage({ command: FrontendCommand.UpdatePerformanceSuite, suiteId: nextSuite.id, updates: nextSuite });
 
                                 // Optimistic Update
                                 setConfig((prevConfig: any) => {
@@ -398,7 +399,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
                     break;
 
-                case 'projectLoaded':
+                case BackendCommand.ProjectLoaded:
                     debugLog('projectLoaded', { projectName: message.project?.name });
                     const newProj = message.project;
                     setProjects(prev => {
@@ -418,22 +419,22 @@ export function useMessageHandler(state: MessageHandlerState) {
                     setWorkspaceDirty(true);
                     break;
 
-                case 'workspaceLoaded':
+                case BackendCommand.WorkspaceLoaded:
                     debugLog('workspaceLoaded', { projectCount: message.projects?.length });
                     setProjects(message.projects.map((p: any) => ({ ...p, expanded: false })));
                     setWorkspaceDirty(false);
                     break;
 
-                case 'echoResponse':
+                case BackendCommand.EchoResponse:
                     debugLog('echoResponse - Backend connected');
                     setBackendConnected(true);
                     break;
 
-                case 'localWsdls':
+                case BackendCommand.LocalWsdls:
                     debugLog('localWsdls (no-op)');
                     break;
 
-                case 'settingsUpdate':
+                case BackendCommand.SettingsUpdate:
                     debugLog('settingsUpdate', { hasConfig: !!message.config });
                     setConfig(message.config);
                     setRawConfig(message.raw || JSON.stringify(message.config, null, 2));
@@ -447,7 +448,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     if (projects.length === 0 && message.config.openProjects && message.config.openProjects.length > 0) {
                         debugLog('settingsUpdate: Auto-loading projects', { count: message.config.openProjects.length });
                         message.config.openProjects.forEach((path: string) => {
-                            bridge.sendMessage({ command: 'loadProject', path });
+                            bridge.sendMessage({ command: FrontendCommand.LoadProject, path });
                         });
                     }
                     if (message.config.lastConfigPath) {
@@ -462,7 +463,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
                     break;
 
-                case 'restoreAutosave':
+                case BackendCommand.RestoreAutosave:
                     debugLog('restoreAutosave', { hasContent: !!message.content });
                     if (message.content) {
                         try {
@@ -478,12 +479,12 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
                     break;
 
-                case 'changelog':
+                case BackendCommand.Changelog:
                     debugLog('changelog received');
                     setChangelog(message.content);
                     break;
 
-                case 'projectSaved':
+                case BackendCommand.ProjectSaved:
                     debugLog('projectSaved', { projectName: message.projectName });
                     setSavedProjects(prev => {
                         const newSet = new Set(prev);
@@ -514,17 +515,17 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }, 2000);
                     break;
 
-                case 'workspaceSaved':
+                case BackendCommand.WorkspaceSaved:
                     debugLog('workspaceSaved');
                     setWorkspaceDirty(false);
                     break;
 
-                case 'watcherUpdate':
+                case BackendCommand.WatcherUpdate:
                     debugLog('watcherUpdate', { historyLength: message.history?.length });
                     setWatcherHistory(message.history);
                     break;
 
-                case 'proxyLog':
+                case BackendCommand.ProxyLog:
                     debugLog('proxyLog', { eventId: message.event?.id });
                     setProxyHistory(prev => {
                         const existingIndex = prev.findIndex(e => e.id === message.event.id);
@@ -537,12 +538,12 @@ export function useMessageHandler(state: MessageHandlerState) {
                     });
                     break;
 
-                case 'proxyStatus':
+                case BackendCommand.ProxyStatus:
                     debugLog('proxyStatus', { running: message.running });
                     setProxyRunning(message.running);
                     break;
 
-                case 'mockLog':
+                case BackendCommand.MockLog:
                     debugLog('mockLog', { eventId: message.event?.id });
                     setMockHistory(prev => {
                         const existingIndex = prev.findIndex(e => e.id === message.event.id);
@@ -555,24 +556,24 @@ export function useMessageHandler(state: MessageHandlerState) {
                     });
                     break;
 
-                case 'mockStatus':
+                case BackendCommand.MockStatus:
                     debugLog('mockStatus', { running: message.running });
                     setMockRunning(message.running);
                     break;
 
-                case 'mockRulesUpdated':
+                case BackendCommand.MockRulesUpdated:
                     if (message.rules) {
                         setMockConfig(prev => ({ ...prev, rules: message.rules }));
                     }
                     break;
 
-                case 'performanceRunStarted':
+                case BackendCommand.PerformanceRunStarted:
                     debugLog('Performance Run Started', message.data);
                     setActiveRunId(message.data?.runId);
                     setPerformanceProgress({ iteration: 0, total: 0 }); // Initialize progress
                     break;
 
-                case 'performanceRunComplete':
+                case BackendCommand.PerformanceRunComplete:
                     debugLog('Performance Run Complete', message.run);
                     setActiveRunId(undefined);
                     setPerformanceProgress(null); // Reset progress when run completes
@@ -593,23 +594,23 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
                     break;
 
-                case 'performanceIterationComplete':
+                case BackendCommand.PerformanceIterationComplete:
                     debugLog(`Iteration ${message.data.iteration}/${message.data.total}`);
                     setPerformanceProgress({ iteration: message.data.iteration + 1, total: message.data.total });
                     break;
 
 
-                case 'mockHit':
+                case BackendCommand.MockHit:
                     debugLog('mockHit', { ruleId: message.rule?.id });
                     // Visual feedback could be added here
                     break;
 
-                case 'mockRecorded':
+                case BackendCommand.MockRecorded:
                     debugLog('mockRecorded', { name: message.rule?.name });
                     // Maybe a notification system later
                     break;
 
-                case 'breakpointHit':
+                case BackendCommand.BreakpointHit:
                     debugLog('breakpointHit', { breakpointId: message.breakpointId, type: message.type });
                     setActiveBreakpoint({
                         id: message.breakpointId,
@@ -622,50 +623,50 @@ export function useMessageHandler(state: MessageHandlerState) {
                     });
                     break;
 
-                case 'breakpointTimeout':
+                case BackendCommand.BreakpointTimeout:
                     debugLog('breakpointTimeout', { breakpointId: message.breakpointId });
                     setActiveBreakpoint(null);
                     break;
 
-                case 'configFileSelected':
+                case BackendCommand.ConfigFileSelected:
                     debugLog('configFileSelected', { path: message.path });
                     setConfigPath(message.path);
                     break;
 
-                case 'adoHasPatResult':
+                case BackendCommand.AdoHasPatResult:
                     debugLog('adoHasPatResult', { hasPat: message.hasPat });
                     // ADO PAT check result - handled by IntegrationsTab
                     break;
 
-                case 'adoProjectsResult':
+                case BackendCommand.AdoProjectsResult:
                     debugLog('adoProjectsResult (no-op)');
                     break;
 
-                case 'adoTestConnectionResult':
+                case BackendCommand.AdoTestConnectionResult:
                     debugLog('adoTestConnectionResult (no-op)');
                     break;
 
-                case 'adoAddCommentResult':
+                case BackendCommand.AdoAddCommentResult:
                     debugLog('adoAddCommentResult (no-op)');
                     break;
 
-                case 'clipboardText':
+                case BackendCommand.ClipboardText:
                     debugLog('clipboardText (no-op)');
                     break;
 
-                case 'configSwitched':
-                case 'configRestored':
+                case BackendCommand.ConfigSwitched:
+                case BackendCommand.ConfigRestored:
                     debugLog(`${message.command} (no-op)`);
                     break;
 
-                case 'updateProxyTarget':
+                case BackendCommand.UpdateProxyTarget:
                     debugLog('updateProxyTarget', { target: message.target });
                     const newConfig = { ...proxyConfig, target: message.target };
                     setProxyConfig(newConfig);
-                    bridge.sendMessage({ command: 'updateProxyConfig', config: newConfig });
+                    bridge.sendMessage({ command: FrontendCommand.UpdateProxyConfig, config: newConfig });
                     break;
 
-                case 'testRunnerUpdate':
+                case BackendCommand.TestRunnerUpdate:
                     debugLog('testRunnerUpdate', { type: message.data?.type, caseId: message.data?.caseId });
                     setTestExecution(prev => {
                         const { type, caseId, stepId, error } = message.data;

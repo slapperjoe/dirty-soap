@@ -1,0 +1,147 @@
+
+export enum FrontendCommand {
+    ExecuteRequest = 'executeRequest',
+    SaveProject = 'saveProject',
+    LoadProject = 'loadProject',
+    Log = 'log',
+    SaveOpenProjects = 'saveOpenProjects',
+    SaveWorkspace = 'saveWorkspace',
+    OpenWorkspace = 'openWorkspace',
+    GetSampleSchema = 'getSampleSchema',
+    ClipboardAction = 'clipboardAction',
+    CancelRequest = 'cancelRequest',
+    SaveSettings = 'saveSettings',
+    GetSettings = 'getSettings',
+    SetActiveEnvironment = 'setActiveEnvironment',
+    SaveUiState = 'saveUiState',
+    UpdateActiveEnvironment = 'updateActiveEnvironment',
+    AutoSaveWorkspace = 'autoSaveWorkspace',
+    StartWatcher = 'startWatcher',
+    StopWatcher = 'stopWatcher',
+    GetAutosave = 'getAutosave',
+    GetWatcherHistory = 'getWatcherHistory',
+    ClearWatcherHistory = 'clearWatcherHistory',
+    SelectConfigFile = 'selectConfigFile',
+
+    // Commands
+    DownloadWsdl = 'downloadWsdl',
+    LoadWsdl = 'loadWsdl',
+    GetLocalWsdls = 'getLocalWsdls',
+    SelectLocalWsdl = 'selectLocalWsdl',
+    CloseProject = 'closeProject',
+    SyncProjects = 'syncProjects', // New command for strict syncing
+
+    // ADO
+    AdoStorePat = 'adoStorePat',
+    AdoHasPat = 'adoHasPat',
+    AdoDeletePat = 'adoDeletePat',
+    AdoListProjects = 'adoListProjects',
+    AdoTestConnection = 'adoTestConnection',
+    AdoAddComment = 'adoAddComment',
+
+    // Proxy
+    StartProxy = 'startProxy',
+    StopProxy = 'stopProxy',
+    UpdateProxyConfig = 'updateProxyConfig',
+    SaveProxyHistory = 'saveProxyHistory',
+    InjectProxy = 'injectProxy',
+    RestoreProxy = 'restoreProxy',
+    OpenCertificate = 'openCertificate',
+    ResolveBreakpoint = 'resolveBreakpoint',
+    SetServerMode = 'setServerMode',
+
+    // Mock
+    StartMockServer = 'startMockServer',
+    StopMockServer = 'stopMockServer',
+    UpdateMockConfig = 'updateMockConfig',
+    UpdateMockRules = 'updateMockRules',
+    AddMockRule = 'addMockRule',
+    DeleteMockRule = 'deleteMockRule',
+    ToggleMockRule = 'toggleMockRule',
+    InjectMockConfig = 'injectMockConfig',
+    RestoreMockConfig = 'restoreMockConfig',
+    GetMockStatus = 'getMockStatus',
+
+    // Test Runner
+    RunTestSuite = 'runTestSuite',
+    RunTestCase = 'runTestCase',
+    PickOperationForTestCase = 'pickOperationForTestCase',
+
+    // Performance
+    GetPerformanceSuites = 'getPerformanceSuites',
+    AddPerformanceSuite = 'addPerformanceSuite',
+    UpdatePerformanceSuite = 'updatePerformanceSuite',
+    DeletePerformanceSuite = 'deletePerformanceSuite',
+    AddPerformanceRequest = 'addPerformanceRequest',
+    PickOperationForPerformance = 'pickOperationForPerformance',
+    UpdatePerformanceRequest = 'updatePerformanceRequest',
+    DeletePerformanceRequest = 'deletePerformanceRequest',
+    RunPerformanceSuite = 'runPerformanceSuite',
+    AbortPerformanceSuite = 'abortPerformanceSuite',
+    GetPerformanceHistory = 'getPerformanceHistory',
+    ImportTestSuiteToPerformance = 'importTestSuiteToPerformance',
+    ExportPerformanceResults = 'exportPerformanceResults',
+
+    // Schedule
+    GetSchedules = 'getSchedules',
+    AddSchedule = 'addSchedule',
+    UpdateSchedule = 'updateSchedule',
+    DeleteSchedule = 'deleteSchedule',
+    ToggleSchedule = 'toggleSchedule',
+
+    // Coordinator
+    StartCoordinator = 'startCoordinator',
+    StopCoordinator = 'stopCoordinator',
+    GetCoordinatorStatus = 'getCoordinatorStatus',
+}
+
+export enum BackendCommand {
+    Log = 'log',
+    WatcherUpdate = 'watcherUpdate',
+    ProxyLog = 'proxyLog',
+    ProxyStatus = 'proxyStatus',
+    BreakpointHit = 'breakpointHit',
+    BreakpointTimeout = 'breakpointTimeout',
+    TestRunnerUpdate = 'testRunnerUpdate',
+    MockLog = 'mockLog',
+    MockStatus = 'mockStatus',
+    MockRulesUpdated = 'mockRulesUpdated',
+    PerformanceRunComplete = 'performanceRunComplete',
+    PerformanceIterationComplete = 'performanceIterationComplete',
+    MockHit = 'mockHit',
+    MockRecorded = 'mockRecorded',
+    CoordinatorStatus = 'coordinatorStatus',
+    ClipboardText = 'clipboardText',
+    SampleSchema = 'sampleSchema',
+    SettingsUpdate = 'settingsUpdate',
+    Changelog = 'changelog',
+    RestoreAutosave = 'restoreAutosave',
+    ProjectSaved = 'projectSaved',
+    WorkspaceSaved = 'workspaceSaved',
+    WsdlParsed = 'wsdlParsed',
+    Response = 'response',
+    Error = 'error',
+    DownloadComplete = 'downloadComplete',
+    WsdlSelected = 'wsdlSelected',
+    AddStepToCase = 'addStepToCase',
+    AddOperationToPerformance = 'addOperationToPerformance',
+    ProjectLoaded = 'projectLoaded',
+    WorkspaceLoaded = 'workspaceLoaded',
+    EchoResponse = 'echoResponse',
+    LocalWsdls = 'localWsdls',
+    ConfigFileSelected = 'configFileSelected',
+
+    // ADO Results
+    AdoHasPatResult = 'adoHasPatResult',
+    AdoProjectsResult = 'adoProjectsResult',
+    AdoTestConnectionResult = 'adoTestConnectionResult',
+    AdoAddCommentResult = 'adoAddCommentResult',
+    AdoPatStored = 'adoPatStored',
+    AdoPatDeleted = 'adoPatDeleted',
+
+    // Performance
+    PerformanceRunStarted = 'performanceRunStarted',
+    ConfigSwitched = 'configSwitched',
+    ConfigRestored = 'configRestored',
+    UpdateProxyTarget = 'updateProxyTarget'
+}

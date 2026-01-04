@@ -7,6 +7,8 @@ import { SoapClient } from '../soapClient';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
+import { BackendCommand } from '../messages';
+
 export class StartProxyCommand implements ICommand {
     constructor(private readonly _proxyService: ProxyService) { }
     async execute(_message: any): Promise<void> {
@@ -81,14 +83,14 @@ export class InjectProxyCommand implements ICommand {
                 this._settingsManager.updateLastProxyTarget(injectResult.originalUrl);
 
                 this._panel.webview.postMessage({
-                    command: 'updateProxyTarget',
+                    command: BackendCommand.UpdateProxyTarget,
                     target: injectResult.originalUrl
                 });
             }
         } else {
             vscode.window.showErrorMessage(injectResult.message);
         }
-        this._panel.webview.postMessage({ command: 'configSwitched', success: injectResult.success });
+        this._panel.webview.postMessage({ command: BackendCommand.ConfigSwitched, success: injectResult.success });
     }
 }
 
@@ -105,7 +107,7 @@ export class RestoreProxyCommand implements ICommand {
         } else {
             vscode.window.showErrorMessage(restoreResult.message);
         }
-        this._panel.webview.postMessage({ command: 'configRestored', success: restoreResult.success });
+        this._panel.webview.postMessage({ command: BackendCommand.ConfigRestored, success: restoreResult.success });
     }
 }
 

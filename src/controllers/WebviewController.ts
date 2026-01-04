@@ -27,6 +27,7 @@ import { DownloadWsdlCommand } from '../commands/DownloadWsdlCommand';
 import { LoadWsdlCommand } from '../commands/LoadWsdlCommand';
 import { GetLocalWsdlsCommand } from '../commands/GetLocalWsdlsCommand';
 import { SelectLocalWsdlCommand } from '../commands/SelectLocalWsdlCommand';
+import { FrontendCommand, BackendCommand } from '../messages';
 import {
     StartProxyCommand,
     StopProxyCommand,
@@ -111,14 +112,14 @@ export class WebviewController {
 
         // Initialize Commands
 
-        this._commands.set('executeRequest', new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager));
-        this._commands.set('saveProject', new SaveProjectCommand(
+        this._commands.set(FrontendCommand.ExecuteRequest, new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager));
+        this._commands.set(FrontendCommand.SaveProject, new SaveProjectCommand(
             this._panel,
             this._folderStorage,
             this._projectStorage,
             this._loadedProjects
         ));
-        this._commands.set('loadProject', new LoadProjectCommand(
+        this._commands.set(FrontendCommand.LoadProject, new LoadProjectCommand(
             this._panel,
             this._soapClient,
             this._folderStorage,
@@ -130,112 +131,112 @@ export class WebviewController {
             this._folderStorage,
             this._loadedProjects
         ));
-        this._commands.set('downloadWsdl', new DownloadWsdlCommand(
+        this._commands.set(FrontendCommand.DownloadWsdl, new DownloadWsdlCommand(
             this._panel,
             this._soapClient,
             this._extensionUri.fsPath,
             this._settingsManager
         ));
-        this._commands.set('loadWsdl', new LoadWsdlCommand(this._panel, this._soapClient));
-        this._commands.set('getLocalWsdls', new GetLocalWsdlsCommand(this._panel, this._soapClient, this._extensionUri.fsPath));
-        this._commands.set('selectLocalWsdl', new SelectLocalWsdlCommand(this._panel, this._soapClient));
+        this._commands.set(FrontendCommand.LoadWsdl, new LoadWsdlCommand(this._panel, this._soapClient));
+        this._commands.set(FrontendCommand.GetLocalWsdls, new GetLocalWsdlsCommand(this._panel, this._soapClient, this._extensionUri.fsPath));
+        this._commands.set(FrontendCommand.SelectLocalWsdl, new SelectLocalWsdlCommand(this._panel, this._soapClient));
 
         // Proxy Commands
-        this._commands.set('startProxy', new StartProxyCommand(this._proxyService));
-        this._commands.set('stopProxy', new StopProxyCommand(this._proxyService));
-        this._commands.set('updateProxyConfig', new UpdateProxyConfigCommand(this._proxyService, this._settingsManager));
-        this._commands.set('saveProxyHistory', new SaveProxyHistoryCommand());
-        this._commands.set('injectProxy', new InjectProxyCommand(this._panel, this._configSwitcherService, this._proxyService, this._soapClient, this._settingsManager));
-        this._commands.set('restoreProxy', new RestoreProxyCommand(this._panel, this._configSwitcherService));
-        this._commands.set('openCertificate', new OpenCertificateCommand(this._proxyService, this._soapClient));
-        this._commands.set('resolveBreakpoint', new ResolveBreakpointCommand(this._proxyService));
-        this._commands.set('setServerMode', new SetServerModeCommand(this._proxyService));
+        this._commands.set(FrontendCommand.StartProxy, new StartProxyCommand(this._proxyService));
+        this._commands.set(FrontendCommand.StopProxy, new StopProxyCommand(this._proxyService));
+        this._commands.set(FrontendCommand.UpdateProxyConfig, new UpdateProxyConfigCommand(this._proxyService, this._settingsManager));
+        this._commands.set(FrontendCommand.SaveProxyHistory, new SaveProxyHistoryCommand());
+        this._commands.set(FrontendCommand.InjectProxy, new InjectProxyCommand(this._panel, this._configSwitcherService, this._proxyService, this._soapClient, this._settingsManager));
+        this._commands.set(FrontendCommand.RestoreProxy, new RestoreProxyCommand(this._panel, this._configSwitcherService));
+        this._commands.set(FrontendCommand.OpenCertificate, new OpenCertificateCommand(this._proxyService, this._soapClient));
+        this._commands.set(FrontendCommand.ResolveBreakpoint, new ResolveBreakpointCommand(this._proxyService));
+        this._commands.set(FrontendCommand.SetServerMode, new SetServerModeCommand(this._proxyService));
 
-        this._commands.set('runTestSuite', new RunTestSuiteCommand(this._testRunnerService, this._loadedProjects));
-        this._commands.set('runTestCase', new RunTestCaseCommand(this._testRunnerService, this._loadedProjects));
-        this._commands.set('pickOperationForTestCase', new PickOperationForTestCaseCommand(this._panel, this._loadedProjects));
+        this._commands.set(FrontendCommand.RunTestSuite, new RunTestSuiteCommand(this._testRunnerService, this._loadedProjects));
+        this._commands.set(FrontendCommand.RunTestCase, new RunTestCaseCommand(this._testRunnerService, this._loadedProjects));
+        this._commands.set(FrontendCommand.PickOperationForTestCase, new PickOperationForTestCaseCommand(this._panel, this._loadedProjects));
 
         // Mock Commands
-        this._commands.set('startMockServer', new StartMockServerCommand(this._mockService));
-        this._commands.set('stopMockServer', new StopMockServerCommand(this._mockService));
-        this._commands.set('updateMockConfig', new UpdateMockConfigCommand(this._mockService, this._settingsManager));
-        this._commands.set('updateMockRules', new UpdateMockRulesCommand(this._mockService, this._settingsManager));
-        this._commands.set('addMockRule', new AddMockRuleCommand(this._mockService, this._settingsManager));
-        this._commands.set('deleteMockRule', new DeleteMockRuleCommand(this._mockService, this._settingsManager));
-        this._commands.set('toggleMockRule', new ToggleMockRuleCommand(this._mockService, this._settingsManager));
-        this._commands.set('injectMockConfig', new InjectMockConfigCommand(this._panel, this._configSwitcherService, this._mockService));
-        this._commands.set('restoreMockConfig', new RestoreMockConfigCommand(this._panel, this._configSwitcherService));
-        this._commands.set('getMockStatus', new GetMockStatusCommand(this._panel, this._mockService));
+        this._commands.set(FrontendCommand.StartMockServer, new StartMockServerCommand(this._mockService));
+        this._commands.set(FrontendCommand.StopMockServer, new StopMockServerCommand(this._mockService));
+        this._commands.set(FrontendCommand.UpdateMockConfig, new UpdateMockConfigCommand(this._mockService, this._settingsManager));
+        this._commands.set(FrontendCommand.UpdateMockRules, new UpdateMockRulesCommand(this._mockService, this._settingsManager));
+        this._commands.set(FrontendCommand.AddMockRule, new AddMockRuleCommand(this._mockService, this._settingsManager));
+        this._commands.set(FrontendCommand.DeleteMockRule, new DeleteMockRuleCommand(this._mockService, this._settingsManager));
+        this._commands.set(FrontendCommand.ToggleMockRule, new ToggleMockRuleCommand(this._mockService, this._settingsManager));
+        this._commands.set(FrontendCommand.InjectMockConfig, new InjectMockConfigCommand(this._panel, this._configSwitcherService, this._mockService));
+        this._commands.set(FrontendCommand.RestoreMockConfig, new RestoreMockConfigCommand(this._panel, this._configSwitcherService));
+        this._commands.set(FrontendCommand.GetMockStatus, new GetMockStatusCommand(this._panel, this._mockService));
 
         // Wire MockService into ProxyService for middleware mode
         this._proxyService.setMockService(this._mockService);
 
         // Performance Commands
-        this._commands.set('getPerformanceSuites', new GetPerformanceSuitesCommand(this._performanceService));
-        this._commands.set('addPerformanceSuite', new AddPerformanceSuiteCommand(this._performanceService, this._settingsManager));
-        this._commands.set('updatePerformanceSuite', new UpdatePerformanceSuiteCommand(this._performanceService, this._settingsManager));
-        this._commands.set('deletePerformanceSuite', new DeletePerformanceSuiteCommand(this._performanceService, this._settingsManager));
-        this._commands.set('addPerformanceRequest', new AddPerformanceRequestCommand(this._performanceService, this._settingsManager));
-        this._commands.set('pickOperationForPerformance', new PickOperationForPerformanceCommand(this._panel, () => Array.from(this._loadedProjects.values())));
-        this._commands.set('updatePerformanceRequest', new UpdatePerformanceRequestCommand(this._performanceService, this._settingsManager));
-        this._commands.set('deletePerformanceRequest', new DeletePerformanceRequestCommand(this._performanceService, this._settingsManager));
-        this._commands.set('runPerformanceSuite', new RunPerformanceSuiteCommand(this._performanceService, this._settingsManager));
-        this._commands.set('abortPerformanceSuite', new AbortPerformanceSuiteCommand(this._performanceService));
-        this._commands.set('getPerformanceHistory', new GetPerformanceHistoryCommand(this._performanceService));
-        this._commands.set('importTestSuiteToPerformance', new ImportTestSuiteToPerformanceCommand(this._performanceService, this._settingsManager));
-        this._commands.set('exportPerformanceResults', new ExportPerformanceResultsCommand(this._performanceService));
+        this._commands.set(FrontendCommand.GetPerformanceSuites, new GetPerformanceSuitesCommand(this._performanceService));
+        this._commands.set(FrontendCommand.AddPerformanceSuite, new AddPerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.UpdatePerformanceSuite, new UpdatePerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.DeletePerformanceSuite, new DeletePerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.AddPerformanceRequest, new AddPerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.PickOperationForPerformance, new PickOperationForPerformanceCommand(this._panel, () => Array.from(this._loadedProjects.values())));
+        this._commands.set(FrontendCommand.UpdatePerformanceRequest, new UpdatePerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.DeletePerformanceRequest, new DeletePerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.RunPerformanceSuite, new RunPerformanceSuiteCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.AbortPerformanceSuite, new AbortPerformanceSuiteCommand(this._performanceService));
+        this._commands.set(FrontendCommand.GetPerformanceHistory, new GetPerformanceHistoryCommand(this._performanceService));
+        this._commands.set(FrontendCommand.ImportTestSuiteToPerformance, new ImportTestSuiteToPerformanceCommand(this._performanceService, this._settingsManager));
+        this._commands.set(FrontendCommand.ExportPerformanceResults, new ExportPerformanceResultsCommand(this._performanceService));
 
         // Schedule Commands
-        this._commands.set('getSchedules', new GetSchedulesCommand(this._scheduleService));
-        this._commands.set('addSchedule', new AddScheduleCommand(this._scheduleService, this._settingsManager));
-        this._commands.set('updateSchedule', new UpdateScheduleCommand(this._scheduleService, this._settingsManager));
-        this._commands.set('deleteSchedule', new DeleteScheduleCommand(this._scheduleService, this._settingsManager));
-        this._commands.set('toggleSchedule', new ToggleScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set(FrontendCommand.GetSchedules, new GetSchedulesCommand(this._scheduleService));
+        this._commands.set(FrontendCommand.AddSchedule, new AddScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set(FrontendCommand.UpdateSchedule, new UpdateScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set(FrontendCommand.DeleteSchedule, new DeleteScheduleCommand(this._scheduleService, this._settingsManager));
+        this._commands.set(FrontendCommand.ToggleSchedule, new ToggleScheduleCommand(this._scheduleService, this._settingsManager));
 
         // Setup Update Callback
         this._fileWatcherService.setCallback((history) => {
-            this._postMessage({ command: 'watcherUpdate', history });
+            this._postMessage({ command: BackendCommand.WatcherUpdate, history });
         });
 
         // Proxy Callbacks
         this._proxyService.on('log', (event) => {
-            this._postMessage({ command: 'proxyLog', event });
+            this._postMessage({ command: BackendCommand.ProxyLog, event });
         });
         this._proxyService.on('status', (running) => {
-            this._postMessage({ command: 'proxyStatus', running });
+            this._postMessage({ command: BackendCommand.ProxyStatus, running });
         });
 
         // Breakpoint events
         this._proxyService.on('breakpointHit', (data) => {
-            this._postMessage({ command: 'breakpointHit', ...data });
+            this._postMessage({ command: BackendCommand.BreakpointHit, ...data });
         });
         this._proxyService.on('breakpointTimeout', (data) => {
-            this._postMessage({ command: 'breakpointTimeout', ...data });
+            this._postMessage({ command: BackendCommand.BreakpointTimeout, ...data });
         });
 
         // Test Runner Callback
         this._testRunnerService.setCallback((data) => {
-            this._postMessage({ command: 'testRunnerUpdate', data });
+            this._postMessage({ command: BackendCommand.TestRunnerUpdate, data });
         });
 
         // Mock Server Callbacks
         this._mockService.on('log', (event) => {
-            this._postMessage({ command: 'mockLog', event });
+            this._postMessage({ command: BackendCommand.MockLog, event });
         });
         this._mockService.on('status', (running) => {
-            this._postMessage({ command: 'mockStatus', running });
+            this._postMessage({ command: BackendCommand.MockStatus, running });
         });
         this._mockService.on('rulesUpdated', (rules) => {
-            this._postMessage({ command: 'mockRulesUpdated', rules });
+            this._postMessage({ command: BackendCommand.MockRulesUpdated, rules });
         });
 
         // Performance Callbacks
         this._performanceService.on('runCompleted', (run) => {
-            this._postMessage({ command: 'performanceRunComplete', run });
+            this._postMessage({ command: BackendCommand.PerformanceRunComplete, run });
             this._settingsManager.updatePerformanceHistory(run); // Ensure history is saved (redundant if service does it, but safer)
         });
         this._performanceService.on('iterationComplete', (data) => {
-            this._postMessage({ command: 'performanceIterationComplete', data });
+            this._postMessage({ command: BackendCommand.PerformanceIterationComplete, data });
         });
         this._performanceService.on('suitesUpdated', () => {
             // Note: Commands now handle settings sync explicitly after updating SettingsManager
@@ -244,15 +245,15 @@ export class WebviewController {
             console.log('[WebviewController] suitesUpdated event received (commands handle sync)');
         });
         this._mockService.on('mockHit', (data) => {
-            this._postMessage({ command: 'mockHit', ...data });
+            this._postMessage({ command: BackendCommand.MockHit, ...data });
         });
         this._mockService.on('mockRecorded', (rule) => {
-            this._postMessage({ command: 'mockRecorded', rule });
+            this._postMessage({ command: BackendCommand.MockRecorded, rule });
         });
 
         // Coordinator Callbacks
         this._coordinatorService.on('statusUpdate', (status) => {
-            this._postMessage({ command: 'coordinatorStatus', status });
+            this._postMessage({ command: BackendCommand.CoordinatorStatus, status });
         });
         this._coordinatorService.on('log', (msg) => {
             console.log(`[Coordinator] ${msg}`);
@@ -271,6 +272,7 @@ export class WebviewController {
             await this._commands.get(message.command)?.execute(message);
 
             // After performance commands, explicitly sync settings to webview
+            // Using logic to check command name string or partial match which matches enum values
             if (message.command.startsWith('addPerformance') ||
                 message.command.startsWith('deletePerformance') ||
                 message.command.startsWith('updatePerformance')) {
@@ -281,33 +283,33 @@ export class WebviewController {
             return;
         }
 
-        if (message.command === 'executeRequest') {
+        if (message.command === FrontendCommand.ExecuteRequest) {
             // Redundant fallback if registry works, but helpful during transition
             console.log('[WebviewController] Received executeRequest message', message.url, message.operation);
         }
 
         switch (message.command) {
             // case 'saveProject': handled by registry
-            case 'log':
+            case FrontendCommand.Log:
                 this._soapClient.log('[Webview] ' + message.message);
                 break;
             // case 'loadProject': handled by registry
-            case 'saveOpenProjects':
+            case FrontendCommand.SaveOpenProjects:
                 this._settingsManager.updateOpenProjects(message.paths);
                 break;
-            case 'saveWorkspace':
+            case FrontendCommand.SaveWorkspace:
                 await this.handleSaveWorkspace(message);
                 break;
-            case 'openWorkspace':
+            case FrontendCommand.OpenWorkspace:
                 await this.handleOpenWorkspace();
                 break;
-            case 'getSampleSchema':
+            case FrontendCommand.GetSampleSchema:
                 this.handleGetSampleSchema(message);
                 break;
-            case 'clipboardAction':
+            case FrontendCommand.ClipboardAction:
                 if (message.action === 'read') {
                     const text = await vscode.env.clipboard.readText();
-                    this._postMessage({ command: 'clipboardText', text });
+                    this._postMessage({ command: BackendCommand.ClipboardText, text });
                 } else if (message.action === 'write') {
                     await vscode.env.clipboard.writeText(message.text);
                 }
@@ -315,11 +317,11 @@ export class WebviewController {
 
 
 
-            case 'cancelRequest':
+            case FrontendCommand.CancelRequest:
                 this._soapClient.cancelRequest();
                 break;
             // case 'executeRequest': handled by command registry
-            case 'saveSettings':
+            case FrontendCommand.SaveSettings:
                 if (message.raw) {
                     this._settingsManager.saveRawConfig(message.content);
                 } else if (message.config) {
@@ -334,44 +336,44 @@ export class WebviewController {
                 const proxyRules = this._settingsManager.getConfig().network?.proxyRules || [];
                 this._proxyService.setProxyRules(proxyRules);
                 break;
-            case 'getSettings':
+            case FrontendCommand.GetSettings:
                 console.log('[WebviewController] Received getSettings. Sending settings to webview.');
                 this.sendSettingsToWebview();
                 break;
-            case 'setActiveEnvironment':
+            case FrontendCommand.SetActiveEnvironment:
                 if (message.env) {
                     console.log('[WebviewController] Switching active environment to:', message.env);
                     this._settingsManager.updateActiveEnvironment(message.env);
                     this.sendSettingsToWebview();
                 }
                 break;
-            case 'saveUiState':
+            case FrontendCommand.SaveUiState:
                 this._settingsManager.updateUiState(message.ui);
                 break;
-            case 'updateActiveEnvironment':
+            case FrontendCommand.UpdateActiveEnvironment:
                 this._settingsManager.updateActiveEnvironment(message.envName);
                 this.sendSettingsToWebview();
                 break;
-            case 'autoSaveWorkspace':
+            case FrontendCommand.AutoSaveWorkspace:
                 this._settingsManager.saveAutosave(message.content);
                 break;
 
-            case 'startWatcher':
+            case FrontendCommand.StartWatcher:
                 this._fileWatcherService.start();
                 break;
-            case 'stopWatcher':
+            case FrontendCommand.StopWatcher:
                 this._fileWatcherService.stop();
                 break;
-            case 'getAutosave':
+            case FrontendCommand.GetAutosave:
                 this.handleGetAutosave();
                 break;
-            case 'getWatcherHistory':
-                this._postMessage({ command: 'watcherUpdate', history: this._fileWatcherService.getHistory() });
+            case FrontendCommand.GetWatcherHistory:
+                this._postMessage({ command: BackendCommand.WatcherUpdate, history: this._fileWatcherService.getHistory() });
                 break;
-            case 'clearWatcherHistory':
+            case FrontendCommand.ClearWatcherHistory:
                 this._fileWatcherService.clearHistory();
                 break;
-            case 'selectConfigFile':
+            case FrontendCommand.SelectConfigFile:
                 const options: vscode.OpenDialogOptions = {
                     canSelectMany: false,
                     openLabel: 'Select Config File',
@@ -390,31 +392,31 @@ export class WebviewController {
                 break;
 
             // Azure DevOps Integration
-            case 'adoStorePat':
+            case FrontendCommand.AdoStorePat:
                 await this._azureDevOpsService.storePat(message.pat);
-                this._postMessage({ command: 'adoPatStored', success: true });
+                this._postMessage({ command: BackendCommand.AdoPatStored, success: true });
                 break;
-            case 'adoHasPat':
+            case FrontendCommand.AdoHasPat:
                 const hasPat = await this._azureDevOpsService.hasPat();
-                this._postMessage({ command: 'adoHasPatResult', hasPat });
+                this._postMessage({ command: BackendCommand.AdoHasPatResult, hasPat });
                 break;
-            case 'adoDeletePat':
+            case FrontendCommand.AdoDeletePat:
                 await this._azureDevOpsService.deletePat();
-                this._postMessage({ command: 'adoPatDeleted', success: true });
+                this._postMessage({ command: BackendCommand.AdoPatDeleted, success: true });
                 break;
-            case 'adoListProjects':
+            case FrontendCommand.AdoListProjects:
                 try {
                     const projects = await this._azureDevOpsService.listProjects(message.orgUrl);
-                    this._postMessage({ command: 'adoProjectsResult', projects, success: true });
+                    this._postMessage({ command: BackendCommand.AdoProjectsResult, projects, success: true });
                 } catch (error: any) {
-                    this._postMessage({ command: 'adoProjectsResult', projects: [], success: false, error: error.message });
+                    this._postMessage({ command: BackendCommand.AdoProjectsResult, projects: [], success: false, error: error.message });
                 }
                 break;
-            case 'adoTestConnection':
+            case FrontendCommand.AdoTestConnection:
                 const result = await this._azureDevOpsService.testConnection(message.orgUrl);
-                this._postMessage({ command: 'adoTestConnectionResult', ...result });
+                this._postMessage({ command: BackendCommand.AdoTestConnectionResult, ...result });
                 break;
-            case 'closeProject':
+            case FrontendCommand.CloseProject:
                 if (message.name) {
                     // Try to find by name and remove
                     for (const [key, p] of this._loadedProjects.entries()) {
@@ -425,7 +427,7 @@ export class WebviewController {
                     }
                 }
                 break;
-            case 'syncProjects':
+            case FrontendCommand.SyncProjects:
                 if (message.projects && Array.isArray(message.projects)) {
                     // We don't want to wipe the map if we have local paths we want to keep,
                     // but we do want to ensure all frontend projects are present.
@@ -437,25 +439,25 @@ export class WebviewController {
                     console.log(`[WebviewController] Synced ${message.projects.length} projects from frontend`);
                 }
                 break;
-            case 'adoAddComment':
+            case FrontendCommand.AdoAddComment:
                 const commentResult = await this._azureDevOpsService.addWorkItemComment(
                     message.orgUrl,
                     message.project,
                     message.workItemId,
                     message.text
                 );
-                this._postMessage({ command: 'adoAddCommentResult', ...commentResult });
+                this._postMessage({ command: BackendCommand.AdoAddCommentResult, ...commentResult });
                 break;
 
             // Coordinator Commands
-            case 'startCoordinator':
+            case FrontendCommand.StartCoordinator:
                 this._coordinatorService.start(message.port || 8765, message.expectedWorkers || 1);
                 break;
-            case 'stopCoordinator':
+            case FrontendCommand.StopCoordinator:
                 this._coordinatorService.stop();
                 break;
-            case 'getCoordinatorStatus':
-                this._postMessage({ command: 'coordinatorStatus', status: this._coordinatorService.getStatus() });
+            case FrontendCommand.GetCoordinatorStatus:
+                this._postMessage({ command: BackendCommand.CoordinatorStatus, status: this._coordinatorService.getStatus() });
                 break;
 
         }
@@ -464,7 +466,7 @@ export class WebviewController {
     private handleGetAutosave() {
         const content = this._settingsManager.getAutosave();
         if (content) {
-            this._postMessage({ command: 'restoreAutosave', content });
+            this._postMessage({ command: BackendCommand.RestoreAutosave, content });
         }
     }
 
@@ -511,7 +513,7 @@ export class WebviewController {
                 });
 
                 this._postMessage({
-                    command: 'workspaceLoaded',
+                    command: BackendCommand.WorkspaceLoaded,
                     projects: projects
                 });
                 vscode.window.showInformationMessage(`Workspace loaded from ${uris[0].fsPath}`);
@@ -525,7 +527,7 @@ export class WebviewController {
 
     private handleGetSampleSchema(message: any) {
         const schema = this._soapClient.getOperationSchema(message.operationName);
-        this._postMessage({ command: 'sampleSchema', schema, operationName: message.operationName });
+        this._postMessage({ command: BackendCommand.SampleSchema, schema, operationName: message.operationName });
     }
 
 
@@ -550,7 +552,7 @@ export class WebviewController {
             const config = this._settingsManager.getConfig();
             const raw = this._settingsManager.getRawConfig();
             this.sendChangelogToWebview(); // Piggyback changelog
-            this._postMessage({ command: 'settingsUpdate', config, raw });
+            this._postMessage({ command: BackendCommand.SettingsUpdate, config, raw });
             // Sync replace rules and breakpoints to proxy service on config load
             this._proxyService.setReplaceRules(config.replaceRules || []);
             this._proxyService.setBreakpoints(config.breakpoints || []);
@@ -576,7 +578,7 @@ export class WebviewController {
             const changelogPath = path.join(this._extensionUri.fsPath, 'CHANGELOG.md');
             if (fs.existsSync(changelogPath)) {
                 const content = fs.readFileSync(changelogPath, 'utf8');
-                this._postMessage({ command: 'changelog', content });
+                this._postMessage({ command: BackendCommand.Changelog, content });
             }
         } catch (e) {
             console.error('Failed to read changelog', e);
@@ -585,3 +587,4 @@ export class WebviewController {
 
 
 }
+
