@@ -238,11 +238,25 @@ export class RunPerformanceSuiteCommand implements ICommand {
     ) { }
 
     async execute(message: any): Promise<any> {
+        const diagnosticService = DiagnosticService.getInstance();
+        diagnosticService.log('BACKEND', `RunPerformanceSuiteCommand: Starting run for suite ${message.suiteId}`);
+
+        // Log available suites for debugging
+        const availableSuites = this._performanceService.getSuites();
+        diagnosticService.log('BACKEND', `RunPerformanceSuiteCommand: Available suites: ${availableSuites.map(s => s.id).join(', ')}`);
+
         const run = await this._performanceService.runSuite(
             message.suiteId,
             message.environment,
             message.variables
         );
+
+        if (run) {
+            diagnosticService.log('BACKEND', `RunPerformanceSuiteCommand: Run completed with ${run.results.length} results`);
+        } else {
+            diagnosticService.log('BACKEND', `RunPerformanceSuiteCommand: runSuite returned null - suite not found or already running`);
+        }
+
         this._settingsManager.updatePerformanceHistory(this._performanceService.getHistory());
         return run;
     }

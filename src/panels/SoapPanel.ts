@@ -134,6 +134,20 @@ export class SoapPanel {
             this._performanceService.setHistory(config.performanceHistory);
         }
 
+        // Performance Service Events - Wire to webview for UI updates
+        this._performanceService.on('runStarted', (data: any) => {
+            this._diagnosticService.log('BACKEND', 'Performance run started', data);
+            this._panel.webview.postMessage({ command: 'performanceRunStarted', data });
+        });
+        this._performanceService.on('iterationComplete', (data: any) => {
+            this._diagnosticService.log('BACKEND', `Performance iteration ${data.iteration + 1}/${data.total}`);
+            this._panel.webview.postMessage({ command: 'performanceIterationComplete', data });
+        });
+        this._performanceService.on('runCompleted', (run: any) => {
+            this._diagnosticService.log('BACKEND', 'Performance run completed', { runId: run.id, status: run.status, resultCount: run.results?.length });
+            this._panel.webview.postMessage({ command: 'performanceRunComplete', run });
+        });
+
         // Schedule Service
         const scheduleService = new ScheduleService(this._performanceService);
 

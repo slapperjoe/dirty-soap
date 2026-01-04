@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Play, Plus, Trash2, Settings, Clock, Repeat, Flame, Zap, GripVertical, Loader, Square, Calendar, ToggleLeft, ToggleRight, Import } from 'lucide-react';
+import { Play, Plus, Trash2, Settings, Clock, Repeat, Flame, Zap, GripVertical, Loader, Square, Calendar, ToggleLeft, ToggleRight, Import, Download, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { PerformanceSuite, PerformanceRun, PerformanceSchedule, PerformanceRequest } from '../../models';
 import {
     Content,
@@ -114,6 +114,118 @@ const MethodBadge = styled.span`
     text-align: center;
 `;
 
+// Stats Grid for SLA metrics
+const StatsGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+`;
+
+const StatCard = styled.div<{ $variant?: 'success' | 'warning' | 'error' }>`
+    background: var(--vscode-input-background);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid ${props =>
+        props.$variant === 'success' ? 'var(--vscode-testing-iconPassed)' :
+            props.$variant === 'warning' ? 'var(--vscode-editorWarning-foreground)' :
+                props.$variant === 'error' ? 'var(--vscode-testing-iconFailed)' :
+                    'var(--vscode-widget-border)'};
+`;
+
+const StatValue = styled.div`
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 2px;
+`;
+
+const StatLabel = styled.div`
+    font-size: 0.75em;
+    opacity: 0.7;
+`;
+
+// Progress Bar
+const ProgressContainer = styled.div`
+    margin: 10px 0;
+`;
+
+const ProgressBar = styled.div`
+    height: 8px;
+    background: var(--vscode-input-background);
+    border-radius: 4px;
+    overflow: hidden;
+`;
+
+const ProgressFill = styled.div<{ $percent: number }>`
+    height: 100%;
+    width: ${props => props.$percent}%;
+    background: var(--vscode-progressBar-background);
+    transition: width 0.3s ease;
+`;
+
+// Bar Chart for response times
+const ChartContainer = styled.div`
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 80px;
+    margin: 15px 0;
+    padding: 10px;
+    background: var(--vscode-input-background);
+    border-radius: 6px;
+`;
+
+const ChartBar = styled.div<{ $height: number; $success: boolean }>`
+    flex: 1;
+    min-width: 4px;
+    max-width: 16px;
+    height: ${props => props.$height}%;
+    background: ${props => props.$success ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)'};
+    border-radius: 2px 2px 0 0;
+    transition: height 0.3s ease;
+`;
+
+// Run History Item
+const RunItem = styled.div`
+    background: var(--vscode-input-background);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border: 1px solid var(--vscode-widget-border);
+    overflow: hidden;
+`;
+
+const RunHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
+    }
+`;
+
+const RunDetails = styled.div`
+    padding: 12px;
+    border-top: 1px solid var(--vscode-widget-border);
+    background: var(--vscode-editor-background);
+    max-height: 200px;
+    overflow-y: auto;
+`;
+
+const ResultRow = styled.div<{ $success: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    margin: 2px 0;
+    background: ${props => props.$success ? 'rgba(0,200,0,0.1)' : 'rgba(255,0,0,0.1)'};
+    border-radius: 3px;
+    font-size: 0.85em;
+`;
+
 interface PerformanceSuiteEditorProps {
     suite: PerformanceSuite;
     onUpdate: (suite: PerformanceSuite) => void;
@@ -146,12 +258,15 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
     schedules = [],
     onAddSchedule,
     onToggleSchedule,
-    onDeleteSchedule
+    onDeleteSchedule,
+    progress,
+    history = []
 }) => {
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [dropTargetId, setDropTargetId] = useState<string | null>(null);
     const [newCron, setNewCron] = useState('0 3 * * *'); // Default: daily at 3am
     const [showScheduleInput, setShowScheduleInput] = useState(false);
+    const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
     const handleChange = (field: keyof PerformanceSuite, value: any) => {
         onUpdate({ ...suite, [field]: value });
@@ -373,10 +488,17 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                 <Section>
                     <SectionHeader>
                         <Calendar size={16} /> Scheduling
+                        <div style={{ marginLeft: 'auto' }}>
+                            {!showScheduleInput && (
+                                <IconButton onClick={() => setShowScheduleInput(true)} title="Add Schedule">
+                                    <Plus size={14} />
+                                </IconButton>
+                            )}
+                        </div>
                     </SectionHeader>
 
                     {/* Add New Schedule */}
-                    {showScheduleInput ? (
+                    {showScheduleInput && (
                         <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
                             <Input
                                 type="text"
@@ -401,10 +523,6 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                 Cancel
                             </ToolbarButton>
                         </div>
-                    ) : (
-                        <ToolbarButton onClick={() => setShowScheduleInput(true)}>
-                            <Plus size={14} /> Add Schedule
-                        </ToolbarButton>
                     )}
 
                     {/* Schedule List */}
@@ -448,6 +566,168 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                     {schedules.filter(s => s.suiteId === suite.id).length === 0 && !showScheduleInput && (
                         <div style={{ padding: 15, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
                             No schedules. Click "Add Schedule" to run this suite automatically.
+                        </div>
+                    )}
+                </Section>
+
+                {/* Run Progress - Only show when running */}
+                {isRunning && (
+                    <Section>
+                        <SectionHeader>
+                            <Loader size={16} className="animate-spin" /> Running...
+                        </SectionHeader>
+                        <ProgressContainer>
+                            <div style={{ marginBottom: 5, fontSize: '0.9em' }}>
+                                {progress && progress.total > 0
+                                    ? `Iteration ${progress.iteration} of ${progress.total}`
+                                    : 'Starting...'}
+                            </div>
+                            <ProgressBar>
+                                <ProgressFill $percent={progress && progress.total > 0 ? (progress.iteration / progress.total) * 100 : 0} />
+                            </ProgressBar>
+                        </ProgressContainer>
+                    </Section>
+                )}
+
+                {/* Run History - ALWAYS VISIBLE */}
+                <Section>
+                    <SectionHeader>
+                        <Clock size={16} /> Run History ({history.length})
+                    </SectionHeader>
+                    {history.length > 0 ? (
+                        <>
+                            {history.slice(0, 5).map((run) => {
+                                const isExpanded = expandedRunId === run.id;
+                                const stats = run.summary;
+                                const maxDuration = Math.max(...run.results.map(r => r.duration), 1);
+
+                                return (
+                                    <RunItem key={run.id}>
+                                        <RunHeader onClick={() => setExpandedRunId(isExpanded ? null : run.id)}>
+                                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                            {run.status === 'completed' ? (
+                                                <CheckCircle size={16} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
+                                            ) : run.status === 'aborted' ? (
+                                                <AlertTriangle size={16} style={{ color: 'var(--vscode-editorWarning-foreground)' }} />
+                                            ) : (
+                                                <XCircle size={16} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
+                                            )}
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 500 }}>
+                                                    {new Date(run.startTime).toLocaleString()}
+                                                </div>
+                                                <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                                                    {stats.totalRequests} requests • {stats.successRate.toFixed(0)}% success • avg {stats.avgResponseTime.toFixed(0)}ms
+                                                </div>
+                                            </div>
+                                            <ToolbarButton
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Export CSV
+                                                    const csv = [
+                                                        'Request,Iteration,Duration (ms),Status,Success,SLA Breached,Timestamp',
+                                                        ...run.results.map(r =>
+                                                            `"${r.requestName}",${r.iteration},${r.duration.toFixed(2)},${r.status},${r.success},${r.slaBreached},${new Date(r.timestamp).toISOString()}`
+                                                        )
+                                                    ].join('\n');
+                                                    const blob = new Blob([csv], { type: 'text/csv' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = `performance-run-${run.id}.csv`;
+                                                    a.click();
+                                                    URL.revokeObjectURL(url);
+                                                }}
+                                                title="Export CSV"
+                                            >
+                                                <Download size={14} />
+                                            </ToolbarButton>
+                                        </RunHeader>
+
+                                        {isExpanded && (
+                                            <RunDetails>
+                                                {/* SLA Statistics */}
+                                                <StatsGrid>
+                                                    <StatCard $variant={stats.successRate >= 95 ? 'success' : stats.successRate >= 80 ? 'warning' : 'error'}>
+                                                        <StatValue>{stats.successRate.toFixed(1)}%</StatValue>
+                                                        <StatLabel>Success Rate</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard>
+                                                        <StatValue>{stats.avgResponseTime.toFixed(0)}ms</StatValue>
+                                                        <StatLabel>Average</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard>
+                                                        <StatValue>{stats.minResponseTime.toFixed(0)}ms</StatValue>
+                                                        <StatLabel>Min</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard>
+                                                        <StatValue>{stats.maxResponseTime.toFixed(0)}ms</StatValue>
+                                                        <StatLabel>Max</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard>
+                                                        <StatValue>{stats.p50.toFixed(0)}ms</StatValue>
+                                                        <StatLabel>p50</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard>
+                                                        <StatValue>{stats.p95.toFixed(0)}ms</StatValue>
+                                                        <StatLabel>p95</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard $variant={stats.slaBreachCount > 0 ? 'error' : 'success'}>
+                                                        <StatValue>{stats.p99.toFixed(0)}ms</StatValue>
+                                                        <StatLabel>p99</StatLabel>
+                                                    </StatCard>
+                                                    <StatCard $variant={stats.slaBreachCount > 0 ? 'error' : undefined}>
+                                                        <StatValue>{stats.slaBreachCount}</StatValue>
+                                                        <StatLabel>SLA Breaches</StatLabel>
+                                                    </StatCard>
+                                                </StatsGrid>
+
+                                                {/* Response Time Chart */}
+                                                <div style={{ fontSize: '0.85em', marginBottom: 5, opacity: 0.7 }}>Response Times</div>
+                                                <ChartContainer>
+                                                    {run.results.slice(0, 50).map((result, idx) => (
+                                                        <ChartBar
+                                                            key={idx}
+                                                            $height={(result.duration / maxDuration) * 100}
+                                                            $success={result.success}
+                                                            title={`${result.requestName}: ${result.duration.toFixed(0)}ms`}
+                                                        />
+                                                    ))}
+                                                </ChartContainer>
+
+                                                {/* Individual Results */}
+                                                <div style={{ fontSize: '0.85em', marginBottom: 5, opacity: 0.7 }}>Results ({run.results.length})</div>
+                                                {run.results.slice(0, 20).map((result, idx) => (
+                                                    <ResultRow key={idx} $success={result.success}>
+                                                        {result.success ? (
+                                                            <CheckCircle size={12} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
+                                                        ) : (
+                                                            <XCircle size={12} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
+                                                        )}
+                                                        <span style={{ flex: 1 }}>{result.requestName}</span>
+                                                        <span style={{ opacity: 0.7 }}>#{result.iteration + 1}</span>
+                                                        <span style={{ fontWeight: 500 }}>{result.duration.toFixed(0)}ms</span>
+                                                        {result.slaBreached && (
+                                                            <span title="SLA Breached">
+                                                                <AlertTriangle size={12} style={{ color: 'var(--vscode-editorWarning-foreground)' }} />
+                                                            </span>
+                                                        )}
+                                                    </ResultRow>
+                                                ))}
+                                                {run.results.length > 20 && (
+                                                    <div style={{ textAlign: 'center', opacity: 0.6, fontSize: '0.85em', marginTop: 8 }}>
+                                                        ... and {run.results.length - 20} more results
+                                                    </div>
+                                                )}
+                                            </RunDetails>
+                                        )}
+                                    </RunItem>
+                                );
+                            })}
+                        </>
+                    ) : (
+                        <div style={{ padding: 15, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
+                            No runs yet. History will appear after the first completed run.
                         </div>
                     )}
                 </Section>

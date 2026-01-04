@@ -347,7 +347,7 @@ function App() {
     // Performance Handlers
     const handleAddPerformanceSuite = (name: string) => bridge.sendMessage({ command: 'addPerformanceSuite', name });
     const handleDeletePerformanceSuite = (id: string) => bridge.sendMessage({ command: 'deletePerformanceSuite', suiteId: id });
-    const handleRunPerformanceSuite = (id: string) => { setActiveRunId(id); bridge.sendMessage({ command: 'runPerformanceSuite', id }); };
+    const handleRunPerformanceSuite = (id: string) => { setActiveRunId(id); bridge.sendMessage({ command: 'runPerformanceSuite', suiteId: id }); };
     const handleStopPerformanceRun = () => { bridge.sendMessage({ command: 'abortPerformanceSuite' }); }; // Backend sends runCompleted event
     const handleSelectPerformanceSuite = (id: string) => {
         const suite = config?.performanceSuites?.find(s => s.id === id);

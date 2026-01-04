@@ -566,11 +566,31 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
                     break;
 
+                case 'performanceRunStarted':
+                    debugLog('Performance Run Started', message.data);
+                    setActiveRunId(message.data?.runId);
+                    setPerformanceProgress({ iteration: 0, total: 0 }); // Initialize progress
+                    break;
+
                 case 'performanceRunComplete':
                     debugLog('Performance Run Complete', message.run);
                     setActiveRunId(undefined);
                     setPerformanceProgress(null); // Reset progress when run completes
-                    // We rely on settings update for history, but could manually update if needed
+                    // Add the run to history immediately for UI display (dedupe by ID)
+                    if (message.run) {
+                        setConfig((prevConfig: any) => {
+                            const existingHistory = prevConfig.performanceHistory || [];
+                            // Check if this run already exists in history
+                            const alreadyExists = existingHistory.some((r: any) => r.id === message.run.id);
+                            if (alreadyExists) {
+                                return prevConfig; // Don't add duplicate
+                            }
+                            return {
+                                ...prevConfig,
+                                performanceHistory: [message.run, ...existingHistory].slice(0, 25)
+                            };
+                        });
+                    }
                     break;
 
                 case 'performanceIterationComplete':
