@@ -4,13 +4,13 @@
  * Usage:
  *   node debug-wsdl.js <URL>
  * 
- * Example:
- *   node debug-wsdl.js "https://example.com/service?wsdl"
- * 
  * Description:
- *   This script attempts to connect to a WSDL endpoint using the 'soap' and 'axios' libraries.
- *   IT EXPLICITLY DISABLES SSL VALIDATION to test if self-signed certs are the blocker.
+ *   This script attempts to connect to a WSDL endpoint.
+ *   IT SETS NODE_TLS_REJECT_UNAUTHORIZED = '0' to FORCEFULLY disable SSL checks.
  */
+
+// FORCE DISABLE SSL CHECKS GLOBALLY
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const soap = require('soap');
 const axios = require('axios');
@@ -26,25 +26,20 @@ if (!url) {
 
 console.log('--- WSDL Connectivity Diagnostic (Node.js) ---');
 console.log(`Target URL: ${url}`);
-console.log('(!) WARNING: SSL Certificate Validation is DISABLED for this test.');
+console.log('(!) NODE_TLS_REJECT_UNAUTHORIZED set to 0');
 
 const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
 console.log(`Proxy Environment Variable: ${proxyUrl || 'Not Set'}`);
 
 async function testConnection() {
-    // Shared options to disable SSL checks
-    const sslOptions = { rejectUnauthorized: false };
-
-    // Config for Proxy Agent
-    const agentOptions = { ...sslOptions };
-
-    // Config for direct connection (if no proxy)
-    const httpsAgent = new (require('https').Agent)(sslOptions);
-
     const options = {};
 
+    // Even with the env var, we want to set up the agent correctly for the proxy
     if (proxyUrl) {
-        console.log('Configuring Proxy Agent (Insecure)...');
+        console.log('Configuring Proxy Agent...');
+        // We still pass rejectUnauthorized: false just in case, but the env var is the hammer.
+        const agentOptions = { rejectUnauthorized: false };
+
         const agent = url.startsWith('https')
             ? new HttpsProxyAgent(proxyUrl, agentOptions)
             : new HttpProxyAgent(proxyUrl);
@@ -55,14 +50,12 @@ async function testConnection() {
             proxy: false
         });
     } else {
-        console.log('Configuring Direct Connection (Insecure)...');
-        // If no proxy, we must still tell axios/soap to allow insecure
+        console.log('No proxy detected. Using direct connection (insecure).');
+        const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
         options.request = axios.create({
             httpsAgent: httpsAgent,
             proxy: false
         });
-        // Note: node-soap might use its own request logic if options.request isn't passed,
-        // but passing a pre-configured axios instance is the most reliable way to inject agents.
     }
 
     try {
@@ -71,7 +64,6 @@ async function testConnection() {
         console.log('SUCCESS: Client created.');
         const services = client.describe();
         console.log('Services found:', Object.keys(services));
-        // console.log(JSON.stringify(services, null, 2));
     } catch (error) {
         console.error('FAILURE:', error.message);
         if (error.response) {
