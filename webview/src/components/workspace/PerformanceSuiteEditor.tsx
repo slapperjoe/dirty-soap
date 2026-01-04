@@ -341,6 +341,11 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 4 }}>
                                         {req.endpoint}
                                     </div>
+                                    {(req.interfaceName || req.operationName) && (
+                                        <div style={{ fontSize: '0.8em', opacity: 0.6, marginTop: 2, fontStyle: 'italic' }}>
+                                            {req.interfaceName} {req.operationName && ` • ${req.operationName}`}
+                                        </div>
+                                    )}
                                     {req.soapAction && (
                                         <div style={{ fontSize: '0.8em', opacity: 0.6, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.soapAction}>
                                             Action: {req.soapAction}

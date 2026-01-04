@@ -393,6 +393,8 @@ export interface PerformanceRequest {
     endpoint: string;
     method?: string;
     soapAction?: string;
+    interfaceName?: string;
+    operationName?: string;
     requestBody: string;
     headers?: Record<string, string>;
     /** Extractors for passing values between requests */

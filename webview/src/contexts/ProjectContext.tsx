@@ -16,7 +16,7 @@
  *   const { projects, addProject, saveProject } = useProject();
  */
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { SoapUIProject } from '../models';
 import { bridge } from '../utils/bridge';
 
@@ -144,6 +144,18 @@ export function ProjectProvider({ children, initialProjects = [] }: ProjectProvi
     const [savedProjects, setSavedProjects] = useState<Set<string>>(new Set());
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+    // Sync projects to backend when they change
+    useEffect(() => {
+        // Debounce sync to avoid spamming bridge on rapid state changes
+        const timer = setTimeout(() => {
+            if (projects.length > 0) {
+                bridge.sendMessage({ command: 'syncProjects', projects });
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [projects]);
+
     // -------------------------------------------------------------------------
     // DEBUG LOGGING
     // Temporary logging for troubleshooting - can be removed after stabilization
@@ -192,6 +204,9 @@ export function ProjectProvider({ children, initialProjects = [] }: ProjectProvi
             // Second click - actually close
             setProjects(prev => prev.filter(p => p.name !== name));
             setWorkspaceDirty(true);
+
+            // Notify backend that project is closed to clear from memory
+            bridge.sendMessage({ command: 'closeProject', name });
 
             // Clear selection if we're closing the selected project
             if (selectedProjectName === name) {

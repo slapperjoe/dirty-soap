@@ -403,6 +403,29 @@ export class WebviewController {
                 const result = await this._azureDevOpsService.testConnection(message.orgUrl);
                 this._postMessage({ command: 'adoTestConnectionResult', ...result });
                 break;
+            case 'closeProject':
+                if (message.name) {
+                    // Try to find by name and remove
+                    for (const [key, p] of this._loadedProjects.entries()) {
+                        if (p.name === message.name) {
+                            this._loadedProjects.delete(key);
+                            console.log(`[WebviewController] Closed project: ${message.name}`);
+                        }
+                    }
+                }
+                break;
+            case 'syncProjects':
+                if (message.projects && Array.isArray(message.projects)) {
+                    // We don't want to wipe the map if we have local paths we want to keep,
+                    // but we do want to ensure all frontend projects are present.
+                    // For now, let's update/add from frontend.
+                    message.projects.forEach((p: SoapUIProject) => {
+                        const key = p.fileName || p.id || p.name;
+                        this._loadedProjects.set(key, p);
+                    });
+                    console.log(`[WebviewController] Synced ${message.projects.length} projects from frontend`);
+                }
+                break;
             case 'adoAddComment':
                 const commentResult = await this._azureDevOpsService.addWorkItemComment(
                     message.orgUrl,

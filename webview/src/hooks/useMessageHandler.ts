@@ -337,6 +337,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                     ...newRequest,
                                     id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
                                     method: newRequest.method || 'POST',
+                                    requestBody: newRequest.requestBody || (newRequest as any).request || '',
                                     interfaceName: newRequest.interfaceName, // From payload
                                     operationName: newRequest.operationName, // From payload
                                     order: (suite.requests?.length || 0) + 1
