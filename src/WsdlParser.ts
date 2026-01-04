@@ -1,12 +1,20 @@
 import * as soap from 'soap';
 import { SoapService, SoapOperation, SoapSchemaNode } from './models';
+import { HttpProxyAgent } from 'http-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
+export interface WsdlParserOptions {
+    useProxy?: boolean;
+}
 
 export class WsdlParser {
     private client: soap.Client | null = null;
     private outputChannel: any = null;
+    private options: WsdlParserOptions;
 
-    constructor(outputChannel?: any) {
+    constructor(outputChannel?: any, options: WsdlParserOptions = {}) {
         this.outputChannel = outputChannel;
+        this.options = options;
     }
 
     private log(message: string, data?: any) {
@@ -25,12 +33,31 @@ export class WsdlParser {
     public async parseWsdl(url: string, _localWsdlDir?: string): Promise<SoapService[]> {
         this.log(`Attempting to parse WSDL: ${url}`);
 
-        const options: any = {};
+        const soapOptions: any = {};
 
-        // Always use our custom request handler to ensure Axios is used (better proxy/header support)
+        // Configure proxy if enabled
+        if (this.options.useProxy) {
+            const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy ||
+                process.env.HTTP_PROXY || process.env.http_proxy;
+
+            if (proxyUrl) {
+                this.log(`Using proxy: ${proxyUrl}`);
+                const isHttps = url.toLowerCase().startsWith('https');
+                const agent = isHttps
+                    ? new HttpsProxyAgent(proxyUrl)
+                    : new HttpProxyAgent(proxyUrl);
+
+                soapOptions.request = require('axios').create({
+                    httpAgent: agent,
+                    httpsAgent: agent
+                });
+            } else {
+                this.log('Proxy enabled but no proxy URL found in environment (HTTP_PROXY, HTTPS_PROXY)');
+            }
+        }
 
         try {
-            const client = await soap.createClientAsync(url, options);
+            const client = await soap.createClientAsync(url, soapOptions);
             this.client = client;
             this.log('WSDL Client created successfully.');
 

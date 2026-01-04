@@ -20,6 +20,7 @@ export class LoadWsdlCommand implements ICommand {
             let url = '';
             let localPath = '';
             let source = 'file';
+            const useProxy = message.useProxy === true;
 
             if (message.path) {
                 localPath = message.path;
@@ -40,8 +41,12 @@ export class LoadWsdlCommand implements ICommand {
                 throw new Error("No WSDL content provided. (Expected 'path', 'url', or 'content')");
             }
 
-            // Instantiate Parser
-            const parser = new WsdlParser(null);
+            if (useProxy) {
+                this._soapClient.log('Using system proxy for WSDL fetch...');
+            }
+
+            // Instantiate Parser with proxy option
+            const parser = new WsdlParser(null, { useProxy });
 
             // Use instance method
             const parsed = await parser.parseWsdl(url);

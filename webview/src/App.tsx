@@ -166,6 +166,7 @@ function App() {
     const [wsdlUrlHistory, setWsdlUrlHistory] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
+    const [wsdlUseProxy, setWsdlUseProxy] = useState<boolean>(false);
 
     // Breakpoint State
     const [activeBreakpoint, setActiveBreakpoint] = useState<{
@@ -648,13 +649,13 @@ function App() {
     // Handlers
     const loadWsdl = () => {
         if (inputType === 'url' && wsdlUrl) {
-            bridge.sendMessage({ command: 'loadWsdl', url: wsdlUrl, isLocal: false });
+            bridge.sendMessage({ command: 'loadWsdl', url: wsdlUrl, isLocal: false, useProxy: wsdlUseProxy });
             // Add to history if not already present
             if (!wsdlUrlHistory.includes(wsdlUrl)) {
                 setWsdlUrlHistory(prev => [wsdlUrl, ...prev].slice(0, 10)); // Keep last 10
             }
         } else if (inputType === 'file' && selectedFile) {
-            bridge.sendMessage({ command: 'loadWsdl', url: selectedFile, isLocal: true });
+            bridge.sendMessage({ command: 'loadWsdl', url: selectedFile, isLocal: true, useProxy: false });
         }
     };
 
@@ -749,7 +750,9 @@ function App() {
                     selectedFile,
                     loadWsdl,
                     pickLocalWsdl,
-                    downloadStatus
+                    downloadStatus,
+                    useProxy: wsdlUseProxy,
+                    setUseProxy: setWsdlUseProxy
                 }}
                 selectionProps={{
                     selectedProjectName,

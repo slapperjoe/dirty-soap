@@ -25,6 +25,10 @@ export interface WsdlExplorerProps {
     pickLocalWsdl: () => void;
     downloadStatus: string[] | null;
 
+    // Proxy toggle
+    useProxy?: boolean;
+    setUseProxy?: (useProxy: boolean) => void;
+
     // Actions
     addToProject: (iface: SoapUIInterface) => void;
     addAllToProject: () => void;
@@ -57,6 +61,8 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
     loadWsdl,
     pickLocalWsdl,
     downloadStatus,
+    useProxy,
+    setUseProxy,
     addToProject,
     addAllToProject,
     clearExplorer,
@@ -197,6 +203,22 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
                     </div>
                 )}
                 {selectedFile && inputType === 'file' && <div style={{ fontSize: '0.8em', color: 'var(--vscode-descriptionForeground)' }}>{selectedFile}</div>}
+
+                {/* Use Proxy checkbox - only show for URL mode */}
+                {inputType === 'url' && setUseProxy && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={useProxy || false}
+                                onChange={(e) => setUseProxy(e.target.checked)}
+                                style={{ cursor: 'pointer' }}
+                            />
+                            <span style={{ color: 'var(--vscode-descriptionForeground)' }}>Use System Proxy</span>
+                        </label>
+                    </div>
+                )}
+
                 {downloadStatus && <div style={{ padding: '0 10px 5px', fontSize: '0.8em' }}>{downloadStatus.map((f, i) => <div key={i}>• {f}</div>)}</div>}
 
                 <ServiceTree

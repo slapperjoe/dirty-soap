@@ -54,6 +54,8 @@ export interface SidebarWsdlProps {
     loadWsdl: () => void;
     pickLocalWsdl: () => void;
     downloadStatus: string[] | null;
+    useProxy?: boolean;
+    setUseProxy?: (useProxy: boolean) => void;
 }
 
 export interface SidebarSelectionProps {
