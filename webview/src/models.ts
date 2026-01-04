@@ -314,6 +314,7 @@ export interface DirtySoapConfig {
         defaultTimeout?: number;
         retryCount?: number;
         proxy?: string;
+        strictSSL?: boolean;
         proxyRules?: ProxyRule[];
     };
     ui?: {
