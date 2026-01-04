@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 import { CustomXPathEvaluator } from '../utils/xpathEvaluator';
 import { SoapRequestExtractor } from '../models';
 
@@ -83,13 +83,20 @@ const IconButton = styled.button`
     }
 `;
 
+const ButtonGroup = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+`;
+
 interface ExtractorsPanelProps {
     extractors: SoapRequestExtractor[];
     onChange: (extractors: SoapRequestExtractor[]) => void;
+    onEdit?: (extractor: SoapRequestExtractor, index: number) => void;
     rawResponse?: string;
 }
 
-export const ExtractorsPanel: React.FC<ExtractorsPanelProps> = ({ extractors, onChange, rawResponse }) => {
+export const ExtractorsPanel: React.FC<ExtractorsPanelProps> = ({ extractors, onChange, onEdit, rawResponse }) => {
 
     const handleDelete = (index: number) => {
         const newExtractors = [...extractors];
@@ -102,8 +109,6 @@ export const ExtractorsPanel: React.FC<ExtractorsPanelProps> = ({ extractors, on
     return (
         <Container>
             <Toolbar>
-                {/* Manually adding extractor is complex due to Modal need, maybe leave it for the "Extract" button in Response for now, or add "Add Empty" */}
-                {/* For now user only asked to SEE what extracts we have */}
                 <span style={{ marginRight: 'auto', fontWeight: 'bold', fontSize: '1.1em' }}>Context Variables extracted from this Step</span>
             </Toolbar>
             <ExtractorList>
@@ -124,9 +129,8 @@ export const ExtractorsPanel: React.FC<ExtractorsPanelProps> = ({ extractors, on
                             }
                         }
 
-                        // ... return JSX
                         return (
-                            <ExtractorItem key={index}>
+                            <ExtractorItem key={ex.id || index}>
                                 <ExtractorInfo>
                                     <InfoRow>
                                         <Label>Variable:</Label>
@@ -140,6 +144,12 @@ export const ExtractorsPanel: React.FC<ExtractorsPanelProps> = ({ extractors, on
                                         <Label>Path:</Label>
                                         <Value>{ex.path}</Value>
                                     </InfoRow>
+                                    {ex.defaultValue && (
+                                        <InfoRow>
+                                            <Label style={{ color: 'var(--vscode-editorInfo-foreground)' }}>Default:</Label>
+                                            <Value style={{ color: 'var(--vscode-editorInfo-foreground)' }}>{ex.defaultValue}</Value>
+                                        </InfoRow>
+                                    )}
                                     {currentValue !== null && (
                                         <InfoRow>
                                             <Label style={{ color: 'var(--vscode-testing-iconPassed)' }}>Preview:</Label>
@@ -149,9 +159,16 @@ export const ExtractorsPanel: React.FC<ExtractorsPanelProps> = ({ extractors, on
                                         </InfoRow>
                                     )}
                                 </ExtractorInfo>
-                                <IconButton onClick={() => handleDelete(index)} title="Delete Extractor" style={{ color: 'var(--vscode-errorForeground)' }}>
-                                    <Trash2 size={16} />
-                                </IconButton>
+                                <ButtonGroup>
+                                    {onEdit && (
+                                        <IconButton onClick={() => onEdit(ex, index)} title="Edit Extractor">
+                                            <Pencil size={16} />
+                                        </IconButton>
+                                    )}
+                                    <IconButton onClick={() => handleDelete(index)} title="Delete Extractor" style={{ color: 'var(--vscode-errorForeground)' }}>
+                                        <Trash2 size={16} />
+                                    </IconButton>
+                                </ButtonGroup>
                             </ExtractorItem>
                         );
                     })

@@ -137,6 +137,28 @@ export const GlobalsTab: React.FC<GlobalsTabProps> = ({
                         Select a global variable to edit
                     </div>
                 )}
+
+                {/* Predefined Variables Reference Panel */}
+                <div style={{ marginTop: 20, borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 15 }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: 11, textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)' }}>
+                        Predefined Variables
+                    </h4>
+                    <div style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)', lineHeight: 1.6 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 15px' }}>
+                            <code>{'{{uuid}}'}</code><span>Random UUID</span>
+                            <code>{'{{now}}'}</code><span>ISO timestamp</span>
+                            <code>{'{{epoch}}'}</code><span>Unix timestamp (seconds)</span>
+                            <code>{'{{randomInt(1,100)}}'}</code><span>Random integer</span>
+                            <code>{'{{lorem(5)}}'}</code><span>Lorem ipsum text</span>
+                            <code>{'{{name}}'}</code><span>Random name</span>
+                            <code>{'{{country}}'}</code><span>Random country</span>
+                            <code>{'{{now+1d}}'}</code><span>Date math (+/- d/m/y)</span>
+                        </div>
+                        <div style={{ marginTop: 10, opacity: 0.8, fontStyle: 'italic' }}>
+                            Use these in request bodies or endpoints.
+                        </div>
+                    </div>
+                </div>
             </EnvDetail>
         </div>
     );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Globe, FileCode, Play, Plus, Trash2 } from 'lucide-react';
 import { SoapUIInterface, SoapUIOperation, SoapUIRequest } from '../../models';
-import { HeaderButton, SectionHeader, SectionTitle, Input } from './shared/SidebarStyles';
+import { HeaderButton, SectionHeader, Input } from './shared/SidebarStyles';
 import { ServiceTree } from './ServiceTree';
 
 // Default public SOAP services for testing
@@ -74,6 +74,19 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
 }) => {
     // Local state for delete confirmation
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    // Local state for URL dropdown
+    const [showUrlDropdown, setShowUrlDropdown] = useState(false);
+
+    // Build dropdown options: user history first, then defaults
+    const userHistoryUrls = wsdlUrlHistory.filter(url => !DEFAULT_WSDL_URLS.some(d => d.url === url));
+    const dropdownOptions = [
+        ...userHistoryUrls.map(url => {
+            let label = url;
+            try { label = new URL(url).hostname; } catch { /* use full url */ }
+            return { url, label, isHistory: true };
+        }),
+        ...DEFAULT_WSDL_URLS.map(item => ({ url: item.url, label: item.label, isHistory: false }))
+    ];
 
 
     return (
@@ -81,14 +94,14 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
 
             <div style={{ borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)' }}>
                 <SectionHeader>
-                    <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1, display: 'flex', alignItems: 'center', gap: 5 }}>
                         WSDL Explorer
                         <div style={{
                             width: 8, height: 8, borderRadius: '50%',
                             backgroundColor: backendConnected ? '#4caf50' : '#f44336',
                             marginLeft: 10
                         }} title={backendConnected ? "Backend Connected" : "Backend Disconnected"}></div>
-                    </SectionTitle>
+                    </div>
                     {exploredInterfaces.length > 0 && (
                         <>
                             <div style={{ flex: 1 }}></div>
@@ -123,19 +136,57 @@ export const WsdlExplorer: React.FC<WsdlExplorerProps> = ({
                                 value={wsdlUrl}
                                 onChange={(e) => setWsdlUrl(e.target.value)}
                                 placeholder="WSDL URL - type or select from history"
-                                list="wsdl-url-history"
+                                onFocus={() => setShowUrlDropdown(true)}
+                                onClick={() => setShowUrlDropdown(true)}
+                                onBlur={() => setShowUrlDropdown(false)}
                                 style={{ width: '100%' }}
                             />
-                            <datalist id="wsdl-url-history">
-                                {/* User history first */}
-                                {wsdlUrlHistory.filter(url => !DEFAULT_WSDL_URLS.some(d => d.url === url)).map((url, i) => (
-                                    <option key={`history-${i}`} value={url} />
-                                ))}
-                                {/* Default public services */}
-                                {DEFAULT_WSDL_URLS.map((item, i) => (
-                                    <option key={`default-${i}`} value={item.url} label={item.label} />
-                                ))}
-                            </datalist>
+                            {showUrlDropdown && dropdownOptions.length > 0 && (
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: 'var(--vscode-dropdown-background)',
+                                        border: '1px solid var(--vscode-dropdown-border)',
+                                        zIndex: 1000,
+                                        maxHeight: 200,
+                                        overflowY: 'auto',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                                    }}
+                                    onMouseDown={(e) => e.preventDefault()} // Prevent input blur
+                                >
+                                    {dropdownOptions.map((item, i) => (
+                                        <div
+                                            key={`option-${i}`}
+                                            onClick={() => {
+                                                setWsdlUrl(item.url);
+                                                setShowUrlDropdown(false);
+                                            }}
+                                            style={{
+                                                padding: '6px 8px',
+                                                cursor: 'pointer',
+                                                borderBottom: i < dropdownOptions.length - 1 ? '1px solid var(--vscode-dropdown-border)' : 'none',
+                                                fontSize: '12px'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        >
+                                            <div style={{ fontWeight: 500 }}>{item.label}</div>
+                                            <div style={{
+                                                fontSize: '10px',
+                                                color: 'var(--vscode-descriptionForeground)',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {item.url}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <HeaderButton onClick={loadWsdl} title="Load WSDL" style={{ border: '1px solid var(--vscode-button-border)', margin: 0 }}><Play size={14} /></HeaderButton>
                     </div>

@@ -32,6 +32,7 @@ interface UseTestCaseHandlersParams {
     setSelectedRequest: React.Dispatch<React.SetStateAction<SoapUIRequest | null>>;
     setSelectedOperation: React.Dispatch<React.SetStateAction<SoapUIOperation | null>>;
     setSelectedInterface: React.Dispatch<React.SetStateAction<SoapUIInterface | null>>;
+    setSelectedPerformanceSuite: React.Dispatch<React.SetStateAction<any>>;
     setResponse: React.Dispatch<React.SetStateAction<any>>;
     setActiveView: React.Dispatch<React.SetStateAction<SidebarView>>;
     closeContextMenu: () => void;
@@ -45,7 +46,7 @@ interface UseTestCaseHandlersReturn {
     handleGenerateTestSuite: (target: SoapUIInterface | SoapUIOperation) => void;
     handleRunTestCaseWrapper: (caseId: string) => void;
     handleRunTestSuiteWrapper: (suiteId: string) => void;
-    handleSaveExtractor: (data: { xpath: string, value: string, source: 'body' | 'header', variableName: string }) => void;
+    handleSaveExtractor: (data: { xpath: string, value: string, source: 'body' | 'header', variableName: string, defaultValue?: string, editingId?: string }) => void;
 }
 
 export function useTestCaseHandlers({
@@ -59,6 +60,7 @@ export function useTestCaseHandlers({
     setSelectedRequest,
     setSelectedOperation,
     setSelectedInterface,
+    setSelectedPerformanceSuite,
     setResponse,
     setActiveView,
     closeContextMenu
@@ -72,10 +74,11 @@ export function useTestCaseHandlers({
             setSelectedRequest(null);
             setSelectedOperation(null);
             setSelectedInterface(null);
+            setSelectedPerformanceSuite(null);
             setResponse(null);
             // Don't change activeView - let user stay on current sidebar tab
         }
-    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setResponse]);
+    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setSelectedPerformanceSuite, setResponse]);
 
     const handleSelectTestCase = useCallback((caseId: string) => {
         let foundCase: SoapTestCase | null = null;
@@ -98,12 +101,13 @@ export function useTestCaseHandlers({
             setSelectedRequest(null);
             setSelectedOperation(null);
             setSelectedInterface(null);
+            setSelectedPerformanceSuite(null);
             setResponse(null);
             // Don't change activeView - let user stay on current sidebar tab
         } else {
             bridge.sendMessage({ command: 'error', message: `Could not find Test Case: ${caseId}` });
         }
-    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setResponse]);
+    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setSelectedPerformanceSuite, setResponse]);
 
     const handleAddAssertion = useCallback((data: { xpath: string, expectedContent: string }) => {
         console.log("handleAddAssertion Called.", data, "TC:", selectedTestCase?.id, "Step:", selectedStep?.id);
@@ -330,7 +334,7 @@ export function useTestCaseHandlers({
             return p;
         }));
 
-        setActiveView(SidebarView.PROJECTS);
+        setActiveView(SidebarView.TESTS);
         closeContextMenu();
     }, [projects, setProjects, saveProject, setActiveView, closeContextMenu]);
 
@@ -376,7 +380,7 @@ export function useTestCaseHandlers({
         });
     }, []);
 
-    const handleSaveExtractor = useCallback((data: { xpath: string, value: string, source: 'body' | 'header', variableName: string }) => {
+    const handleSaveExtractor = useCallback((data: { xpath: string, value: string, source: 'body' | 'header', variableName: string, defaultValue?: string, editingId?: string }) => {
         if (!selectedTestCase || !selectedStep) {
             console.error('[handleSaveExtractor] Missing selection state', {
                 hasTestCase: !!selectedTestCase,
@@ -385,25 +389,41 @@ export function useTestCaseHandlers({
             });
             return;
         }
-        // Build the new extractor
-        const newExtractor: SoapRequestExtractor = {
-            id: crypto.randomUUID(),
-            type: 'XPath',
-            path: data.xpath,
-            variable: data.variableName,
-            source: data.source
-        };
 
         // Build the updated step for immediate UI update
         let updatedStep: SoapTestStep | null = null;
         if (selectedStep.type === 'request' && selectedStep.config.request) {
+            let newExtractors: SoapRequestExtractor[];
+
+            if (data.editingId) {
+                // Edit mode - update existing extractor
+                newExtractors = (selectedStep.config.request.extractors || []).map(ext =>
+                    ext.id === data.editingId
+                        ? { ...ext, path: data.xpath, variable: data.variableName, source: data.source, defaultValue: data.defaultValue }
+                        : ext
+                );
+                console.log('[handleSaveExtractor] Editing extractor:', data.editingId);
+            } else {
+                // Create mode - add new extractor
+                const newExtractor: SoapRequestExtractor = {
+                    id: crypto.randomUUID(),
+                    type: 'XPath',
+                    path: data.xpath,
+                    variable: data.variableName,
+                    source: data.source,
+                    defaultValue: data.defaultValue
+                };
+                newExtractors = [...(selectedStep.config.request.extractors || []), newExtractor];
+                console.log('[handleSaveExtractor] Creating new extractor');
+            }
+
             updatedStep = {
                 ...selectedStep,
                 config: {
                     ...selectedStep.config,
                     request: {
                         ...selectedStep.config.request,
-                        extractors: [...(selectedStep.config.request.extractors || []), newExtractor],
+                        extractors: newExtractors,
                         dirty: true
                     }
                 }

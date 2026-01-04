@@ -188,17 +188,16 @@ export class PerformanceService extends EventEmitter {
         variables: Record<string, string>,
         results: PerformanceResult[]
     ) {
-        const sortedRequests = [...suite.requests].sort((a, b) => a.order - b.order);
+        // Sort requests by order
+        const requests = [...suite.requests].sort((a, b) => a.order - b.order);
 
-        for (const req of sortedRequests) {
+        for (const req of requests) {
             if (this.shouldAbort) break;
 
-            const result = await this.executeSingleRequest(req, iteration, variables);
-
+            const result = await this.executeRequest(req, iteration, variables);
             if (!isWarmup) {
                 results.push(result);
             }
-
             if (result.extractedValues) {
                 Object.assign(variables, result.extractedValues);
             }
@@ -217,21 +216,23 @@ export class PerformanceService extends EventEmitter {
         results: PerformanceResult[],
         concurrency: number
     ) {
-        const sortedRequests = [...suite.requests].sort((a, b) => a.order - b.order);
+        const requests = [...suite.requests].sort((a, b) => a.order - b.order);
 
-        for (let i = 0; i < sortedRequests.length; i += concurrency) {
+        for (let i = 0; i < requests.length; i += concurrency) {
             if (this.shouldAbort) break;
 
-            const chunk = sortedRequests.slice(i, i + concurrency);
+            const chunk = requests.slice(i, i + concurrency);
             const chunkResults = await Promise.all(
-                chunk.map(req => this.executeSingleRequest(req, iteration, { ...variables }))
+                chunk.map(req => this.executeRequest(req, iteration, { ...variables }))
             );
 
-            if (!isWarmup) {
-                results.push(...chunkResults);
-            }
-
             for (const result of chunkResults) {
+                if (!result) continue;
+
+                if (!isWarmup) {
+                    results.push(result);
+                }
+
                 if (result.extractedValues) {
                     for (const [key, value] of Object.entries(result.extractedValues)) {
                         if (!variables[key]) {
@@ -247,7 +248,7 @@ export class PerformanceService extends EventEmitter {
         }
     }
 
-    private async executeSingleRequest(
+    private async executeRequest(
         req: PerformanceRequest,
         iteration: number,
         variables: Record<string, string>
@@ -266,7 +267,7 @@ export class PerformanceService extends EventEmitter {
             }
 
             const response = await this.soapClient.executeRequest(
-                req.endpoint,
+                req.endpoint || '',
                 req.name,
                 body,
                 req.headers
@@ -276,14 +277,16 @@ export class PerformanceService extends EventEmitter {
             success = response.success;
             responseBody = response.rawResponse || '';
 
-            for (const extractor of req.extractors) {
-                try {
-                    const value = this.extractValue(responseBody, extractor);
-                    if (value) {
-                        extractedValues[extractor.variable] = value;
+            if (req.extractors) {
+                for (const extractor of req.extractors) {
+                    try {
+                        const value = this.extractValue(responseBody, extractor);
+                        if (value) {
+                            extractedValues[extractor.variable] = value;
+                        }
+                    } catch (e: any) {
+                        this.log(`Extractor failed: ${extractor.variable} - ${e.message}`);
                     }
-                } catch (e: any) {
-                    this.log(`Extractor failed: ${extractor.variable} - ${e.message}`);
                 }
             }
 
@@ -294,6 +297,12 @@ export class PerformanceService extends EventEmitter {
 
         const duration = performance.now() - startTime;
 
+        // Check SLA from threshold
+        let slaBreached = false;
+        if (req.slaThreshold && duration > req.slaThreshold) {
+            slaBreached = true;
+        }
+
         return {
             requestId: req.id,
             requestName: req.name,
@@ -301,7 +310,7 @@ export class PerformanceService extends EventEmitter {
             duration,
             status,
             success,
-            slaBreached: req.slaThreshold ? duration > req.slaThreshold : false,
+            slaBreached,
             error,
             extractedValues: Object.keys(extractedValues).length > 0 ? extractedValues : undefined,
             timestamp: Date.now()

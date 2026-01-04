@@ -48,6 +48,8 @@ interface SidebarProps {
 
     // Environment indicator
     activeEnvironment?: string;
+    environments?: Record<string, any>;
+    onChangeEnvironment?: (env: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -66,8 +68,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onOpenHelp,
     activeView,
     onChangeView,
-    activeEnvironment
+    activeEnvironment,
+    environments,
+    onChangeEnvironment
 }) => {
+    const [showEnvMenu, setShowEnvMenu] = React.useState(false);
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
     const { projects, savedProjects, loadProject, saveProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation } = projectProps;
     const { exploredInterfaces, addToProject, addAllToProject, clearExplorer, removeFromExplorer, toggleExploredInterface, toggleExploredOperation } = explorerProps;
@@ -157,37 +162,114 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Environment Badge */}
                 {activeEnvironment && (
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '8px 4px',
-                            marginBottom: 5
-                        }}
-                        title={`Active Environment: ${activeEnvironment}`}
-                    >
-                        <div style={{
-                            fontSize: 9,
-                            fontWeight: 600,
-                            color: 'var(--vscode-charts-green)',
-                            textAlign: 'center',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            maxWidth: 45,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            {activeEnvironment}
+                    <div style={{ position: 'relative' }}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                padding: '8px 4px',
+                                marginBottom: 5,
+                                cursor: onChangeEnvironment ? 'pointer' : 'default',
+                                opacity: showEnvMenu ? 0.7 : 1
+                            }}
+                            title={`Active Environment: ${activeEnvironment}`}
+                            onClick={() => onChangeEnvironment && setShowEnvMenu(!showEnvMenu)}
+                        >
+                            <div style={{
+                                fontSize: 9,
+                                fontWeight: 600,
+                                color: 'var(--vscode-charts-green)',
+                                textAlign: 'center',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                maxWidth: 45,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {activeEnvironment}
+                            </div>
+                            <div style={{
+                                fontSize: 7,
+                                color: 'var(--vscode-activityBar-inactiveForeground)',
+                                marginTop: 2
+                            }}>
+                                ENV
+                            </div>
                         </div>
-                        <div style={{
-                            fontSize: 7,
-                            color: 'var(--vscode-activityBar-inactiveForeground)',
-                            marginTop: 2
-                        }}>
-                            ENV
-                        </div>
+
+                        {/* Environment Menu */}
+                        {showEnvMenu && environments && (
+                            <div style={{
+                                position: 'absolute',
+                                left: 50,
+                                bottom: 0,
+                                width: 200,
+                                backgroundColor: 'var(--vscode-menu-background)',
+                                border: '1px solid var(--vscode-menu-border)',
+                                borderRadius: 4,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                zIndex: 1000,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                padding: 4
+                            }}>
+                                <div style={{
+                                    padding: '4px 8px',
+                                    fontSize: 10,
+                                    fontWeight: 'bold',
+                                    borderBottom: '1px solid var(--vscode-menu-separatorBackground)',
+                                    marginBottom: 4,
+                                    color: 'var(--vscode-menu-foreground)',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    Switch Environment
+                                </div>
+                                {Object.keys(environments).map((env, index) => {
+                                    // Use index directly for color assignment to avoid duplicates
+                                    const colors = ['#58A6FF', '#7EE787', '#FF7B72', '#FFA657', '#D29922', '#F2CC60', '#3FB950', '#A371F7', '#79C0FF', '#FFA198', '#FFCB6B', '#C9D1D9'];
+                                    const color = colors[index % colors.length];
+
+                                    return (
+                                        <div
+                                            key={env}
+                                            onClick={() => {
+                                                if (onChangeEnvironment) {
+                                                    onChangeEnvironment(env);
+                                                    setShowEnvMenu(false);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '6px 12px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                borderRadius: 3,
+                                                backgroundColor: activeEnvironment === env ? 'var(--vscode-menu-selectionBackground)' : 'transparent',
+                                                color: activeEnvironment === env ? 'var(--vscode-menu-selectionForeground)' : 'var(--vscode-menu-foreground)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (activeEnvironment !== env) {
+                                                    e.currentTarget.style.backgroundColor = 'var(--vscode-menu-selectionBackground)';
+                                                    e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (activeEnvironment !== env) {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                    e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color }}></div>
+                                            <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{env}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -225,6 +307,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onRunSuite={testsProps.onRunSuite}
                         onAddTestCase={testsProps.onAddTestCase}
                         onDeleteTestCase={testsProps.onDeleteTestCase}
+                        onRenameTestCase={testsProps.onRenameTestCase}
                         onRunCase={testsProps.onRunCase}
                         onSelectSuite={testsProps.onSelectSuite}
                         onSelectTestCase={testsProps.onSelectTestCase}

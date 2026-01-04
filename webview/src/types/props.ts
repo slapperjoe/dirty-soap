@@ -80,6 +80,7 @@ export interface SidebarTestRunnerProps {
     onAddTestCase: (suiteId: string) => void;
     onRunCase: (caseId: string) => void;
     onDeleteTestCase: (caseId: string) => void;
+    onRenameTestCase?: (caseId: string, newName: string) => void;
     onSelectSuite?: (suiteId: string) => void;
     onSelectTestCase?: (caseId: string) => void;
     onToggleSuiteExpand?: (suiteId: string) => void;
@@ -121,6 +122,7 @@ export interface SidebarTestsProps {
     onRunSuite: (suiteId: string) => void;
     onAddTestCase: (suiteId: string) => void;
     onDeleteTestCase: (caseId: string) => void;
+    onRenameTestCase?: (caseId: string, newName: string) => void;
     onRunCase: (caseId: string) => void;
     onSelectSuite: (suiteId: string) => void;
     onSelectTestCase: (caseId: string) => void;
@@ -251,6 +253,7 @@ export interface WorkspaceStepActions {
 
 export interface WorkspaceToolsActions {
     onAddExtractor?: (data: { xpath: string, value: string, source: 'body' | 'header' }) => void;
+    onEditExtractor?: (extractor: import('../models').SoapRequestExtractor, index: number) => void;
     onAddAssertion?: (data: { xpath: string, expectedContent: string }) => void;
     onAddExistenceAssertion?: (data: { xpath: string }) => void;
     onAddReplaceRule?: (data: { xpath: string, matchText: string, target: 'request' | 'response' }) => void;
@@ -260,9 +263,10 @@ export interface WorkspaceToolsActions {
 
 export interface WorkspacePerformanceActions {
     onUpdateSuite?: (suite: import('../models').PerformanceSuite) => void;
-    onAddRequest?: (suiteId: string) => void;
-    onDeleteRequest?: (suiteId: string, requestId: string) => void;
-    onUpdateRequest?: (suiteId: string, request: import('../models').PerformanceRequest) => void;
+    onAddPerformanceRequest?: (suiteId: string) => void;
+    onDeletePerformanceRequest?: (suiteId: string, requestId: string) => void;
+    onSelectPerformanceRequest?: (request: import('../models').PerformanceRequest) => void;
+    onUpdatePerformanceRequest?: (suiteId: string, requestId: string, updates: Partial<import('../models').PerformanceRequest>) => void;
     onImportFromWorkspace?: (suiteId: string) => void;
     onRunSuite?: (id: string) => void;
     onStopRun?: () => void;

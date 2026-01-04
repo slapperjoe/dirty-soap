@@ -135,7 +135,7 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                         )}
                                     </span>
                                     {op.name}
-                                    {hasSingleRequest && singleRequest?.dirty && <DirtyMarker>●</DirtyMarker>}
+                                    {!isExplorer && hasSingleRequest && singleRequest?.dirty && <DirtyMarker>●</DirtyMarker>}
                                     {hasSingleRequest && singleRequest?.dirty && !isExplorer && onSaveProject && (
                                         <HeaderButton
                                             onClick={(e) => { e.stopPropagation(); onSaveProject(); }}
@@ -192,7 +192,7 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.name}</span>
-                                            {req.dirty && <DirtyMarker>●</DirtyMarker>}
+                                            {!isExplorer && req.dirty && <DirtyMarker>●</DirtyMarker>}
                                             {req.dirty && !isExplorer && onSaveProject && (
                                                 <HeaderButton
                                                     onClick={(e) => { e.stopPropagation(); onSaveProject(); }}

@@ -100,6 +100,7 @@ export interface MessageHandlerState {
     wsdlUrl: string;
     projects: SoapUIProject[];
     proxyConfig: any;
+    config: any;
     selectedTestCase: SoapTestCase | null;
     selectedRequest: SoapUIRequest | null;
     startTimeRef: React.MutableRefObject<number>;
@@ -145,6 +146,7 @@ export function useMessageHandler(state: MessageHandlerState) {
         wsdlUrl,
         projects,
         proxyConfig,
+        config,
         selectedTestCase,
         selectedRequest,
         startTimeRef,
@@ -196,8 +198,8 @@ export function useMessageHandler(state: MessageHandlerState) {
                                             'Content-Type': portName.includes('12') ? 'application/soap+xml' : 'text/xml'
                                         },
                                         request: portName.includes('12')
-                                            ? `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="${op.targetNamespace || svc.targetNamespace || 'http://tempuri.org/'}">\n   <soap:Header/>\n   <soap:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n         ${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soap:Body>\n</soap:Envelope>`
-                                            : `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${op.targetNamespace || svc.targetNamespace || 'http://tempuri.org/'}">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n         ${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soapenv:Body>\n</soapenv:Envelope>`
+                                            ? `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="${op.targetNamespace || svc.targetNamespace || 'http://tempuri.org/'}">\n   <soap:Header/>\n   <soap:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soap:Body>\n</soap:Envelope>`
+                                            : `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${op.targetNamespace || svc.targetNamespace || 'http://tempuri.org/'}">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soapenv:Body>\n</soapenv:Envelope>`
                                     }]
                                 }))
                             });
@@ -299,6 +301,60 @@ export function useMessageHandler(state: MessageHandlerState) {
                         return updatedProject;
                     }));
                     // Don't change activeView - let user stay on current sidebar tab (Tests)
+                    break;
+
+                case 'addOperationToPerformance':
+                    debugLog('addOperationToPerformance', { suiteId: message.suiteId, operation: message.operation?.name });
+                    const perfOp = message.operation;
+                    debugLog('addOperationToPerformance', {
+                        hasPerfOp: !!perfOp,
+                        hasSuiteId: !!message.suiteId,
+                        hasConfig: !!config,
+                        hasPerformanceSuites: !!config?.performanceSuites,
+                        suitesCount: config?.performanceSuites?.length || 0
+                    });
+                    if (perfOp && message.suiteId && config?.performanceSuites) {
+                        const suiteIndex = config.performanceSuites.findIndex((s: any) => s.id === message.suiteId);
+                        debugLog('addOperationToPerformance', { suiteIndex, lookingForId: message.suiteId });
+                        if (suiteIndex !== -1) {
+                            const suite = config.performanceSuites[suiteIndex];
+                            debugLog('addOperationToPerformance', { suiteName: suite.name, currentStepsCount: suite.steps?.length || 0 });
+
+                            const newStep: any = {
+                                id: `perf-step-${Date.now()}`,
+                                name: perfOp.name,
+                                type: 'request',
+                                config: {
+                                    request: {
+                                        id: `perf-req-${Date.now()}`,
+                                        name: perfOp.name,
+                                        endpoint: (perfOp as any).originalEndpoint || '',
+                                        method: 'POST',
+                                        soapAction: perfOp.soapAction,
+                                        request: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${perfOp.targetNamespace || 'http://tempuri.org/'}">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <tem:${perfOp.name}>
+         <!--TODO: Add parameters-->
+      </tem:${perfOp.name}>
+   </soapenv:Body>
+</soapenv:Envelope>`,
+                                        headers: {},
+                                        extractors: [],
+                                        assertions: []
+                                    }
+                                }
+                            };
+                            suite.steps = [...(suite.steps || []), newStep];
+                            const updatedSuites = [...config.performanceSuites];
+                            updatedSuites[suiteIndex] = { ...suite };
+                            bridge.sendMessage({ command: 'updatePerformanceSuite', suiteId: suite.id, updates: suite });
+                        } else {
+                            debugLog('addOperationToPerformance', { error: 'Suite not found', availableSuiteIds: config.performanceSuites.map((s: any) => s.id) });
+                        }
+                    } else {
+                        debugLog('addOperationToPerformance', { error: 'Missing required data' });
+                    }
                     break;
 
                 case 'projectLoaded':
@@ -602,5 +658,5 @@ export function useMessageHandler(state: MessageHandlerState) {
             debugLog('Cleaning up message listener');
             cleanup();
         };
-    }, [wsdlUrl, projects, proxyConfig, selectedTestCase, selectedRequest]);
+    }, [wsdlUrl, projects, proxyConfig, config, selectedTestCase, selectedRequest]);
 }

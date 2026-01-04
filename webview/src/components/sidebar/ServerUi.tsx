@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Play, Square, Trash2, Settings, Network, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield } from 'lucide-react';
+import { Play, Square, Trash2, Settings, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield } from 'lucide-react';
 import { WatcherEvent, MockEvent, ServerMode, ServerConfig, MockRule } from '../../models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
@@ -165,8 +165,7 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between'
             }}>
-                <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Network size={14} />
+                <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
                     Server
                     {isRunning && (
                         <span style={{

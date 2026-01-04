@@ -80,7 +80,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 padding: '5px 10px',
                 flexShrink: 0
             }}>
-                <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1 }}>
                     Workspace
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>

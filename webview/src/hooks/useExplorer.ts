@@ -35,7 +35,7 @@ interface UseExplorerReturn {
 }
 
 export function useExplorer({
-    projects,
+    projects: _projects,
     setProjects,
     setWorkspaceDirty
 }: UseExplorerParams): UseExplorerReturn {
@@ -90,29 +90,13 @@ export function useExplorer({
     }, []);
 
     const addAllToProject = useCallback(() => {
-        if (projects.length === 0) {
-            setProjects([{
-                name: 'Project 1',
-                interfaces: [...exploredInterfaces],
-                expanded: true,
-                dirty: true,
-                id: Date.now().toString()
-            }]);
-        } else {
-            setProjects(prev => prev.map((p, i) =>
-                i === 0 ? {
-                    ...p,
-                    interfaces: [
-                        ...p.interfaces,
-                        ...exploredInterfaces.filter(ex => !p.interfaces.some(existing => existing.name === ex.name))
-                    ],
-                    dirty: true
-                } : p
-            ));
+        // Trigger modal for all explored interfaces
+        // We'll use a special marker - first interface with a flag
+        if (exploredInterfaces.length > 0) {
+            // Set first interface as pending, the modal handler will check for all
+            setPendingAddInterface({ ...exploredInterfaces[0], _addAll: true } as any);
         }
-        setWorkspaceDirty(true);
-        clearExplorer();
-    }, [projects, exploredInterfaces, setProjects, setWorkspaceDirty, clearExplorer]);
+    }, [exploredInterfaces]);
 
     const removeFromExplorer = useCallback((iface: SoapUIInterface) => {
         setExploredInterfaces(prev => prev.filter(i => i !== iface));

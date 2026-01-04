@@ -33,12 +33,10 @@ interface UseRequestExecutionParams {
     setResponse: React.Dispatch<React.SetStateAction<any>>;
     setSelectedRequest: React.Dispatch<React.SetStateAction<SoapUIRequest | null>>;
     setProjects: React.Dispatch<React.SetStateAction<SoapUIProject[]>>;
-    setExploredInterfaces: React.Dispatch<React.SetStateAction<SoapUIInterface[]>>;
     setWorkspaceDirty: React.Dispatch<React.SetStateAction<boolean>>;
 
     // Other
     testExecution: Record<string, Record<string, { response?: any }>>;
-    saveProject: (project: SoapUIProject) => void;
 }
 
 interface UseRequestExecutionReturn {
@@ -61,10 +59,8 @@ export function useRequestExecution({
     setResponse,
     setSelectedRequest,
     setProjects,
-    setExploredInterfaces,
     setWorkspaceDirty,
-    testExecution,
-    saveProject
+    testExecution
 }: UseRequestExecutionParams): UseRequestExecutionReturn {
 
     const startTimeRef = useRef<number>(0);
@@ -96,30 +92,46 @@ export function useRequestExecution({
                     priorSteps.forEach(step => {
                         if (step.type === 'request' && step.config.request?.extractors) {
                             const stepExec = testExecution[selectedTestCase.id]?.[step.id];
-                            if (stepExec?.response) {
-                                const rawResp = stepExec.response.rawResponse || (typeof stepExec.response.result === 'string'
-                                    ? stepExec.response.result
-                                    : JSON.stringify(stepExec.response.result));
 
-                                if (rawResp) {
-                                    step.config.request.extractors.forEach(ext => {
-                                        if (ext.source === 'body') {
-                                            try {
-                                                const val = CustomXPathEvaluator.evaluate(rawResp, ext.path);
-                                                if (val) {
-                                                    contextVariables[ext.variable] = val;
-                                                    logToOutput(`[Context] Extracted '${ext.variable}' = '${val}' from step '${step.name}'`);
-                                                } else {
-                                                    logToOutput(`[Context] Warning: Extractor for '${ext.variable}' in step '${step.name}' returned null.`);
-                                                }
-                                            } catch (e) {
-                                                console.warn('[App] Extractor failed for variable ' + ext.variable, e);
+                            step.config.request.extractors.forEach(ext => {
+                                // Check if we already have a value for this variable
+                                if (contextVariables[ext.variable]) return;
+
+                                if (stepExec?.response) {
+                                    // Step has been run, try to extract value
+                                    const rawResp = stepExec.response.rawResponse || (typeof stepExec.response.result === 'string'
+                                        ? stepExec.response.result
+                                        : JSON.stringify(stepExec.response.result));
+
+                                    if (rawResp && ext.source === 'body') {
+                                        try {
+                                            const val = CustomXPathEvaluator.evaluate(rawResp, ext.path);
+                                            if (val) {
+                                                contextVariables[ext.variable] = val;
+                                                logToOutput(`[Context] Extracted '${ext.variable}' = '${val}' from step '${step.name}'`);
+                                            } else if (ext.defaultValue) {
+                                                // Extraction returned null, use default
+                                                contextVariables[ext.variable] = ext.defaultValue;
+                                                logToOutput(`[Context] Using default value for '${ext.variable}' = '${ext.defaultValue}' (extraction returned null)`);
+                                            } else {
+                                                logToOutput(`[Context] Warning: Extractor for '${ext.variable}' in step '${step.name}' returned null.`);
+                                            }
+                                        } catch (e) {
+                                            console.warn('[App] Extractor failed for variable ' + ext.variable, e);
+                                            if (ext.defaultValue) {
+                                                contextVariables[ext.variable] = ext.defaultValue;
+                                                logToOutput(`[Context] Using default value for '${ext.variable}' = '${ext.defaultValue}' (extraction error)`);
+                                            } else {
                                                 logToOutput(`[Context] Error evaluating extractor for '${ext.variable}': ${e}`);
                                             }
                                         }
-                                    });
+                                    }
+                                } else if (ext.defaultValue) {
+                                    // Step hasn't been run yet, use default value
+                                    contextVariables[ext.variable] = ext.defaultValue;
+                                    logToOutput(`[Context] Using default value for '${ext.variable}' = '${ext.defaultValue}' (step '${step.name}' not run)`);
                                 }
-                            }
+                            });
                         }
                     });
                 }
@@ -152,97 +164,96 @@ export function useRequestExecution({
     }, [setLoading]);
 
     const handleRequestUpdate = useCallback((updated: SoapUIRequest) => {
+        console.log('[handleRequestUpdate] Called with:', {
+            requestName: updated.name,
+            requestId: updated.id,
+            assertionCount: updated.assertions?.length || 0,
+            selectedProjectName,
+            selectedTestCaseName: selectedTestCase?.name,
+            selectedTestCaseId: selectedTestCase?.id
+        });
+
         const dirtyUpdated = { ...updated, dirty: true };
         setSelectedRequest(dirtyUpdated);
         setWorkspaceDirty(true);
 
         // Update in Project/Explorer
-        if (selectedProjectName) {
-            setProjects(prev => prev.map(p => {
-                if (p.name !== selectedProjectName) return p;
+        // IMPORTANT: When updating test case steps, search ALL projects for the test case
+        // because selectedProjectName may be stale/wrong
+        setProjects(prev => prev.map(p => {
+            // 1. Is it a Test Case modification? Search ALL projects for the test case
+            if (selectedTestCase) {
+                let caseUpdated = false;
+                const updatedSuites = p.testSuites?.map(s => {
+                    const tcIndex = s.testCases?.findIndex(tc => tc.id === selectedTestCase.id) ?? -1;
+                    if (tcIndex === -1) return s;
 
-                // 1. Is it a Test Case modification?
-                if (selectedTestCase) {
-                    console.log('[handleRequestUpdate] Updating within Test Case:', selectedTestCase.name);
-                    let caseUpdated = false;
-                    const updatedSuites = p.testSuites?.map(s => {
-                        const tcIndex = s.testCases?.findIndex(tc => tc.id === selectedTestCase.id) ?? -1;
-                        if (tcIndex === -1) return s;
+                    console.log('[handleRequestUpdate] Found test case in project:', p.name, 'suite:', s.name);
 
-                        const updatedCases = [...(s.testCases || [])];
-                        // Find step containing this request - Prefer ID match, fallback to Name
-                        const stepIndex = updatedCases[tcIndex].steps.findIndex(step =>
-                            (updated.id && step.config.request?.id === updated.id) ||
-                            step.config.request?.name === updated.name ||
-                            (selectedRequest && step.config.request?.name === selectedRequest.name)
-                        );
+                    const updatedCases = [...(s.testCases || [])];
 
-                        console.log('[handleRequestUpdate] Step Search Result:', stepIndex, 'for request:', updated.name);
+                    // Find step containing this request - Prefer ID match, fallback to Name
+                    const stepIndex = updatedCases[tcIndex].steps.findIndex(step =>
+                        (updated.id && step.config.request?.id === updated.id) ||
+                        step.config.request?.name === updated.name ||
+                        (selectedRequest && step.config.request?.name === selectedRequest.name)
+                    );
 
-                        if (stepIndex !== -1) {
-                            caseUpdated = true;
-                            updatedCases[tcIndex] = {
-                                ...updatedCases[tcIndex],
-                                steps: updatedCases[tcIndex].steps.map((st, i) => {
-                                    if (i === stepIndex) {
-                                        // Ensure ID exists on the saved request (Heal legacy data)
-                                        const finalRequest = {
-                                            ...dirtyUpdated,
-                                            id: dirtyUpdated.id || `req-${Date.now()}-healed`
-                                        };
-                                        return { ...st, config: { ...st.config, request: finalRequest } };
-                                    }
-                                    return st;
-                                })
-                            };
-                        }
-                        return { ...s, testCases: updatedCases };
-                    });
+                    console.log('[handleRequestUpdate] Step Search:', stepIndex, 'for request:', updated.name);
 
-                    if (caseUpdated) {
-                        const updatedProject = { ...p, testSuites: updatedSuites, dirty: true };
-                        // No longer auto-saving - user must click Save button
-                        return updatedProject;
-                    }
-                }
-
-                // 2. Normal Request Modification
-                const updatedProject = {
-                    ...p,
-                    dirty: true,
-                    interfaces: p.interfaces.map(i => {
-                        if (i.name !== selectedInterface?.name) return i;
-                        return {
-                            ...i,
-                            operations: i.operations.map(o => {
-                                if (o.name !== selectedOperation?.name) return o;
-                                return {
-                                    ...o,
-                                    requests: o.requests.map(r => r.name === selectedRequest?.name ? dirtyUpdated : r)
-                                };
+                    if (stepIndex !== -1) {
+                        caseUpdated = true;
+                        console.log('[handleRequestUpdate] Updating step with assertions:', updated.assertions?.length || 0);
+                        updatedCases[tcIndex] = {
+                            ...updatedCases[tcIndex],
+                            steps: updatedCases[tcIndex].steps.map((st, i) => {
+                                if (i === stepIndex) {
+                                    const finalRequest = {
+                                        ...dirtyUpdated,
+                                        id: dirtyUpdated.id || `req-${Date.now()}-healed`
+                                    };
+                                    return { ...st, config: { ...st.config, request: finalRequest } };
+                                }
+                                return st;
                             })
                         };
-                    })
-                };
-                // No longer auto-saving - user must click Save button
-                return updatedProject;
-            }));
-        } else {
-            setExploredInterfaces(prev => prev.map(i => {
-                if (i.name !== selectedInterface?.name) return i;
-                return {
-                    ...i,
-                    operations: i.operations.map(o => {
-                        if (o.name !== selectedOperation?.name) return o;
-                        return {
-                            ...o,
-                            requests: o.requests.map(r => r.name === selectedRequest?.name ? dirtyUpdated : r)
-                        };
-                    })
-                };
-            }));
-        }
-    }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setExploredInterfaces, setSelectedRequest, setWorkspaceDirty, saveProject]);
+                    }
+                    return { ...s, testCases: updatedCases };
+                });
+
+                if (caseUpdated) {
+                    console.log('[handleRequestUpdate] Updated project:', p.name);
+                    return { ...p, testSuites: updatedSuites, dirty: true };
+                }
+                // Test case not in this project, continue to next
+                return p;
+            }
+
+            // 2. Normal Request Modification - requires selectedProjectName match
+            if (!selectedProjectName || p.name !== selectedProjectName) return p;
+
+            // 2. Normal Request Modification
+            const updatedProject = {
+                ...p,
+                dirty: true,
+                interfaces: p.interfaces.map(i => {
+                    if (i.name !== selectedInterface?.name) return i;
+                    return {
+                        ...i,
+                        operations: i.operations.map(o => {
+                            if (o.name !== selectedOperation?.name) return o;
+                            return {
+                                ...o,
+                                requests: o.requests.map(r => r.name === selectedRequest?.name ? dirtyUpdated : r)
+                            };
+                        })
+                    };
+                })
+            };
+            // No longer auto-saving - user must click Save button
+            return updatedProject;
+        }));
+    }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setSelectedRequest, setWorkspaceDirty]);
 
     const handleResetRequest = useCallback(() => {
         if (selectedRequest && selectedOperation) {

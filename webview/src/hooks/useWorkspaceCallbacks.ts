@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { SoapUIProject, SoapTestStep, SoapTestCase, TestStepType } from '../models';
+import { SoapUIProject, SoapTestStep, SoapTestCase, TestStepType, SoapRequestExtractor } from '../models';
 import { bridge } from '../utils/bridge';
 
 interface UseWorkspaceCallbacksParams {
@@ -14,6 +14,7 @@ interface UseWorkspaceCallbacksParams {
     selectedTestCase: SoapTestCase | null;
     selectedStep: SoapTestStep | null;
     testExecution: Record<string, Record<string, any>>;
+    projects: SoapUIProject[];
     setSelectedStep: React.Dispatch<React.SetStateAction<SoapTestStep | null>>;
     setSelectedRequest: React.Dispatch<React.SetStateAction<any>>;
     setResponse: React.Dispatch<React.SetStateAction<any>>;
@@ -51,11 +52,13 @@ interface UseWorkspaceCallbacksReturn {
     handleToggleInlineElementValues: () => void;
     handleToggleHideCausalityData: () => void;
     handleAddExtractor: (data: { xpath: string; value: string; source: 'body' | 'header' }) => void;
+    handleEditExtractor: (extractor: SoapRequestExtractor, index: number) => void;
 }
 
 export function useWorkspaceCallbacks({
     selectedTestCase,
     selectedStep,
+    projects,
     testExecution,
     setSelectedStep,
     setSelectedRequest,
@@ -77,10 +80,33 @@ export function useWorkspaceCallbacks({
 }: UseWorkspaceCallbacksParams): UseWorkspaceCallbacksReturn {
 
     const handleSelectStep = useCallback((step: SoapTestStep | null) => {
+        console.log('[handleSelectStep] Called with step:', step?.id, step?.name);
         setSelectedStep(step);
         if (step) {
-            if (step.type === 'request' && step.config.request) {
-                setSelectedRequest(step.config.request);
+            // Look up the current step from projects state to get latest edits (e.g., assertions)
+            // Search ALL test cases for the step by ID to avoid relying on stale selectedTestCase
+            let currentStep = step;
+            let foundInProjects = false;
+            outer: for (const proj of projects) {
+                for (const suite of (proj.testSuites || [])) {
+                    for (const tc of (suite.testCases || [])) {
+                        const foundStep = tc.steps.find(s => s.id === step.id);
+                        if (foundStep) {
+                            currentStep = foundStep;
+                            foundInProjects = true;
+                            console.log('[handleSelectStep] Found step in projects with assertions:', foundStep.config.request?.assertions?.length || 0);
+                            break outer;
+                        }
+                    }
+                }
+            }
+            if (!foundInProjects) {
+                console.log('[handleSelectStep] Step NOT found in projects, using passed-in step with assertions:', step.config.request?.assertions?.length || 0);
+            }
+
+            if (currentStep.type === 'request' && currentStep.config.request) {
+                console.log('[handleSelectStep] Setting selectedRequest with assertions:', currentStep.config.request.assertions?.length || 0);
+                setSelectedRequest(currentStep.config.request);
                 // Update Response Panel Logic
                 if (selectedTestCase) {
                     const result = testExecution[selectedTestCase.id]?.[step.id];
@@ -101,7 +127,7 @@ export function useWorkspaceCallbacks({
             setSelectedRequest(null);
             setResponse(null);
         }
-    }, [selectedTestCase, testExecution, setSelectedStep, setSelectedRequest, setResponse]);
+    }, [selectedTestCase, testExecution, projects, setSelectedStep, setSelectedRequest, setResponse]);
 
     const handleDeleteStep = useCallback((stepId: string) => {
         if (!selectedTestCase) return;
@@ -256,6 +282,18 @@ export function useWorkspaceCallbacks({
         setExtractorModal({ ...data, variableName: '' });
     }, [selectedStep, setExtractorModal]);
 
+    const handleEditExtractor = useCallback((extractor: SoapRequestExtractor, _index: number) => {
+        if (!selectedStep) return;
+        setExtractorModal({
+            xpath: extractor.path,
+            value: '', // Value will be shown from preview if available
+            source: extractor.source,
+            variableName: extractor.variable,
+            defaultValue: extractor.defaultValue || '',
+            editingId: extractor.id
+        });
+    }, [selectedStep, setExtractorModal]);
+
     return {
         handleSelectStep,
         handleDeleteStep,
@@ -267,6 +305,7 @@ export function useWorkspaceCallbacks({
         handleToggleLineNumbers,
         handleToggleInlineElementValues,
         handleToggleHideCausalityData,
-        handleAddExtractor
+        handleAddExtractor,
+        handleEditExtractor
     };
 }

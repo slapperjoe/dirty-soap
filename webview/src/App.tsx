@@ -233,6 +233,7 @@ function App() {
         setSelectedRequest,
         setSelectedOperation,
         setSelectedInterface,
+        setSelectedPerformanceSuite,
         setResponse,
         setActiveView,
         closeContextMenu
@@ -259,10 +260,8 @@ function App() {
         setResponse,
         setSelectedRequest,
         setProjects,
-        setExploredInterfaces,
         setWorkspaceDirty,
-        testExecution,
-        saveProject
+        testExecution
     });
 
     // ==========================================================================
@@ -313,6 +312,7 @@ function App() {
         handleToggleCaseExpand,
         handleAddTestCase,
         handleDeleteTestCase,
+        handleRenameTestCase,
         handleStartWatcher,
         handleStopWatcher,
         handleClearWatcher,
@@ -341,23 +341,48 @@ function App() {
 
     // Performance Handlers
     const handleAddPerformanceSuite = (name: string) => bridge.sendMessage({ command: 'addPerformanceSuite', name });
-    const handleDeletePerformanceSuite = (id: string) => bridge.sendMessage({ command: 'deletePerformanceSuite', id });
+    const handleDeletePerformanceSuite = (id: string) => bridge.sendMessage({ command: 'deletePerformanceSuite', suiteId: id });
     const handleRunPerformanceSuite = (id: string) => { setActiveRunId(id); bridge.sendMessage({ command: 'runPerformanceSuite', id }); };
     const handleStopPerformanceRun = () => { bridge.sendMessage({ command: 'abortPerformanceSuite' }); }; // Backend sends runCompleted event
     const handleSelectPerformanceSuite = (id: string) => {
         const suite = config?.performanceSuites?.find(s => s.id === id);
         if (suite) {
-            clearSelection(); // Resets everything including current suite
-            // We need to set it back after clear, or update clearSelection to optional
-            // Implementation detail: clearSelection clears selectedPerformanceSuite too.
-            // So we set it immediately after.
+            clearSelection();
             setTimeout(() => setSelectedPerformanceSuite(suite), 0);
         }
     };
-    const handleUpdatePerformanceSuite = (suite: PerformanceSuite) => bridge.sendMessage({ command: 'updatePerformanceSuite', suite });
-    const handleAddPerformanceRequest = (suiteId: string) => bridge.sendMessage({ command: 'addPerformanceRequest', suiteId });
-    const handleDeletePerformanceRequest = (suiteId: string, requestId: string) => bridge.sendMessage({ command: 'deletePerformanceRequest', suiteId, requestId });
-    const handleUpdatePerformanceRequest = (suiteId: string, request: PerformanceRequest) => bridge.sendMessage({ command: 'updatePerformanceRequest', suiteId, request });
+    const handleUpdatePerformanceSuite = (suite: PerformanceSuite) => bridge.sendMessage({ command: 'updatePerformanceSuite', suiteId: suite.id, updates: suite });
+
+    const handleAddPerformanceRequest = (suiteId: string) => {
+        bridge.sendMessage({ command: 'pickOperationForPerformance', suiteId });
+    };
+
+    const handleDeletePerformanceRequest = (suiteId: string, requestId: string) => {
+        bridge.sendMessage({ command: 'deletePerformanceRequest', suiteId, requestId });
+    };
+
+    const handleUpdatePerformanceRequest = (suiteId: string, requestId: string, updates: Partial<PerformanceRequest>) => {
+        bridge.sendMessage({ command: 'updatePerformanceRequest', suiteId, requestId, updates });
+    };
+
+    const handleSelectPerformanceRequest = (request: PerformanceRequest) => {
+        console.log('[App] Selecting performance request', request.id);
+        // We select it as a normal request to use the standard editor
+        const soapRequest: SoapUIRequest = {
+            id: request.id,
+            name: request.name,
+            endpoint: request.endpoint,
+            method: request.method,
+            request: request.requestBody,
+            headers: request.headers,
+            extractors: request.extractors,
+            // assertions: ... we might need to map SLA to assertions if we want visual editing, or just keep SLA separate
+        };
+        setSelectedRequest(soapRequest);
+        // We set selectedStep to null to ensure we don't confuse the layout
+        setSelectedStep(null);
+    };
+
 
 
     const sidebarPerformanceProps = {
@@ -384,14 +409,17 @@ function App() {
         handleSelectStep,
         handleDeleteStep,
         handleMoveStep,
+        handleAddStep,
         handleToggleLayout,
         handleToggleLineNumbers,
         handleToggleInlineElementValues,
         handleToggleHideCausalityData,
-        handleAddExtractor
+        handleAddExtractor,
+        handleEditExtractor
     } = useWorkspaceCallbacks({
         selectedTestCase,
         selectedStep,
+        projects,
         testExecution,
         setSelectedStep,
         setSelectedRequest,
@@ -418,6 +446,7 @@ function App() {
     const [sampleModal, setSampleModal] = React.useState<{ open: boolean, schema: any | null, operationName: string }>({ open: false, schema: null, operationName: '' });
     // NOTE: extractorModal moved above useWorkspaceCallbacks
     const [replaceRuleModal, setReplaceRuleModal] = React.useState<{ open: boolean, xpath: string, matchText: string, target: 'request' | 'response' }>({ open: false, xpath: '', matchText: '', target: 'response' });
+    const [importToPerformanceModal, setImportToPerformanceModal] = React.useState<{ open: boolean, suiteId: string | null }>({ open: false, suiteId: null });
 
     // Workspace State
     const [changelog, setChangelog] = useState<string>('');
@@ -462,6 +491,7 @@ function App() {
         wsdlUrl,
         projects,
         proxyConfig,
+        config,
         selectedTestCase,
         selectedRequest,
         startTimeRef,
@@ -742,6 +772,7 @@ function App() {
                     onAddTestCase: handleAddTestCase,
                     onRunCase: handleRunTestCaseWrapper,
                     onDeleteTestCase: handleDeleteTestCase,
+                    onRenameTestCase: handleRenameTestCase,
                     onSelectSuite: handleSelectTestSuite,
                     onSelectTestCase: handleSelectTestCase,
                     onToggleSuiteExpand: handleToggleSuiteExpand,
@@ -762,6 +793,7 @@ function App() {
                     onRunSuite: handleRunTestSuiteWrapper,
                     onAddTestCase: handleAddTestCase,
                     onDeleteTestCase: handleDeleteTestCase,
+                    onRenameTestCase: handleRenameTestCase,
                     onRunCase: handleRunTestCaseWrapper,
                     onSelectSuite: handleSelectTestSuite,
                     onSelectTestCase: handleSelectTestCase,
@@ -828,6 +860,8 @@ function App() {
                 onOpenHelp={() => setShowHelp(true)}
                 onSaveUiState={handleSaveUiState}
                 activeEnvironment={config?.activeEnvironment}
+                environments={config?.environments}
+                onChangeEnvironment={(env) => bridge.sendMessage({ command: 'setActiveEnvironment', env })}
             />
 
             {/* WorkspaceLayout with consolidated props */}
@@ -865,7 +899,7 @@ function App() {
                     onRunTestCase: handleRunTestCaseWrapper,
                     onOpenStepRequest: (req) => { setSelectedRequest(req); setActiveView(SidebarView.EXPLORER); console.warn('Legacy onOpenStepRequest called'); },
                     onBackToCase: () => { setSelectedStep(null); setSelectedRequest(null); },
-                    onAddStep: (caseId, type) => bridge.sendMessage({ command: 'addTestStep', caseId, type }),
+                    onAddStep: handleAddStep,
                     testExecution,
                     onUpdateStep: (step) => bridge.sendMessage({ command: 'updateTestStep', step }),
                     onSelectStep: handleSelectStep,
@@ -874,6 +908,7 @@ function App() {
                 }}
                 toolsActions={{
                     onAddExtractor: handleAddExtractor,
+                    onEditExtractor: handleEditExtractor,
                     onAddAssertion: handleAddAssertion,
                     onAddExistenceAssertion: handleAddExistenceAssertion,
                     onAddReplaceRule: (data) => setReplaceRuleModal({ open: true, ...data }),
@@ -881,9 +916,11 @@ function App() {
                     onOpenDevOps: () => setShowDevOpsModal(true)
                 }}
                 onUpdateSuite={handleUpdatePerformanceSuite}
-                onAddRequest={handleAddPerformanceRequest}
-                onDeleteRequest={handleDeletePerformanceRequest}
-                onUpdateRequest={handleUpdatePerformanceRequest}
+                onAddPerformanceRequest={handleAddPerformanceRequest}
+                onDeletePerformanceRequest={handleDeletePerformanceRequest}
+                onSelectPerformanceRequest={handleSelectPerformanceRequest}
+                onUpdatePerformanceRequest={handleUpdatePerformanceRequest}
+                onImportFromWorkspace={(suiteId) => setImportToPerformanceModal({ open: true, suiteId })}
                 onRunSuite={handleRunPerformanceSuite}
                 onStopRun={handleStopPerformanceRun}
                 performanceProgress={performanceProgress}
@@ -1014,11 +1051,11 @@ function App() {
                         onAdd={(target) => {
                             const req = addToTestCaseModal.request!;
                             const newStep: SoapTestStep = {
-                                id: `step-${Date.now()}`,
+                                id: `step - ${Date.now()}`,
                                 name: req.name,
                                 type: 'request',
                                 config: {
-                                    request: { ...req, id: `req-${Date.now()}` },
+                                    request: { ...req, id: `req - ${Date.now()}` },
                                     requestId: undefined
                                 }
                             };
@@ -1034,8 +1071,8 @@ function App() {
                                         // If creating new case
                                         if (target.type === 'new') {
                                             const newCase: SoapTestCase = {
-                                                id: `tc-${Date.now()}`,
-                                                name: `TestCase ${(s.testCases?.length || 0) + 1}`,
+                                                id: `tc - ${Date.now()}`,
+                                                name: `TestCase ${(s.testCases?.length || 0) + 1} `,
                                                 expanded: true,
                                                 steps: [newStep]
                                             };
@@ -1077,6 +1114,73 @@ function App() {
                 }}
             />
 
+            {/* Import to Performance Suite Modal */}
+            {importToPerformanceModal.open && importToPerformanceModal.suiteId && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'var(--vscode-editor-background)',
+                        border: '1px solid var(--vscode-widget-border)',
+                        borderRadius: 6, padding: 20, minWidth: 400, maxWidth: 600, maxHeight: '70vh', overflow: 'auto'
+                    }}>
+                        <h3 style={{ margin: '0 0 15px 0' }}>Import Test Case to Performance Suite</h3>
+                        <p style={{ marginBottom: 15, opacity: 0.8, fontSize: '0.9em' }}>Select a test case to import. All request steps from the test case will be added to this performance suite.</p>
+                        <div style={{ maxHeight: 300, overflow: 'auto', marginBottom: 15 }}>
+                            {projects.flatMap(p =>
+                                (p.testSuites || []).flatMap(suite =>
+                                    (suite.testCases || []).map(tc => ({
+                                        projectName: p.name,
+                                        suiteName: suite.name,
+                                        testCase: tc,
+                                        // Count the request steps
+                                        stepCount: (tc.steps || []).filter(s => s.type === 'request').length
+                                    }))
+                                )
+                            ).map((item, idx) => (
+                                <div key={idx} style={{
+                                    padding: '10px', marginBottom: 5, borderRadius: 4,
+                                    background: 'var(--vscode-list-hoverBackground)',
+                                    cursor: 'pointer', border: '1px solid var(--vscode-widget-border)'
+                                }} onClick={() => {
+                                    // Import all request steps from the test case
+                                    const requestSteps = (item.testCase.steps || []).filter(s => s.type === 'request');
+                                    if (requestSteps.length > 0) {
+                                        for (const step of requestSteps) {
+                                            const reqStep = step as any; // Request steps have additional properties
+                                            bridge.sendMessage({
+                                                command: 'addPerformanceRequest',
+                                                suiteId: importToPerformanceModal.suiteId,
+                                                name: step.name || 'Imported Step',
+                                                endpoint: reqStep.endpoint || '',
+                                                method: reqStep.method || 'POST',
+                                                soapAction: reqStep.soapAction,
+                                                requestBody: reqStep.request || '',
+                                                headers: reqStep.headers || {},
+                                                extractors: reqStep.extractors || []
+                                            });
+                                        }
+                                    }
+                                    setImportToPerformanceModal({ open: false, suiteId: null });
+                                }}>
+                                    <div style={{ fontWeight: 'bold' }}>{item.testCase.name}</div>
+                                    <div style={{ fontSize: '0.85em', opacity: 0.7 }}>{item.projectName} → {item.suiteName}</div>
+                                    <div style={{ fontSize: '0.8em', opacity: 0.5 }}>{item.stepCount} request step{item.stepCount !== 1 ? 's' : ''}</div>
+                                </div>
+                            ))}
+                            {projects.flatMap(p => (p.testSuites || []).flatMap(s => s.testCases || [])).length === 0 && (
+                                <div style={{ padding: 20, textAlign: 'center', opacity: 0.6 }}>No test cases available. Create a test suite first.</div>
+                            )}
+                        </div>
+                        <button onClick={() => setImportToPerformanceModal({ open: false, suiteId: null })} style={{
+                            background: 'var(--vscode-button-secondaryBackground)',
+                            color: 'var(--vscode-button-secondaryForeground)',
+                            border: 'none', padding: '8px 16px', borderRadius: 4, cursor: 'pointer'
+                        }}>Cancel</button>
+                    </div>
+                </div>
+            )}
             {/* Extractor Modal */}
             <ExtractorModal
                 isOpen={!!extractorModal}
@@ -1120,15 +1224,36 @@ function App() {
                 open={!!pendingAddInterface}
                 onClose={() => setPendingAddInterface(null)}
                 existingProjects={projects.map(p => p.name)}
-                interfaceName={pendingAddInterface?.name}
+                interfaceName={(pendingAddInterface as any)?._addAll ? `All ${exploredInterfaces.length} interfaces` : pendingAddInterface?.name}
                 onSelectProject={(projectName) => {
                     if (pendingAddInterface) {
-                        addInterfaceToNamedProject(pendingAddInterface, projectName, false);
+                        const isAddAll = (pendingAddInterface as any)._addAll;
+                        if (isAddAll) {
+                            // Add all explored interfaces to existing project
+                            exploredInterfaces.forEach(iface => {
+                                addInterfaceToNamedProject(iface, projectName, false);
+                            });
+                        } else {
+                            addInterfaceToNamedProject(pendingAddInterface, projectName, false);
+                        }
+                        // Switch to workspace tab after adding
+                        setActiveView(SidebarView.PROJECTS);
                     }
                 }}
                 onCreateProject={(projectName) => {
                     if (pendingAddInterface) {
-                        addInterfaceToNamedProject(pendingAddInterface, projectName, true);
+                        const isAddAll = (pendingAddInterface as any)._addAll;
+                        if (isAddAll) {
+                            // Create new project with all explored interfaces
+                            // First interface creates the project, rest are added
+                            exploredInterfaces.forEach((iface, i) => {
+                                addInterfaceToNamedProject(iface, projectName, i === 0);
+                            });
+                        } else {
+                            addInterfaceToNamedProject(pendingAddInterface, projectName, true);
+                        }
+                        // Switch to workspace tab after adding
+                        setActiveView(SidebarView.PROJECTS);
                     }
                 }}
             />

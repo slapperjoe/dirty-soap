@@ -75,6 +75,7 @@ interface TestNavigatorProps {
     onAddTestCase: (suiteId: string) => void;
     onRunCase: (caseId: string) => void;
     onDeleteTestCase: (caseId: string) => void;
+    onRenameTestCase?: (caseId: string, newName: string) => void;
 }
 
 export const TestNavigator: React.FC<TestNavigatorProps> = ({
@@ -84,10 +85,13 @@ export const TestNavigator: React.FC<TestNavigatorProps> = ({
     onRunSuite,
     onAddTestCase,
     onRunCase,
-    onDeleteTestCase
+    onDeleteTestCase,
+    onRenameTestCase
 }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [renameId, setRenameId] = useState<string | null>(null);
+    const [renameName, setRenameName] = useState<string>('');
 
     const toggleExpand = (id: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -115,6 +119,26 @@ export const TestNavigator: React.FC<TestNavigatorProps> = ({
         } else {
             setDeleteConfirmId(caseId);
         }
+    };
+
+    const startRename = (caseId: string, currentName: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setRenameId(caseId);
+        setRenameName(currentName);
+    };
+
+    const submitRename = () => {
+        if (renameId && renameName.trim() && onRenameTestCase) {
+            onRenameTestCase(renameId, renameName.trim());
+        }
+        setRenameId(null);
+        setRenameName('');
+    };
+
+    const cancelRename = () => {
+        setRenameId(null);
+        setRenameName('');
     };
 
     console.log(`[TestNavigator] Rendering with ${projects.length} projects`);
@@ -183,9 +207,34 @@ export const TestNavigator: React.FC<TestNavigatorProps> = ({
                                                         key={tc.id}
                                                         depth={2}
                                                         onClick={(e) => toggleExpand(tc.id, e)}
+                                                        onContextMenu={(e) => startRename(tc.id, tc.name, e)}
                                                     >
                                                         <Play size={12} style={{ opacity: 0.7, marginRight: 8, marginLeft: 4 }} />
-                                                        {tc.name}
+                                                        {renameId === tc.id ? (
+                                                            <input
+                                                                type="text"
+                                                                value={renameName}
+                                                                onChange={(e) => setRenameName(e.target.value)}
+                                                                onBlur={submitRename}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') submitRename();
+                                                                    if (e.key === 'Escape') cancelRename();
+                                                                }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                autoFocus
+                                                                style={{
+                                                                    background: 'var(--vscode-input-background)',
+                                                                    border: '1px solid var(--vscode-input-border)',
+                                                                    color: 'var(--vscode-input-foreground)',
+                                                                    padding: '2px 4px',
+                                                                    flex: 1,
+                                                                    fontSize: '13px',
+                                                                    outline: 'none'
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <span title="Right-click to rename">{tc.name}</span>
+                                                        )}
                                                         <div style={{ marginLeft: 'auto', display: 'flex' }}>
                                                             <IconButton onClick={(e) => {
                                                                 e.stopPropagation();

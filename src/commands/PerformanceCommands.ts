@@ -110,6 +110,47 @@ export class AddPerformanceRequestCommand implements ICommand {
 }
 
 /**
+ * Quick pick to select an operation and add to performance suite
+ */
+export class PickOperationForPerformanceCommand implements ICommand {
+    constructor(
+        private readonly _panel: vscode.WebviewPanel,
+        private readonly _loadedProjects: any[]
+    ) { }
+
+    async execute(message: any): Promise<void> {
+        const items: vscode.QuickPickItem[] = [];
+
+        for (const project of this._loadedProjects) {
+            for (const iface of project.interfaces) {
+                for (const op of iface.operations) {
+                    items.push({
+                        label: op.name,
+                        description: `${project.name} - ${iface.name}`,
+                        detail: op.soapAction,
+                        // @ts-ignore
+                        operation: op,
+                        suiteId: message.suiteId
+                    });
+                }
+            }
+        }
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select an operation to add to the performance suite'
+        });
+
+        if (selected) {
+            this._panel.webview.postMessage({
+                type: 'addOperationToPerformance',
+                suiteId: (selected as any).suiteId,
+                operation: (selected as any).operation
+            });
+        }
+    }
+}
+
+/**
  * Update a request in a performance suite
  */
 export class UpdatePerformanceRequestCommand implements ICommand {
@@ -167,12 +208,7 @@ export class RunPerformanceSuiteCommand implements ICommand {
             message.environment,
             message.variables
         );
-
-        if (run) {
-            // Persist history
-            this._settingsManager.updatePerformanceHistory(this._performanceService.getHistory());
-        }
-
+        this._settingsManager.updatePerformanceHistory(this._performanceService.getHistory());
         return run;
     }
 }
@@ -189,21 +225,56 @@ export class AbortPerformanceSuiteCommand implements ICommand {
 }
 
 /**
- * Get performance run history
+ * Get performance history
  */
 export class GetPerformanceHistoryCommand implements ICommand {
     constructor(private readonly _performanceService: PerformanceService) { }
 
-    async execute(message: any): Promise<any[]> {
-        if (message.suiteId) {
-            return this._performanceService.getSuiteHistory(message.suiteId);
-        }
+    async execute(_message: any): Promise<any[]> {
         return this._performanceService.getHistory();
     }
 }
 
 /**
- * Import a Test Suite as a Performance Suite
+ * Export performance results to CSV/JSON
+ */
+export class ExportPerformanceResultsCommand implements ICommand {
+    constructor(private readonly _performanceService: PerformanceService) { }
+
+    async execute(message: any): Promise<void> {
+        const results = message.results;
+        const format = message.format || 'json';
+
+        const uri = await vscode.window.showSaveDialog({
+            filters: format === 'csv' ? { 'CSV': ['csv'] } : { 'JSON': ['json'] },
+            defaultUri: vscode.Uri.file(`performance-results.${format}`)
+        });
+
+        if (uri) {
+            let content = '';
+            if (format === 'csv') {
+                const headers = ['Request', 'Method', 'Status', 'Duration (ms)', 'SLA (ms)', 'Timestamp'];
+                const rows = results.map((r: any) => [
+                    r.requestName,
+                    r.method,
+                    r.status,
+                    r.duration,
+                    r.slaThreshold || 'N/A',
+                    new Date(r.timestamp).toISOString()
+                ]);
+                content = [headers, ...rows].map(row => row.join(',')).join('\n');
+            } else {
+                content = JSON.stringify(results, null, 2);
+            }
+
+            await vscode.workspace.fs.writeFile(uri, new Uint8Array(Buffer.from(content)));
+            vscode.window.showInformationMessage(`Results exported to ${uri.fsPath}`);
+        }
+    }
+}
+
+/**
+ * Import a TestSuite as a PerformanceSuite
  */
 export class ImportTestSuiteToPerformanceCommand implements ICommand {
     constructor(
@@ -213,7 +284,7 @@ export class ImportTestSuiteToPerformanceCommand implements ICommand {
 
     async execute(message: any): Promise<PerformanceSuite | null> {
         const testSuite = message.testSuite;
-        if (!testSuite || !testSuite.testCases) return null;
+        if (!testSuite) return null;
 
         const now = Date.now();
 
@@ -223,129 +294,38 @@ export class ImportTestSuiteToPerformanceCommand implements ICommand {
         for (const testCase of testSuite.testCases) {
             if (!testCase.steps) continue;
             for (const step of testCase.steps) {
-                requests.push({
-                    id: `perf-req-${now}-${order}`,
-                    name: step.name || `Step ${order + 1}`,
-                    endpoint: step.endpoint || testSuite.endpoint || '',
-                    method: step.method || 'POST',
-                    soapAction: step.soapAction,
-                    requestBody: step.request || '',
-                    headers: step.headers || {},
-                    extractors: (step.extractors || []) as SoapRequestExtractor[],
-                    slaThreshold: undefined,
-                    order: order++
-                });
+                if (step.type === 'request' && step.config.request) {
+                    requests.push({
+                        id: `perf-req-${now}-${order}`,
+                        name: step.name || `Step ${order + 1}`,
+                        endpoint: step.config.request.endpoint || testSuite.endpoint || '',
+                        method: step.config.request.method || 'POST',
+                        soapAction: step.config.request.soapAction,
+                        requestBody: step.config.request.request || '',
+                        headers: step.config.request.headers || {},
+                        extractors: (step.config.request.extractors || []) as SoapRequestExtractor[],
+                        slaThreshold: undefined,
+                        order: order++
+                    });
+                }
             }
         }
 
         const suite: PerformanceSuite = {
             id: `perf-suite-${now}`,
-            name: `Perf: ${testSuite.name || 'Imported Suite'}`,
-            description: `Imported from test suite: ${testSuite.name}`,
+            name: `Performance: ${testSuite.name || 'Test Suite'}`,
+            description: `Imported from Test Suite ${testSuite.name}`,
             requests,
             iterations: 10,
             delayBetweenRequests: 0,
             warmupRuns: 1,
             concurrency: 1,
             createdAt: now,
-            modifiedAt: now,
-            importedFrom: {
-                type: 'testSuite',
-                suiteId: testSuite.id,
-                suiteName: testSuite.name
-            }
+            modifiedAt: now
         };
 
         this._performanceService.addSuite(suite);
         this._settingsManager.updatePerformanceSuites(this._performanceService.getSuites());
         return suite;
-    }
-}
-
-/**
- * Export performance results to CSV
- */
-export class ExportPerformanceResultsCommand implements ICommand {
-    constructor(private readonly _performanceService: PerformanceService) { }
-
-    async execute(message: any): Promise<string | null> {
-        const runId = message.runId;
-        const history = this._performanceService.getHistory();
-        const run = history.find(r => r.id === runId);
-
-        if (!run) {
-            vscode.window.showErrorMessage('Performance run not found');
-            return null;
-        }
-
-        // Generate CSV content
-        const csvLines: string[] = [];
-
-        // Summary header
-        csvLines.push('# Performance Run Summary');
-        csvLines.push(`Suite,${run.suiteName}`);
-        csvLines.push(`Run ID,${run.id}`);
-        csvLines.push(`Start Time,${new Date(run.startTime).toISOString()}`);
-        csvLines.push(`End Time,${new Date(run.endTime).toISOString()}`);
-        csvLines.push(`Duration (ms),${run.endTime - run.startTime}`);
-        csvLines.push(`Status,${run.status}`);
-        csvLines.push('');
-
-        // Stats
-        csvLines.push('# Statistics');
-        csvLines.push(`Total Requests,${run.summary.totalRequests}`);
-        csvLines.push(`Success Count,${run.summary.successCount}`);
-        csvLines.push(`Failure Count,${run.summary.failureCount}`);
-        csvLines.push(`Success Rate,${(run.summary.successRate * 100).toFixed(2)}%`);
-        csvLines.push(`Avg Response Time (ms),${run.summary.avgResponseTime.toFixed(2)}`);
-        csvLines.push(`Min Response Time (ms),${run.summary.minResponseTime}`);
-        csvLines.push(`Max Response Time (ms),${run.summary.maxResponseTime}`);
-        csvLines.push(`P50 (ms),${run.summary.p50.toFixed(2)}`);
-        csvLines.push(`P95 (ms),${run.summary.p95.toFixed(2)}`);
-        csvLines.push(`P99 (ms),${run.summary.p99.toFixed(2)}`);
-        csvLines.push(`SLA Breaches,${run.summary.slaBreachCount}`);
-        csvLines.push('');
-
-        // Results header
-        csvLines.push('# Individual Results');
-        csvLines.push('Request Name,Iteration,Duration (ms),Status,Success,SLA Breached,Timestamp,Error');
-
-        // Results data
-        for (const result of run.results) {
-            csvLines.push([
-                this.escapeCsv(result.requestName),
-                result.iteration.toString(),
-                result.duration.toString(),
-                result.status.toString(),
-                result.success ? 'true' : 'false',
-                result.slaBreached ? 'true' : 'false',
-                new Date(result.timestamp).toISOString(),
-                this.escapeCsv(result.error || '')
-            ].join(','));
-        }
-
-        const csv = csvLines.join('\n');
-
-        // Show save dialog
-        const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(`performance-${run.suiteName}-${Date.now()}.csv`),
-            filters: { 'CSV Files': ['csv'] }
-        });
-
-        if (uri) {
-            const fs = require('fs');
-            fs.writeFileSync(uri.fsPath, csv, 'utf-8');
-            vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
-            return uri.fsPath;
-        }
-
-        return null;
-    }
-
-    private escapeCsv(value: string): string {
-        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-            return `"${value.replace(/"/g, '""')}"`;
-        }
-        return value;
     }
 }

@@ -39,7 +39,7 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Header */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)', padding: '5px 10px', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: 'bold' }}>File Watcher</div>
+                <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1 }}>File Watcher</div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <HeaderButton
                         onClick={(e) => { e.stopPropagation(); if (isRunning) onStop(); else onStart(); }}

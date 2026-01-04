@@ -37,9 +37,11 @@ export function activate(context: vscode.ExtensionContext) {
                 const configDir = path.join(os.homedir(), '.dirty-soap');
 
                 if (fs.existsSync(configDir)) {
-                    // Close panel if open
+                    // Close panel if open - need to wait for disposal to complete
                     if (SoapPanel.currentPanel) {
                         SoapPanel.currentPanel.dispose();
+                        // Wait for webview channel to fully close (especially important in debugger)
+                        await new Promise(resolve => setTimeout(resolve, 500));
                     }
 
                     // Delete directory

@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { Play, Square, Trash2, Plus, ChevronRight } from 'lucide-react';
 import { SidebarPerformanceProps } from '../../types/props';
+
+// Shake animation for delete confirmation
+const shakeAnimation = keyframes`
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+`;
 
 // Styled Components (borrowed from existing UI)
 const Container = styled.div`
@@ -86,11 +93,15 @@ const Actions = styled.div`
     }
 `;
 
-const DeleteButton = styled(IconButton)`
-    color: #f14c4c;
+const DeleteButton = styled(IconButton) <{ shake?: boolean }>`
+    color: ${props => props.shake ? '#f14c4c' : 'var(--vscode-icon-foreground)'};
     &:hover {
         background-color: rgba(241, 76, 76, 0.1);
     }
+    ${props => props.shake && css`
+        animation: ${shakeAnimation} 0.5s ease-in-out infinite;
+        color: #f14c4c;
+    `}
 `;
 
 const Input = styled.input`
@@ -169,52 +180,40 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                 )}
 
                 {suites.map(suite => (
-                    <div key={suite.id}>
-                        {deleteConfirm === suite.id ? (
-                            <div style={{ padding: '8px', background: 'var(--vscode-inputValidation-errorBackground)', border: '1px solid var(--vscode-inputValidation-errorBorder)' }}>
-                                <div style={{ marginBottom: 5, fontSize: 12 }}>Delete {suite.name}?</div>
-                                <div style={{ display: 'flex', gap: 5 }}>
-                                    <button
-                                        onClick={() => { onDeleteSuite(suite.id); setDeleteConfirm(null); }}
-                                        style={{ background: '#f14c4c', color: 'white', border: 'none', padding: '4px 8px', borderRadius: 3, cursor: 'pointer' }}
-                                    >
-                                        Delete
-                                    </button>
-                                    <button
-                                        onClick={() => setDeleteConfirm(null)}
-                                        style={{ background: 'transparent', border: '1px solid currentColor', color: 'var(--vscode-foreground)', padding: '4px 8px', borderRadius: 3, cursor: 'pointer' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <SuiteItem
-                                active={selectedSuiteId === suite.id}
-                                onClick={() => onSelectSuite(suite.id)}
+                    <SuiteItem
+                        key={suite.id}
+                        active={selectedSuiteId === suite.id}
+                        onClick={() => onSelectSuite(suite.id)}
+                    >
+                        <SuiteIcon>
+                            <ChevronRight size={14} />
+                        </SuiteIcon>
+                        <SuiteLabel>{suite.name}</SuiteLabel>
+                        <Actions>
+                            <IconButton
+                                onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }}
+                                title="Run Suite"
+                                style={{ color: 'var(--vscode-charts-green)' }}
                             >
-                                <SuiteIcon>
-                                    <ChevronRight size={14} />
-                                </SuiteIcon>
-                                <SuiteLabel>{suite.name}</SuiteLabel>
-                                <Actions>
-                                    <IconButton
-                                        onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }}
-                                        title="Run Suite"
-                                        style={{ color: 'var(--vscode-charts-green)' }}
-                                    >
-                                        <Play size={14} fill="currentColor" />
-                                    </IconButton>
-                                    <DeleteButton
-                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm(suite.id); }}
-                                        title="Delete Suite"
-                                    >
-                                        <Trash2 size={14} />
-                                    </DeleteButton>
-                                </Actions>
-                            </SuiteItem>
-                        )}
-                    </div>
+                                <Play size={14} fill="currentColor" />
+                            </IconButton>
+                            <DeleteButton
+                                shake={deleteConfirm === suite.id}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (deleteConfirm === suite.id) {
+                                        onDeleteSuite(suite.id);
+                                        setDeleteConfirm(null);
+                                    } else {
+                                        setDeleteConfirm(suite.id);
+                                    }
+                                }}
+                                title={deleteConfirm === suite.id ? "Click again to delete" : "Delete Suite"}
+                            >
+                                <Trash2 size={14} />
+                            </DeleteButton>
+                        </Actions>
+                    </SuiteItem>
                 ))}
 
                 {suites.length === 0 && !isAdding && (

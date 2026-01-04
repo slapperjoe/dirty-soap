@@ -32,6 +32,7 @@ interface UseSidebarCallbacksReturn {
     handleToggleCaseExpand: (caseId: string) => void;
     handleAddTestCase: (suiteId: string) => void;
     handleDeleteTestCase: (caseId: string) => void;
+    handleRenameTestCase: (caseId: string, newName: string) => void;
     handleStartWatcher: () => void;
     handleStopWatcher: () => void;
     handleClearWatcher: () => void;
@@ -171,6 +172,35 @@ export function useSidebarCallbacks({
         }
     }, [deleteConfirm, setProjects, setDeleteConfirm, saveProject]);
 
+    const handleRenameTestCase = useCallback((caseId: string, newName: string) => {
+        console.log('[useSidebarCallbacks] handleRenameTestCase called:', { caseId, newName });
+        setProjects(prev => {
+            console.log('[useSidebarCallbacks] Previous projects count:', prev.length);
+            return prev.map(p => {
+                const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === caseId));
+                if (!suite) {
+                    console.log('[useSidebarCallbacks] Suite not found in project:', p.name);
+                    return p;
+                }
+                console.log('[useSidebarCallbacks] Found suite:', suite.name, 'in project:', p.name);
+                const updatedSuite = {
+                    ...suite,
+                    testCases: suite.testCases?.map(tc =>
+                        tc.id === caseId ? { ...tc, name: newName } : tc
+                    ) || []
+                };
+                const updatedProject = {
+                    ...p,
+                    testSuites: p.testSuites!.map(s => s.id === suite.id ? updatedSuite : s),
+                    dirty: true
+                };
+                console.log('[useSidebarCallbacks] Calling saveProject for:', updatedProject.name);
+                setTimeout(() => saveProject(updatedProject), 0);
+                return updatedProject;
+            });
+        });
+    }, [setProjects, saveProject]);
+
     // Watcher handlers
     const handleStartWatcher = useCallback(() => {
         setWatcherRunning(true);
@@ -234,6 +264,7 @@ export function useSidebarCallbacks({
         handleToggleCaseExpand,
         handleAddTestCase,
         handleDeleteTestCase,
+        handleRenameTestCase,
         handleStartWatcher,
         handleStopWatcher,
         handleClearWatcher,

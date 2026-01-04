@@ -56,9 +56,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     onUpdateSuite,
     onRunSuite,
     onStopRun: onStopPerformanceRun,
-    onAddRequest: onAddPerformanceRequest,
-    onDeleteRequest: onDeletePerformanceRequest,
-    onUpdateRequest: onUpdatePerformanceRequest,
+    onAddPerformanceRequest,
+    onDeletePerformanceRequest,
+    onSelectPerformanceRequest,
+    onUpdatePerformanceRequest,
     onImportFromWorkspace,
     performanceProgress,
     performanceHistory
@@ -76,7 +77,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         onUpdateStep, onSelectStep, onDeleteStep, onMoveStep
     } = stepActions;
     const {
-        onAddExtractor, onAddAssertion, onAddExistenceAssertion, onAddReplaceRule, onAddMockRule, onOpenDevOps
+        onAddExtractor, onEditExtractor, onAddAssertion, onAddExistenceAssertion, onAddReplaceRule, onAddMockRule, onOpenDevOps
     } = toolsActions;
 
     // Performance Actions extracted in props destructuring above
@@ -308,6 +309,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                     history={performanceHistory?.filter(r => r.suiteId === selectedPerformanceSuite.id) || []}
                     onAddRequest={onAddPerformanceRequest}
                     onDeleteRequest={onDeletePerformanceRequest}
+                    onSelectRequest={onSelectPerformanceRequest}
                     onUpdateRequest={onUpdatePerformanceRequest}
                     onImportFromWorkspace={onImportFromWorkspace}
                 />
@@ -898,6 +900,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                             <ExtractorsPanel
                                 extractors={selectedRequest.extractors || []}
                                 onChange={(newExtractors) => onUpdateRequest({ ...selectedRequest, extractors: newExtractors })}
+                                onEdit={onEditExtractor}
                                 rawResponse={response?.rawResponse}
                             />
                         )}

@@ -50,6 +50,8 @@ export interface SoapRequestExtractor {
     path: string;
     variable: string;
     id: string;
+    /** Default value to use when extraction fails or step hasn't been run */
+    defaultValue?: string;
 }
 
 export interface SoapUIRequest {

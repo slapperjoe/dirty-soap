@@ -71,40 +71,49 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
                     // Track selection state to support "Wait for Mouse Up"
                     let pendingSelection: any = null;
                     let isMouseDown = false;
+                    let wasMouseSelection = false;
 
                     editor.onMouseDown(() => {
                         isMouseDown = true;
+                        wasMouseSelection = true;
                     });
 
                     editor.onMouseUp(() => {
                         isMouseDown = false;
+                        // Only report selection on mouse up (when user finishes selecting with mouse)
                         if (pendingSelection && onSelectionChange) {
-                            if (pendingSelection) {
-                                const model = editor.getModel();
-                                if (model) {
-                                    const text = model.getValueInRange(pendingSelection);
+                            const model = editor.getModel();
+                            if (model) {
+                                const text = model.getValueInRange(pendingSelection);
+                                if (text) {
                                     const offset = model.getOffsetAt(pendingSelection.getStartPosition());
                                     onSelectionChange({ text, offset });
+                                } else {
+                                    onSelectionChange(null);
                                 }
-                            } else {
-                                onSelectionChange(null);
                             }
-                            // Do not clear pendingSelection here if we want it to persist until cleared?
-                            // Actually, keeping it is fine, but we handled the event.
                         }
+                        // Reset the flag after a brief delay to allow for keyboard selections
+                        setTimeout(() => { wasMouseSelection = false; }, 100);
                     });
 
                     editor.onDidChangeCursorSelection((e) => {
                         pendingSelection = e.selection;
 
-                        // Immediate update for keyboard interactions (when mouse is not down)
-                        if (!isMouseDown && onSelectionChange) {
+                        // Only immediately notify for keyboard-based selections (not mouse-based)
+                        // If mouse is down, we'll wait for mouseup
+                        // If this selection was initiated by a mouse, don't notify here
+                        if (!isMouseDown && !wasMouseSelection && onSelectionChange) {
                             if (e.selection) {
                                 const model = editor.getModel();
                                 if (model) {
                                     const text = model.getValueInRange(e.selection);
                                     const offset = model.getOffsetAt(e.selection.getStartPosition());
-                                    onSelectionChange({ text, offset });
+                                    if (text) {
+                                        onSelectionChange({ text, offset });
+                                    } else {
+                                        onSelectionChange(null);
+                                    }
                                 }
                             } else {
                                 onSelectionChange(null);

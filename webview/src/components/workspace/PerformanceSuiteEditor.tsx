@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Play, Plus, Trash2, Settings, Clock, Repeat, Flame, Zap, GripVertical, Loader, Square, Calendar, ToggleLeft, ToggleRight, Import } from 'lucide-react';
-import { PerformanceSuite, PerformanceRequest, PerformanceRun, PerformanceSchedule } from '../../models';
+import { PerformanceSuite, PerformanceRun, PerformanceSchedule, PerformanceRequest } from '../../models';
 import {
     Content,
     Toolbar,
@@ -122,7 +122,8 @@ interface PerformanceSuiteEditorProps {
     isRunning: boolean;
     onAddRequest?: (suiteId: string) => void;
     onDeleteRequest?: (suiteId: string, requestId: string) => void;
-    onUpdateRequest?: (suiteId: string, request: PerformanceRequest) => void;
+    onUpdateRequest?: (suiteId: string, requestId: string, updates: Partial<PerformanceRequest>) => void;
+    onSelectRequest?: (request: PerformanceRequest) => void;
     onImportFromWorkspace?: (suiteId: string) => void;
     progress?: { iteration: number; total: number } | null;
     history?: PerformanceRun[];
@@ -140,6 +141,7 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
     isRunning,
     onAddRequest,
     onDeleteRequest,
+    onSelectRequest,
     onImportFromWorkspace,
     schedules = [],
     onAddSchedule,
@@ -195,8 +197,8 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
             return;
         }
 
-        // Reorder requests
-        const sortedRequests = [...suite.requests].sort((a, b) => a.order - b.order);
+        // Reorder steps
+        const sortedRequests = [...suite.requests];
         const draggedIndex = sortedRequests.findIndex(r => r.id === draggedId);
         const targetIndex = sortedRequests.findIndex(r => r.id === targetId);
 
@@ -205,17 +207,13 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
             return;
         }
 
-        // Remove dragged item and insert at target position
         const [draggedItem] = sortedRequests.splice(draggedIndex, 1);
         sortedRequests.splice(targetIndex, 0, draggedItem);
 
-        // Update order values
-        const reorderedRequests = sortedRequests.map((req, idx) => ({
-            ...req,
-            order: idx
-        }));
+        // Update order field
+        sortedRequests.forEach((r, i) => r.order = i);
 
-        onUpdate({ ...suite, requests: reorderedRequests });
+        onUpdate({ ...suite, requests: sortedRequests });
         setDraggedId(null);
     };
 
@@ -224,7 +222,7 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
         setDropTargetId(null);
     };
 
-    const sortedRequests = [...suite.requests].sort((a, b) => a.order - b.order);
+    const sortedRequests = [...(suite.requests || [])].sort((a, b) => a.order - b.order);
 
     return (
         <Content>
@@ -301,16 +299,18 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                     </Grid>
                 </Section>
 
-                {/* Requests Section */}
+                {/* Steps Section */}
                 <Section>
                     <SectionHeader>
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Play size={16} /> Request Sequence
+                            <Play size={16} /> Test Requests
                         </div>
                         {onAddRequest && (
-                            <ToolbarButton onClick={() => onAddRequest(suite.id)}>
-                                <Plus size={14} /> Add Request
-                            </ToolbarButton>
+                            <div style={{ display: 'flex', gap: 5 }}>
+                                <ToolbarButton onClick={() => onAddRequest(suite.id)}>
+                                    <Plus size={14} /> Add Request
+                                </ToolbarButton>
+                            </div>
                         )}
                     </SectionHeader>
 
@@ -326,14 +326,16 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                 onDragLeave={handleDragLeave}
                                 onDrop={(e) => handleDrop(e, req.id)}
                                 onDragEnd={handleDragEnd}
+                                onClick={() => onSelectRequest?.(req)}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <DragHandle>
+                                <DragHandle onClick={(e) => e.stopPropagation()}>
                                     <GripVertical size={16} />
                                 </DragHandle>
                                 <div style={{ fontWeight: 'bold', width: 25, opacity: 0.6 }}>{index + 1}.</div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <MethodBadge>SOAP</MethodBadge>
+                                        <MethodBadge>{req.method}</MethodBadge>
                                         <span style={{ fontWeight: 500 }}>{req.name}</span>
                                     </div>
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 4 }}>
@@ -342,16 +344,16 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                                     {onDeleteRequest && (
-                                        <IconButton onClick={() => onDeleteRequest(suite.id, req.id)} title="Remove Request">
+                                        <IconButton onClick={(e) => { e.stopPropagation(); onDeleteRequest(suite.id, req.id); }} title="Remove Request">
                                             <Trash2 size={14} />
                                         </IconButton>
                                     )}
                                 </div>
                             </RequestItem>
                         ))}
-                        {suite.requests.length === 0 && (
+                        {sortedRequests.length === 0 && (
                             <div style={{ padding: 20, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
-                                No requests in steps. Add a request to begin.
+                                No requests in suite. Add a request to begin.
                             </div>
                         )}
                     </RequestList>

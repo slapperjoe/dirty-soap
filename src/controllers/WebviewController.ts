@@ -63,6 +63,7 @@ import {
     UpdatePerformanceSuiteCommand,
     DeletePerformanceSuiteCommand,
     AddPerformanceRequestCommand,
+    PickOperationForPerformanceCommand,
     UpdatePerformanceRequestCommand,
     DeletePerformanceRequestCommand,
     RunPerformanceSuiteCommand,
@@ -167,6 +168,7 @@ export class WebviewController {
         this._commands.set('updatePerformanceSuite', new UpdatePerformanceSuiteCommand(this._performanceService, this._settingsManager));
         this._commands.set('deletePerformanceSuite', new DeletePerformanceSuiteCommand(this._performanceService, this._settingsManager));
         this._commands.set('addPerformanceRequest', new AddPerformanceRequestCommand(this._performanceService, this._settingsManager));
+        this._commands.set('pickOperationForPerformance', new PickOperationForPerformanceCommand(this._panel, Array.from(this._loadedProjects.values())));
         this._commands.set('updatePerformanceRequest', new UpdatePerformanceRequestCommand(this._performanceService, this._settingsManager));
         this._commands.set('deletePerformanceRequest', new DeletePerformanceRequestCommand(this._performanceService, this._settingsManager));
         this._commands.set('runPerformanceSuite', new RunPerformanceSuiteCommand(this._performanceService, this._settingsManager));
@@ -227,6 +229,12 @@ export class WebviewController {
         this._performanceService.on('iterationComplete', (data) => {
             this._panel.webview.postMessage({ command: 'performanceIterationComplete', data });
         });
+        this._performanceService.on('suitesUpdated', () => {
+            // Note: Commands now handle settings sync explicitly after updating SettingsManager
+            // This event is still emitted for other listeners but webview updates are handled by commands
+            // to avoid race condition where we read stale data from SettingsManager
+            console.log('[WebviewController] suitesUpdated event received (commands handle sync)');
+        });
         this._mockService.on('mockHit', (data) => {
             this._panel.webview.postMessage({ command: 'mockHit', ...data });
         });
@@ -238,6 +246,14 @@ export class WebviewController {
     public async handleMessage(message: any) {
         if (this._commands.has(message.command)) {
             await this._commands.get(message.command)?.execute(message);
+
+            // After performance commands, explicitly sync settings to webview
+            // This ensures SettingsManager has been updated before we send to webview
+            if (message.command.startsWith('addPerformance') ||
+                message.command.startsWith('deletePerformance') ||
+                message.command.startsWith('updatePerformance')) {
+                this.sendSettingsToWebview();
+            }
             return;
         }
 
@@ -297,6 +313,13 @@ export class WebviewController {
             case 'getSettings':
                 console.log('[WebviewController] Received getSettings. Sending settings to webview.');
                 this.sendSettingsToWebview();
+                break;
+            case 'setActiveEnvironment':
+                if (message.env) {
+                    console.log('[WebviewController] Switching active environment to:', message.env);
+                    this._settingsManager.updateActiveEnvironment(message.env);
+                    this.sendSettingsToWebview();
+                }
                 break;
             case 'saveUiState':
                 this._settingsManager.updateUiState(message.ui);
