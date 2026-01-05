@@ -169,6 +169,7 @@ export interface WatcherEvent {
 }
 
 export enum SidebarView {
+    HOME = 'home',
     PROJECTS = 'projects',
     EXPLORER = 'explorer',
     TESTS = 'tests',

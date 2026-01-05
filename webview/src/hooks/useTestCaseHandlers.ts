@@ -36,6 +36,8 @@ interface UseTestCaseHandlersParams {
     setResponse: React.Dispatch<React.SetStateAction<any>>;
     setActiveView: React.Dispatch<React.SetStateAction<SidebarView>>;
     closeContextMenu: () => void;
+    selectedTestSuite: SoapTestSuite | null;
+    setSelectedTestSuite: React.Dispatch<React.SetStateAction<SoapTestSuite | null>>;
 }
 
 interface UseTestCaseHandlersReturn {
@@ -63,12 +65,17 @@ export function useTestCaseHandlers({
     setSelectedPerformanceSuiteId,
     setResponse,
     setActiveView,
-    closeContextMenu
+    closeContextMenu,
+    setSelectedTestSuite
 }: UseTestCaseHandlersParams): UseTestCaseHandlersReturn {
 
     const handleSelectTestSuite = useCallback((suiteId: string) => {
         const suite = projects.find(p => p.testSuites?.some(s => s.id === suiteId))?.testSuites?.find(s => s.id === suiteId);
         if (suite) {
+            // Set the selected suite
+            setSelectedTestSuite(suite);
+
+            // Clear other specific selections
             setSelectedTestCase(null);
             setSelectedStep(null);
             setSelectedRequest(null);
@@ -76,9 +83,11 @@ export function useTestCaseHandlers({
             setSelectedInterface(null);
             setSelectedPerformanceSuiteId(null);
             setResponse(null);
+
             // Don't change activeView - let user stay on current sidebar tab
+            // (Assumes SidebarView.TESTS is active if clicking suite)
         }
-    }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setSelectedPerformanceSuiteId, setResponse]);
+    }, [projects, setSelectedTestSuite, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setSelectedPerformanceSuiteId, setResponse]);
 
     const handleSelectTestCase = useCallback((caseId: string) => {
         let foundCase: SoapTestCase | null = null;

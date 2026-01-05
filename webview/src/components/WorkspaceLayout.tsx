@@ -1,10 +1,10 @@
 import React from 'react';
-import { Layout as LayoutIcon, ListOrdered, Play, Loader2, RotateCcw, WrapText, Bug, AlignLeft, Braces, ChevronLeft, Plus, FileCode, Trash2, ArrowUp, ArrowDown, ListChecks, Replace, Cloud, PlusSquare } from 'lucide-react';
+import { Layout as LayoutIcon, ListOrdered, Play, Loader2, RotateCcw, WrapText, Bug, AlignLeft, Braces, ChevronLeft, Plus, FileCode, Trash2, ArrowUp, ArrowDown, ListChecks, Replace, Cloud, PlusSquare, FolderOpen, Activity, FlaskConical, Eye, Compass } from 'lucide-react';
 // Models imported via props.ts indirections, specific enums kept if needed locally (TestStepType is used in code?)
 // Checking code: TestStepType is used in props interface but not local var?
 // Actually TestStepType is used in onAddStep signature but onAddStep comes from props.
 // Let's remove them and add back if needed.
-// import { SoapTestStep } from '../models';
+import { SidebarView } from '../models';
 // ... imports
 import { MonacoRequestEditor, MonacoRequestEditorHandle } from './MonacoRequestEditor';
 import { MonacoResponseViewer } from './MonacoResponseViewer';
@@ -45,6 +45,174 @@ import {
 // Local definition removed, using imported WorkspaceLayoutProps
 
 
+// Helper Components
+const EmptyState: React.FC<{ title: string; message: string; icon?: React.ElementType }> = ({ title, message, icon: Icon }) => (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)', padding: 20, textAlign: 'center' }}>
+        {Icon && <Icon size={48} style={{ marginBottom: 20, opacity: 0.5 }} />}
+        <h2 style={{ marginBottom: 10, color: 'var(--vscode-foreground)' }}>{title}</h2>
+        <p>{message}</p>
+    </div>
+);
+
+const EmptyFileWatcher: React.FC = () => (
+    <EmptyState
+        title="File Watcher"
+        message="The File Watcher monitors your project files for changes. Events will appear in the sidebar. Select an event to view the request and response details."
+        icon={Eye}
+    />
+);
+
+const EmptyWsdlExplorer: React.FC = () => (
+    <EmptyState
+        title="WSDL Explorer"
+        message="Load a WSDL file to browse its interfaces, operations, and requests. Select an item to view its details or add it to your project."
+        icon={Compass}
+    />
+);
+
+const EmptyServer: React.FC = () => (
+    <EmptyState
+        title="Dirty SOAP Server"
+        message="Configure a local proxy server to inspect traffic or mock responses. Select an event to view details, or configure mock rules."
+        icon={Activity}
+    />
+);
+
+const ProjectSummary: React.FC<{ project: import('../models').SoapUIProject; onSelectInterface?: (i: import('../models').SoapUIInterface) => void }> = ({ project, onSelectInterface }) => (
+    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+        <h1>Project: {project.name}</h1>
+        {project.description && <p style={{ fontSize: '1.1em', opacity: 0.8, marginBottom: 20 }}>{project.description}</p>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20, marginTop: 30 }}>
+            <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                <h3>Interfaces</h3>
+                <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{project.interfaces.length}</span>
+            </div>
+            <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                <h3>Test Suites</h3>
+                <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{project.testSuites?.length || 0}</span>
+            </div>
+        </div>
+
+        <h2 style={{ marginTop: 40, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Interfaces</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 15 }}>
+            {project.interfaces.map(iface => (
+                <div
+                    key={iface.name}
+                    onClick={() => onSelectInterface && onSelectInterface(iface)}
+                    style={{
+                        padding: 15,
+                        background: 'var(--vscode-list-hoverBackground)',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}
+                >
+                    <div>
+                        <span style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{iface.name}</span>
+                        <div style={{ fontSize: '0.8em', opacity: 0.7, marginTop: 4 }}>{iface.operations.length} operations</div>
+                    </div>
+                    <ChevronLeft size={16} style={{ transform: 'rotate(180deg)', opacity: 0.5 }} />
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+const InterfaceSummary: React.FC<{ interface: import('../models').SoapUIInterface; onSelectOperation?: (o: import('../models').SoapUIOperation) => void }> = ({ interface: iface, onSelectOperation }) => (
+    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+        <h1>Interface: {iface.name}</h1>
+        <div style={{ marginTop: 20 }}>
+            <p><strong>WSDL:</strong> <a href="#" style={{ color: 'var(--vscode-textLink-foreground)' }}>{iface.definition}</a></p>
+            <p><strong>SOAP Version:</strong> {iface.soapVersion}</p>
+            <p><strong>Operations:</strong> {iface.operations.length}</p>
+        </div>
+        <h2 style={{ marginTop: 30, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Operations</h2>
+        <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
+            {iface.operations.map(op => (
+                <li
+                    key={op.name}
+                    onClick={() => onSelectOperation && onSelectOperation(op)}
+                    style={{
+                        padding: '12px 10px',
+                        borderBottom: '1px solid var(--vscode-panel-border)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                    <span>{op.name}</span>
+                    <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.3 }} />
+                </li>
+            ))}
+        </ul>
+    </div>
+);
+
+const TestSuiteSummary: React.FC<{ suite: import('../models').SoapTestSuite; onSelectTestCase?: (c: import('../models').SoapTestCase) => void }> = ({ suite, onSelectTestCase }) => (
+    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+        <h1>Test Suite: {suite.name}</h1>
+        <div style={{ marginTop: 20 }}>
+            <p><strong>Test Cases:</strong> {suite.testCases.length}</p>
+        </div>
+        <h2 style={{ marginTop: 30, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Test Cases</h2>
+        <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
+            {suite.testCases.map(tc => (
+                <li
+                    key={tc.id}
+                    onClick={() => onSelectTestCase && onSelectTestCase(tc)}
+                    style={{
+                        padding: '12px 10px',
+                        borderBottom: '1px solid var(--vscode-panel-border)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                    <span>{tc.name}</span>
+                    <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.3 }} />
+                </li>
+            ))}
+        </ul>
+    </div>
+);
+
+const OperationSummary: React.FC<{ operation: import('../models').SoapUIOperation; onSelectRequest?: (r: import('../models').SoapUIRequest) => void }> = ({ operation, onSelectRequest }) => (
+    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+        <h1>Operation: {operation.name}</h1>
+        {operation.input && <div style={{ marginTop: 20, padding: 15, background: 'var(--vscode-textBlockQuote-background)', borderLeft: '4px solid var(--vscode-textBlockQuote-border)' }}>
+            <strong>Input:</strong> {JSON.stringify(operation.input)}
+        </div>}
+        <h2 style={{ marginTop: 30 }}>Requests ({operation.requests.length})</h2>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 15 }}>
+            {operation.requests.map(req => (
+                <div
+                    key={req.id}
+                    onClick={() => onSelectRequest && onSelectRequest(req)}
+                    style={{
+                        padding: '10px 15px',
+                        background: 'var(--vscode-badge-background)',
+                        color: 'var(--vscode-badge-foreground)',
+                        borderRadius: 4,
+                        cursor: 'pointer'
+                    }}
+                >
+                    {req.name}
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     selectionState,
     requestActions,
@@ -67,12 +235,31 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     // Coordinator props
     coordinatorStatus,
     onStartCoordinator,
-    onStopCoordinator
+    onStopCoordinator,
+    navigationActions
 }) => {
     // Destructure groups
-    const { request: selectedRequest, operation: selectedOperation, testCase: selectedTestCase, testStep: selectedStep, performanceSuite: selectedPerformanceSuite } = selectionState;
-    const { onExecute, onCancel, onUpdate: onUpdateRequest, onReset, response, loading } = requestActions;
     const {
+        project: selectedProject,
+        interface: selectedInterface,
+        operation: selectedOperation,
+        request: selectedRequest,
+        testCase: selectedTestCase,
+        testSuite: selectedTestSuite,
+        testStep: selectedStep,
+        performanceSuite: selectedPerformanceSuite
+    } = selectionState;
+
+    const {
+        onExecute,
+        onCancel,
+        onUpdate: onUpdateRequest,
+        onReset,
+        response,
+        loading
+    } = requestActions;
+    const {
+        activeView, // Now available
         layoutMode, showLineNumbers, splitRatio, isResizing, onToggleLayout, onToggleLineNumbers, onStartResizing,
         inlineElementValues, onToggleInlineElementValues, hideCausalityData, onToggleHideCausalityData
     } = viewState;
@@ -300,8 +487,13 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         );
     }
 
+    // FORCE HOME VIEW if active
+    if (activeView === SidebarView.HOME) {
+        return <WelcomePanel changelog={changelog} />;
+    }
 
-    if (!selectedRequest) {
+    // PERFORMANCE VIEW
+    if (activeView === SidebarView.PERFORMANCE) {
         if (selectedPerformanceSuite) {
             return (
                 <PerformanceSuiteEditor
@@ -322,6 +514,14 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                     onStopCoordinator={onStopCoordinator}
                 />
             );
+        }
+        return <EmptyState title="No Performance Suite Selected" message="Select a suite from the sidebar or create a new one." icon={Activity} />;
+    }
+
+    // TESTS VIEW
+    if (activeView === SidebarView.TESTS) {
+        if (selectedTestSuite && !selectedTestCase) {
+            return <TestSuiteSummary suite={selectedTestSuite} onSelectTestCase={navigationActions?.onSelectTestCase} />;
         }
 
         if (selectedStep && selectedStep.type === 'delay' && !isReadOnly && onUpdateStep) {
@@ -486,6 +686,42 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
             );
         }
 
+        return <EmptyState title="No Test Case Selected" message="Select a test case from the sidebar or create a new test suite." icon={FlaskConical} />;
+    }
+
+    // PROJECTS VIEW
+    if (activeView === SidebarView.PROJECTS) {
+        if (!selectedRequest) {
+            if (selectedOperation) return <OperationSummary operation={selectedOperation} onSelectRequest={navigationActions?.onSelectRequest} />;
+            if (selectedInterface) return <InterfaceSummary interface={selectedInterface} onSelectOperation={navigationActions?.onSelectOperation} />;
+            if (selectedProject) return <ProjectSummary project={selectedProject} onSelectInterface={navigationActions?.onSelectInterface} />;
+            return <EmptyState title="No Project Selected" message="Select a project, interface, or operation to view details." icon={FolderOpen} />;
+        }
+        // If request IS selected, fall through to Request Editor
+    }
+
+    // EXPLORER VIEW
+    if (activeView === SidebarView.EXPLORER) {
+        return <EmptyWsdlExplorer />;
+    }
+
+    // WATCHER VIEW
+    if (activeView === SidebarView.WATCHER) {
+        // If an event is selected (it's a request), it will have been handled by selectedRequest above?
+        // Wait, selectedRequest handles everything. If we are here, it means !selectedRequest.
+        return <EmptyFileWatcher />;
+    }
+
+    // SERVER VIEW
+    if (activeView === SidebarView.SERVER) {
+        // If a request is selected (from Proxy/Mock history), it falls through to main render
+        if (!selectedRequest) {
+            return <EmptyServer />;
+        }
+    }
+
+    // Fallback for other views that usually show Welcome if no request selected
+    if (!selectedRequest) {
         return <WelcomePanel changelog={changelog} />;
     }
 

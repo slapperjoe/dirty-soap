@@ -43,6 +43,9 @@ export interface SelectionContextValue {
     /** Currently selected test step (for test runner) */
     selectedStep: SoapTestStep | null;
 
+    /** Currently selected Test Suite */
+    selectedTestSuite: import('../models').SoapTestSuite | null;
+
     /** Currently selected test case (for test runner) */
     selectedTestCase: SoapTestCase | null;
 
@@ -67,6 +70,7 @@ export interface SelectionContextValue {
     setSelectedOperation: React.Dispatch<React.SetStateAction<SoapUIOperation | null>>;
     setSelectedRequest: React.Dispatch<React.SetStateAction<SoapUIRequest | null>>;
     setSelectedStep: React.Dispatch<React.SetStateAction<SoapTestStep | null>>;
+    setSelectedTestSuite: React.Dispatch<React.SetStateAction<import('../models').SoapTestSuite | null>>;
     setSelectedTestCase: React.Dispatch<React.SetStateAction<SoapTestCase | null>>;
     setSelectedPerformanceSuiteId: React.Dispatch<React.SetStateAction<string | null>>;
     setResponse: React.Dispatch<React.SetStateAction<any>>;
@@ -120,6 +124,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
     const [selectedOperation, setSelectedOperation] = useState<SoapUIOperation | null>(null);
     const [selectedRequest, setSelectedRequest] = useState<SoapUIRequest | null>(null);
     const [selectedStep, setSelectedStep] = useState<SoapTestStep | null>(null);
+    const [selectedTestSuite, setSelectedTestSuite] = useState<import('../models').SoapTestSuite | null>(null);
     const [selectedTestCase, setSelectedTestCase] = useState<SoapTestCase | null>(null);
     const [selectedPerformanceSuiteId, setSelectedPerformanceSuiteId] = useState<string | null>(null);
     const [response, setResponse] = useState<any>(null);
@@ -138,6 +143,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
         setSelectedOperation(null);
         setSelectedRequest(null);
         setSelectedStep(null);
+        setSelectedTestSuite(null);
         setSelectedTestCase(null);
         setSelectedPerformanceSuiteId(null);
         setResponse(null);
@@ -145,7 +151,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
 
     /**
      * Clears sub-selections but keeps test case.
-     * Useful when selecting a test case to reset step/request selection.
+     * Used when selecting a test case to reset step/request selection.
      */
     const clearSubSelection = useCallback(() => {
         setSelectedStep(null);
@@ -166,6 +172,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
         selectedOperation,
         selectedRequest,
         selectedStep,
+        selectedTestSuite,
         selectedTestCase,
         selectedPerformanceSuiteId,
 
@@ -178,6 +185,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
         setSelectedOperation,
         setSelectedRequest,
         setSelectedStep,
+        setSelectedTestSuite,
         setSelectedTestCase,
         setSelectedPerformanceSuiteId,
         setResponse,

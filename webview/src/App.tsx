@@ -81,7 +81,9 @@ function App() {
         loading,
         setLoading,
         selectedPerformanceSuiteId,
-        setSelectedPerformanceSuiteId
+        setSelectedPerformanceSuiteId,
+        selectedTestSuite,
+        setSelectedTestSuite
     } = useSelection();
 
 
@@ -161,6 +163,11 @@ function App() {
     const [wsdlUrl, setWsdlUrl] = useState('');
 
     // Derived State (must be after config is defined)
+    // NOTE: selectedPerformanceSuite is derived from config further down or used inline?
+    // Checking usage, it's used in selectionState prop.
+    // It creates a derived variable.
+
+    // Derived State
     const selectedPerformanceSuite = config?.performanceSuites?.find(s => s.id === selectedPerformanceSuiteId) || null;
     const [wsdlUrlHistory, setWsdlUrlHistory] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -205,11 +212,11 @@ function App() {
         handleContextMenu,
         closeContextMenu,
         handleRename,
-        handleDeleteRequest,
+        handleDeleteRequest: _handleDeleteRequest,
         handleCloneRequest,
         handleAddRequest,
-        handleDeleteInterface,
-        handleDeleteOperation,
+        handleDeleteInterface: _handleDeleteInterface,
+        handleDeleteOperation: _handleDeleteOperation,
         handleViewSample,
         handleExportNative
     } = useContextMenu({
@@ -223,6 +230,42 @@ function App() {
         setSelectedRequest,
         setResponse
     });
+
+    // Cleanup wrappers for Project structure
+    const handleDeleteInterface = (iface: import('./models').SoapUIInterface) => {
+        _handleDeleteInterface(iface);
+        // If selected interface matches, or selected operation/request belongs to it
+        if (selectedInterface?.name === iface.name) {
+            setSelectedInterface(null);
+            // Operations and requests will be cleared by cascading logic or explicitly?
+            // Safer to clear all if we are viewing the deleted interface's subtree
+            setSelectedOperation(null);
+            setSelectedRequest(null);
+        }
+        // Also check if selected operation belongs to this interface (if we didn't have interface selected directly)
+        // ... (Checking strictly by name might be risky if duplicates allowed, but names are usually unique per project)
+    };
+
+    const handleDeleteOperation = (op: import('./models').SoapUIOperation, iface: import('./models').SoapUIInterface) => {
+        _handleDeleteOperation(op, iface);
+        if (selectedOperation?.name === op.name) {
+            setSelectedOperation(null);
+            setSelectedRequest(null);
+        }
+        // If a request of this operation is selected
+        if (selectedRequest && op.requests.some(r => r.id === selectedRequest.id)) {
+            setSelectedRequest(null);
+        }
+    };
+
+    const handleDeleteRequest = (req?: import('./models').SoapUIRequest) => {
+        const target = req || (contextMenu?.type === 'request' ? contextMenu.data as import('./models').SoapUIRequest : null);
+        _handleDeleteRequest(req);
+
+        if (target && selectedRequest?.id === target.id) {
+            setSelectedRequest(null);
+        }
+    };
 
     // ==========================================================================
     // TEST CASE HANDLERS - from useTestCaseHandlers hook
@@ -250,7 +293,9 @@ function App() {
         setSelectedPerformanceSuiteId,
         setResponse,
         setActiveView,
-        closeContextMenu
+        closeContextMenu,
+        selectedTestSuite,
+        setSelectedTestSuite
     });
 
     // ==========================================================================
@@ -321,11 +366,11 @@ function App() {
     // ==========================================================================
     const {
         handleAddSuite,
-        handleDeleteSuite,
+        handleDeleteSuite: _handleDeleteSuite,
         handleToggleSuiteExpand,
         handleToggleCaseExpand,
         handleAddTestCase,
-        handleDeleteTestCase,
+        handleDeleteTestCase: _handleDeleteTestCase,
         handleRenameTestCase,
         handleStartWatcher,
         handleStopWatcher,
@@ -352,6 +397,33 @@ function App() {
         configPath,
         config
     });
+
+    // Wrapped Handlers for State Cleanup
+
+    const handleDeleteSuite = (suiteId: string) => {
+        // Call original handler
+        _handleDeleteSuite(suiteId);
+
+        // Cleanup selection if needed
+        // If selected test case belongs to this suite, clear it.
+        if (selectedTestCase) {
+            // Find parent suite of selectedTestCase
+            const project = projects.find(p => p.testSuites?.some(s => s.testCases?.some(tc => tc.id === selectedTestCase.id)));
+            const suite = project?.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
+            if (suite?.id === suiteId) {
+                setSelectedTestCase(null);
+                setSelectedStep(null);
+            }
+        }
+    };
+
+    const handleDeleteTestCase = (caseId: string) => {
+        _handleDeleteTestCase(caseId);
+        if (selectedTestCase?.id === caseId) {
+            setSelectedTestCase(null);
+            setSelectedStep(null);
+        }
+    };
 
     // Performance Handlers
     const handleAddPerformanceSuite = (name: string) => {
@@ -783,6 +855,51 @@ function App() {
         }
     };
 
+    // Auto-select logic when switching views
+    const handleSetActiveViewWrapper = (view: SidebarView) => {
+        setActiveView(view);
+
+        if (view === SidebarView.PROJECTS) {
+            // If nothing selected, select the first available item deep-first
+            if (!selectedRequest && !selectedOperation && !selectedInterface && projects.length > 0) {
+                const p = projects[0];
+                // Always ensure project is selected if none
+                if (!selectedProjectName) setSelectedProjectName(p.name);
+
+                // If nothing else is selected, drill down
+                if (!selectedInterface && !selectedOperation && !selectedRequest) {
+                    if (p.interfaces?.length > 0) {
+                        const i = p.interfaces[0];
+                        setSelectedInterface(i);
+                        if (i.operations?.length > 0) {
+                            const o = i.operations[0];
+                            setSelectedOperation(o);
+                            if (o.requests?.length > 0) {
+                                setSelectedRequest(o.requests[0]);
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (view === SidebarView.TESTS) {
+            if (!selectedTestCase && !selectedStep) {
+                for (const p of projects) {
+                    if (p.testSuites?.length) {
+                        const suite = p.testSuites[0];
+                        if (suite.testCases?.length) {
+                            setSelectedTestCase(suite.testCases[0]);
+                            break;
+                        }
+                    }
+                }
+            }
+        } else if (view === SidebarView.PERFORMANCE) {
+            if (!selectedPerformanceSuiteId && config?.performanceSuites?.length) {
+                setSelectedPerformanceSuiteId(config.performanceSuites[0].id);
+            }
+        }
+    };
+
     return (
         <Container onClick={closeContextMenu}>
             {/* Sidebar with consolidated props */}
@@ -930,7 +1047,7 @@ function App() {
                     onOpenCertificate: () => bridge.sendMessage({ command: 'openCertificate' })
                 }}
                 activeView={activeView}
-                onChangeView={setActiveView}
+                onChangeView={handleSetActiveViewWrapper}
                 backendConnected={backendConnected}
                 workspaceDirty={workspaceDirty}
                 showBackendStatus={!isVsCode()}
@@ -945,11 +1062,38 @@ function App() {
             {/* WorkspaceLayout with consolidated props */}
             <WorkspaceLayout
                 selectionState={{
+                    project: projects.find(p => p.name === selectedProjectName) || null,
+                    interface: selectedInterface,
                     request: selectedRequest,
                     operation: selectedOperation,
                     testCase: selectedTestCase,
+                    testSuite: selectedTestSuite,
                     testStep: selectedStep,
                     performanceSuite: selectedPerformanceSuite
+                }}
+                navigationActions={{
+                    onSelectProject: (p) => {
+                        setSelectedProjectName(p.name);
+                        setActiveView(SidebarView.PROJECTS);
+                    },
+                    onSelectInterface: (i) => {
+                        // Ensure parent project is selected if possible (we only have interface here, might need project name context)
+                        // If we are navigating from Project Summary, we assume Project Level is correct.
+                        setSelectedInterface(i);
+                        setActiveView(SidebarView.PROJECTS);
+                    },
+                    onSelectOperation: (o) => {
+                        setSelectedOperation(o);
+                        setActiveView(SidebarView.PROJECTS);
+                    },
+                    onSelectRequest: (r) => {
+                        setSelectedRequest(r);
+                        setActiveView(SidebarView.PROJECTS);
+                    },
+                    onSelectTestCase: (tc) => {
+                        handleSelectTestCase(tc.id);
+                        setActiveView(SidebarView.TESTS);
+                    }
                 }}
                 requestActions={{
                     onExecute: executeRequest,
@@ -980,6 +1124,7 @@ function App() {
                     loading
                 }}
                 viewState={{
+                    activeView,
                     layoutMode,
                     showLineNumbers,
                     splitRatio,

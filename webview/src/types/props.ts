@@ -202,8 +202,11 @@ export interface SidebarPerformanceProps {
 // ============================================================================
 
 export interface WorkspaceSelectionState {
+    project?: import('../models').SoapUIProject | null;
+    interface?: import('../models').SoapUIInterface | null;
     request: SoapUIRequest | null;
     operation: SoapUIOperation | null;
+    testSuite?: import('../models').SoapTestSuite | null;
     testCase?: SoapTestCase | null;
     testStep?: SoapTestStep | null;
     performanceSuite?: PerformanceSuite | null;
@@ -219,6 +222,7 @@ export interface WorkspaceRequestActions {
 }
 
 export interface WorkspaceViewState {
+    activeView: import('../models').SidebarView;
     layoutMode: 'vertical' | 'horizontal';
     showLineNumbers: boolean;
     splitRatio: number;
@@ -290,6 +294,14 @@ export interface WorkspaceBreakpointState {
     onResolve: (modifiedContent: string, cancelled?: boolean) => void;
 }
 
+export interface NavigationActions {
+    onSelectProject: (project: import('../models').SoapUIProject) => void;
+    onSelectInterface: (iface: import('../models').SoapUIInterface) => void;
+    onSelectOperation: (operation: import('../models').SoapUIOperation) => void;
+    onSelectRequest: (request: SoapUIRequest) => void;
+    onSelectTestCase: (testCase: SoapTestCase) => void;
+}
+
 export interface WorkspaceLayoutProps extends WorkspacePerformanceActions {
     selectionState: WorkspaceSelectionState;
     requestActions: WorkspaceRequestActions;
@@ -298,6 +310,7 @@ export interface WorkspaceLayoutProps extends WorkspacePerformanceActions {
     stepActions: WorkspaceStepActions;
     toolsActions: WorkspaceToolsActions;
     breakpointState?: WorkspaceBreakpointState;
+    navigationActions?: NavigationActions;
     // Coordinator props for distributed workers
     coordinatorStatus?: import('../models').CoordinatorStatus;
     onStartCoordinator?: (port: number, expectedWorkers: number) => void;

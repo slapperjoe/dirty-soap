@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity } from 'lucide-react';
+import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity, Home } from 'lucide-react';
 import { SidebarView } from '../models';
 
 // Components
@@ -129,6 +129,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 flexDirection: 'column',
                 paddingTop: 10
             }}>
+                <NavItem
+                    icon={Home}
+                    active={activeView === SidebarView.HOME}
+                    onClick={() => onChangeView(SidebarView.HOME)}
+                    title="Home"
+                />
                 <NavItem
                     icon={FolderIcon}
                     active={activeView === SidebarView.PROJECTS}
