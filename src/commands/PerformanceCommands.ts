@@ -123,7 +123,12 @@ export class PickOperationForPerformanceCommand implements ICommand {
     ) { }
 
     async execute(message: any): Promise<void> {
-        const items: vscode.QuickPickItem[] = [];
+        // Define extended type for internal use
+        interface PerformanceQuickPickItem extends vscode.QuickPickItem {
+            request: any;
+            suiteId: string;
+        }
+        const items: PerformanceQuickPickItem[] = [];
         const projects = this._projectProvider();
 
         for (const project of projects) {
@@ -154,7 +159,6 @@ export class PickOperationForPerformanceCommand implements ICommand {
                                 label: `${op.name} - ${req.name}`, // Include Op Name in label for search
                                 description: `(${iface.name}) - ${enrichedRequest.endpoint}`,
                                 detail: project.name,
-                                // @ts-ignore
                                 request: enrichedRequest,
                                 suiteId: message.suiteId
                             });

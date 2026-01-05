@@ -14,7 +14,7 @@ export class DiagnosticService {
     private static instance: DiagnosticService;
     private logStream: fs.WriteStream | null = null;
     private currentLogPath: string = '';
-    private isRecording: boolean = true;
+    private isRecording = true;
 
     private constructor() {
         this.initializeLogStream();

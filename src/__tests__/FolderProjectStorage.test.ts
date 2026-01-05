@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+
 import { FolderProjectStorage } from '../FolderProjectStorage';
-import { SoapUIProject, SoapTestSuite, SoapTestCase, SoapTestStep } from '../models';
+import { SoapUIProject } from '../models';
 
 describe('FolderProjectStorage', () => {
     let storage: FolderProjectStorage;
@@ -108,11 +109,16 @@ describe('FolderProjectStorage', () => {
             expect(stepFiles.length).toBe(2);
 
             // Remove one step and save again
-            project.testSuites![0].testCases[0].steps = [project.testSuites![0].testCases[0].steps[0]];
-            await storage.saveProject(project, projectDir);
+            if (project.testSuites && project.testSuites[0] && project.testSuites[0].testCases[0]) {
+                const steps = project.testSuites[0].testCases[0].steps;
+                if (steps) {
+                    project.testSuites[0].testCases[0].steps = [steps[0]];
+                    await storage.saveProject(project, projectDir);
 
-            stepFiles = fs.readdirSync(caseDir).filter(f => f.endsWith('.json') && f !== 'case.json');
-            expect(stepFiles.length).toBe(1);
+                    stepFiles = fs.readdirSync(caseDir).filter(f => f.endsWith('.json') && f !== 'case.json');
+                    expect(stepFiles.length).toBe(1);
+                }
+            }
         });
 
         it('should delete orphaned test case directories', async () => {
@@ -121,11 +127,13 @@ describe('FolderProjectStorage', () => {
             fs.mkdirSync(projectDir);
 
             // Add second test case
-            project.testSuites![0].testCases.push({
-                id: 'case-2',
-                name: 'TestCase 2',
-                steps: []
-            });
+            if (project.testSuites && project.testSuites[0]) {
+                project.testSuites[0].testCases.push({
+                    id: 'case-2',
+                    name: 'TestCase 2',
+                    steps: []
+                });
+            }
             await storage.saveProject(project, projectDir);
 
             const suiteDir = path.join(projectDir, 'tests', 'TestSuite_1');
@@ -133,11 +141,13 @@ describe('FolderProjectStorage', () => {
             expect(caseDirs.length).toBe(2);
 
             // Remove one test case and save
-            project.testSuites![0].testCases = [project.testSuites![0].testCases[0]];
-            await storage.saveProject(project, projectDir);
+            if (project.testSuites && project.testSuites[0]) {
+                project.testSuites[0].testCases = [project.testSuites[0].testCases[0]];
+                await storage.saveProject(project, projectDir);
 
-            caseDirs = fs.readdirSync(suiteDir).filter(f => fs.statSync(path.join(suiteDir, f)).isDirectory());
-            expect(caseDirs.length).toBe(1);
+                caseDirs = fs.readdirSync(suiteDir).filter(f => fs.statSync(path.join(suiteDir, f)).isDirectory());
+                expect(caseDirs.length).toBe(1);
+            }
         });
     });
 
@@ -152,8 +162,9 @@ describe('FolderProjectStorage', () => {
 
             expect(loadedProject.name).toBe('Test Project');
             expect(loadedProject.testSuites).toHaveLength(1);
-            expect(loadedProject.testSuites![0].testCases).toHaveLength(1);
-            expect(loadedProject.testSuites![0].testCases[0].steps).toHaveLength(2);
+            const suite = loadedProject.testSuites?.[0];
+            expect(suite?.testCases).toHaveLength(1);
+            expect(suite?.testCases[0].steps).toHaveLength(2);
         });
 
         it('should preserve scriptContent through save/load cycle', async () => {
@@ -164,9 +175,9 @@ describe('FolderProjectStorage', () => {
             await storage.saveProject(project, projectDir);
             const loadedProject = await storage.loadProject(projectDir);
 
-            const scriptStep = loadedProject.testSuites![0].testCases[0].steps.find(s => s.type === 'script');
+            const scriptStep = loadedProject.testSuites?.[0].testCases[0].steps.find(s => s.type === 'script');
             expect(scriptStep).toBeDefined();
-            expect(scriptStep!.config.scriptContent).toBe('log("Hello World");');
+            expect(scriptStep?.config.scriptContent).toBe('log("Hello World");');
         });
 
         it('should throw error for invalid project folder', async () => {

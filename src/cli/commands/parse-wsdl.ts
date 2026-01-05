@@ -44,7 +44,7 @@ export async function parseWsdlCommand(url: string, options: ParseWsdlOptions): 
     }
 }
 
-function jsonToYaml(obj: any, indent: number = 0): string {
+function jsonToYaml(obj: any, indent = 0): string {
     const spaces = '  '.repeat(indent);
     const lines: string[] = [];
 

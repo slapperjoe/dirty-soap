@@ -12,8 +12,8 @@ import { DistributedWorker, CoordinatorStatus } from '../models';
 export class CoordinatorService extends EventEmitter {
     private wss: WebSocket.Server | null = null;
     private workers: Map<string, { worker: DistributedWorker; ws: WebSocket }> = new Map();
-    private port: number = 8765;
-    private expectedWorkers: number = 1;
+    private port = 8765;
+    private expectedWorkers = 1;
 
     constructor() {
         super();
@@ -22,7 +22,7 @@ export class CoordinatorService extends EventEmitter {
     /**
      * Start the coordinator WebSocket server
      */
-    public start(port: number = 8765, expectedWorkers: number = 1): void {
+    public start(port = 8765, expectedWorkers = 1): void {
         if (this.wss) {
             this.emit('log', 'Coordinator already running');
             return;
