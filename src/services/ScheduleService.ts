@@ -6,7 +6,7 @@
 
 import * as cron from 'node-cron';
 import { EventEmitter } from 'events';
-import { PerformanceSchedule, PerformanceSuite } from '../models';
+import { PerformanceSchedule } from '../models';
 import { PerformanceService } from './PerformanceService';
 
 interface ScheduledTask {
@@ -170,7 +170,7 @@ export class ScheduleService extends EventEmitter {
         // Simple approximation - node-cron doesn't expose this directly
         // For a proper implementation, use cron-parser
         try {
-            const parts = cronExpression.split(' ');
+            // const parts = cronExpression.split(' ');
             const now = new Date();
 
             // This is a simplified next-run calculation

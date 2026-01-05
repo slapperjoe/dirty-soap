@@ -207,8 +207,10 @@ export class MockService extends EventEmitter {
         this.logDebug('[MockService] Generating new certificate...');
         try {
             const pems = await (selfsigned as any).generate(attrs, opts);
-            fs.writeFileSync(this.certPath!, pems.cert);
-            fs.writeFileSync(this.keyPath!, pems.private);
+            if (this.certPath && this.keyPath) {
+                fs.writeFileSync(this.certPath, pems.cert);
+                fs.writeFileSync(this.keyPath, pems.private);
+            }
             this.logDebug(`[MockService] Wrote cert to: ${this.certPath}`);
             return { key: pems.private, cert: pems.cert };
         } catch (err: any) {
@@ -506,7 +508,11 @@ export class MockService extends EventEmitter {
 
         try {
             // Strip conflicting headers
-            const { 'transfer-encoding': _te, 'connection': _conn, 'content-length': _cl, host: _host, ...forwardHeaders } = req.headers;
+            const forwardHeaders = { ...req.headers };
+            delete forwardHeaders['transfer-encoding'];
+            delete forwardHeaders['connection'];
+            delete forwardHeaders['content-length'];
+            delete forwardHeaders['host'];
 
             const axiosConfig: AxiosRequestConfig = {
                 method: req.method as Method,

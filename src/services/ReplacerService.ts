@@ -33,7 +33,7 @@ export class ReplacerService {
         return this.rules;
     }
 
-    public processRequest(reqBody: string, reqUrl: string): string {
+    public processRequest(reqBody: string, _reqUrl: string): string {
         let processedBody = reqBody;
 
         // Filter rules that apply to Body and are Active, AND if they have a URL condition, it matches

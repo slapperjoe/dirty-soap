@@ -12,7 +12,7 @@ import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
 import { ReplaceRuleApplier, ReplaceRule } from '../utils/ReplaceRuleApplier';
 import type { MockService } from './MockService';
-import { MockRule, ProxyRule } from '../models';
+import { ProxyRule } from '../models';
 
 export type ServerMode = 'off' | 'mock' | 'proxy' | 'both';
 export interface ProxyConfig {
@@ -246,8 +246,10 @@ export class ProxyService extends EventEmitter {
             const pems = await (selfsigned as any).generate(attrs, opts);
 
             this.logDebug('[ProxyService] Certificate generation successful. Writing files...');
-            fs.writeFileSync(this.certPath!, pems.cert);
-            fs.writeFileSync(this.keyPath!, pems.private);
+            if (this.certPath && this.keyPath) {
+                fs.writeFileSync(this.certPath, pems.cert);
+                fs.writeFileSync(this.keyPath, pems.private);
+            }
             this.logDebug(`[ProxyService] Wrote cert to: ${this.certPath}`);
             return { key: pems.private, cert: pems.cert };
         } catch (err: any) {
@@ -397,7 +399,11 @@ export class ProxyService extends EventEmitter {
                 }
 
                 // Strip conflicting headers
-                const { 'transfer-encoding': te, 'connection': conn, 'content-length': cl, host, ...forwardHeaders } = req.headers;
+                const forwardHeaders = { ...req.headers };
+                delete forwardHeaders['transfer-encoding'];
+                delete forwardHeaders['connection'];
+                delete forwardHeaders['content-length'];
+                delete forwardHeaders['host'];
 
                 const axiosConfig: AxiosRequestConfig = {
                     method: req.method as Method,
@@ -632,7 +638,7 @@ export class ProxyService extends EventEmitter {
             };
 
             // Clean headers for probes
-            const { data, ...baseConfig } = originalConfig;
+            const { data: _data, ...baseConfig } = originalConfig;
             const headers = { ...baseConfig.headers } as any;
             delete headers['content-length'];
             delete headers['Content-Length'];
