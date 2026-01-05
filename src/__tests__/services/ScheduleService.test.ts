@@ -201,7 +201,7 @@ describe('ScheduleService', () => {
 
         it('should stop all existing schedules before loading new ones', () => {
             // Add an initial schedule
-            const existing = scheduleService.addSchedule('suite-0', 'Existing', '0 1 * * *');
+            scheduleService.addSchedule('suite-0', 'Existing', '0 1 * * *');
 
             // Load new schedules (should clear existing)
             scheduleService.loadSchedules([]);

@@ -1,4 +1,4 @@
-import { AssertionRunner, AssertionResult } from '../../utils/AssertionRunner';
+import { AssertionRunner } from '../../utils/AssertionRunner';
 import { SoapUIAssertion } from '../../models';
 
 describe('AssertionRunner', () => {

@@ -117,7 +117,7 @@ export class OpenCertificateCommand implements ICommand {
         private readonly _soapClient: SoapClient
     ) { }
 
-    async execute(message: any): Promise<void> {
+    async execute(_message: any): Promise<void> {
         // Force generation if not running or missing
         let certPath = this._proxyService.getCertPath();
         this._soapClient.log('[OpenCertificateCommand] Initial cert path: ' + certPath);

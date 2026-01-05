@@ -13,7 +13,7 @@ export interface LogEntry {
 export class DiagnosticService {
     private static instance: DiagnosticService;
     private logStream: fs.WriteStream | null = null;
-    private currentLogPath: string = '';
+    private currentLogPath = '';
     private isRecording = true;
 
     private constructor() {

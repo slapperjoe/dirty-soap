@@ -10,7 +10,7 @@ export class SelectLocalWsdlCommand implements ICommand {
         private readonly _soapClient: SoapClient
     ) { }
 
-    async execute(message: any): Promise<void> {
+    async execute(_message: any): Promise<void> {
         const uris = await vscode.window.showOpenDialog({
             canSelectFiles: true,
             filters: { 'WSDL Files': ['wsdl', 'xml'] }

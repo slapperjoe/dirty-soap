@@ -92,8 +92,10 @@ describe('FolderProjectStorage', () => {
             const scriptStepFile = stepFiles.find(f => f.includes('Script'));
 
             expect(scriptStepFile).toBeDefined();
-            const stepData = JSON.parse(fs.readFileSync(path.join(caseDir, scriptStepFile!), 'utf8'));
-            expect(stepData.config.scriptContent).toBe('log("Hello World");');
+            if (scriptStepFile) {
+                const stepData = JSON.parse(fs.readFileSync(path.join(caseDir, scriptStepFile), 'utf8'));
+                expect(stepData.config.scriptContent).toBe('log("Hello World");');
+            }
         });
 
         it('should delete orphaned step files when steps are removed', async () => {

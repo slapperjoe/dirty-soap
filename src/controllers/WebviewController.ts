@@ -1,12 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import axios from 'axios';
 import { SoapClient } from '../soapClient';
 import { ProjectStorage } from '../ProjectStorage';
 import { SettingsManager } from '../utils/SettingsManager';
 import { WildcardProcessor } from '../utils/WildcardProcessor';
-import { AssertionRunner } from '../utils/AssertionRunner';
 
 import { FileWatcherService } from '../services/FileWatcherService';
 import { ProxyService } from '../services/ProxyService';
@@ -15,7 +13,7 @@ import { TestRunnerService } from '../services/TestRunnerService';
 import { AzureDevOpsService } from '../services/AzureDevOpsService';
 import { MockService } from '../services/MockService';
 import { CoordinatorService } from '../services/CoordinatorService';
-import { SoapUIProject, SoapTestSuite, SoapTestCase } from '../models';
+import { SoapUIProject, SoapTestCase } from '../models';
 import { FolderProjectStorage } from '../FolderProjectStorage';
 
 import { ICommand } from '../commands/ICommand';

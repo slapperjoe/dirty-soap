@@ -1,6 +1,6 @@
 
 import { ICommand } from './ICommand';
-import { SoapClient } from '../soapClient';
+
 import { ProjectStorage } from '../ProjectStorage';
 import { FolderProjectStorage } from '../FolderProjectStorage';
 import { SoapUIProject } from '../models';
