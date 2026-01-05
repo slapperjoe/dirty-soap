@@ -4,29 +4,10 @@ import { Users, Play, Square, Server, Cpu, Clock, CheckCircle, AlertCircle, Load
 import { CoordinatorStatus } from '../../models';
 
 const Container = styled.div`
-    background: var(--vscode-editor-inactiveSelectionBackground);
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid var(--vscode-widget-border);
+    /* No outer styling - panel is now embedded in a Section */
 `;
 
-const Header = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--vscode-panel-border);
-`;
 
-const Title = styled.h3`
-    margin: 0;
-    font-size: 1em;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
 
 const Controls = styled.div`
     display: flex;
@@ -164,14 +145,7 @@ const EmptyState = styled.div`
     font-size: 0.9em;
 `;
 
-const StatusIndicator = styled.div<{ running: boolean }>`
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: ${props => props.running
-        ? 'var(--vscode-testing-iconPassed)'
-        : 'var(--vscode-testing-iconFailed)'};
-`;
+
 
 interface WorkerStatusPanelProps {
     status: CoordinatorStatus;
@@ -204,55 +178,49 @@ export const WorkerStatusPanel: React.FC<WorkerStatusPanelProps> = ({
 
     return (
         <Container>
-            <Header>
-                <Title>
-                    <Users size={18} />
-                    Distributed Workers
-                    <StatusIndicator running={status.running} title={status.running ? 'Running' : 'Stopped'} />
-                </Title>
-                <Controls>
-                    {!status.running ? (
-                        <>
-                            <Label>
-                                Port:
-                                <Input
-                                    type="number"
-                                    value={port}
-                                    onChange={e => setPort(parseInt(e.target.value) || 8765)}
-                                    min={1024}
-                                    max={65535}
-                                />
-                            </Label>
-                            <Label>
-                                Workers:
-                                <Input
-                                    type="number"
-                                    value={expectedWorkers}
-                                    onChange={e => setExpectedWorkers(parseInt(e.target.value) || 1)}
-                                    min={1}
-                                    max={100}
-                                />
-                            </Label>
-                            <Button onClick={() => onStart(port, expectedWorkers)}>
-                                <Play size={14} /> Start
-                            </Button>
-                        </>
-                    ) : (
-                        <>
-                            <Label>
-                                <Server size={14} />
-                                ws://localhost:{status.port}
-                            </Label>
-                            <Label>
-                                {status.workers.length}/{status.expectedWorkers} workers
-                            </Label>
-                            <Button variant="danger" onClick={onStop}>
-                                <Square size={14} /> Stop
-                            </Button>
-                        </>
-                    )}
-                </Controls>
-            </Header>
+            {/* Controls for starting/stopping coordinator */}
+            <Controls style={{ marginBottom: 15 }}>
+                {!status.running ? (
+                    <>
+                        <Label>
+                            Port:
+                            <Input
+                                type="number"
+                                value={port}
+                                onChange={e => setPort(parseInt(e.target.value) || 8765)}
+                                min={1024}
+                                max={65535}
+                            />
+                        </Label>
+                        <Label>
+                            Expected:
+                            <Input
+                                type="number"
+                                value={expectedWorkers}
+                                onChange={e => setExpectedWorkers(parseInt(e.target.value) || 1)}
+                                min={1}
+                                max={100}
+                            />
+                        </Label>
+                        <Button onClick={() => onStart(port, expectedWorkers)}>
+                            <Play size={14} /> Start Coordinator
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <Label>
+                            <Server size={14} />
+                            ws://localhost:{status.port}
+                        </Label>
+                        <Label>
+                            {status.workers.length}/{status.expectedWorkers} connected
+                        </Label>
+                        <Button variant="danger" onClick={onStop}>
+                            <Square size={14} /> Stop
+                        </Button>
+                    </>
+                )}
+            </Controls>
 
             <WorkerList>
                 {status.workers.length === 0 ? (

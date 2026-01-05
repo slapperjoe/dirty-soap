@@ -195,6 +195,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                     originalEndpoint: op.originalEndpoint,
                                     requests: [{
                                         name: 'Request 1',
+                                        endpoint: op.originalEndpoint,
                                         headers: {
                                             'Content-Type': portName.includes('12') ? 'application/soap+xml' : 'text/xml'
                                         },

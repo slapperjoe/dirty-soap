@@ -158,7 +158,7 @@ function App() {
 
     // UI State (remaining)
     const [inputType, setInputType] = useState<'url' | 'file'>('url');
-    const [wsdlUrl, setWsdlUrl] = useState('http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL');
+    const [wsdlUrl, setWsdlUrl] = useState('');
 
     // Derived State (must be after config is defined)
     const selectedPerformanceSuite = config?.performanceSuites?.find(s => s.id === selectedPerformanceSuiteId) || null;
@@ -442,6 +442,24 @@ function App() {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
+    // Auto-select first performance suite when none is selected but suites exist
+    useEffect(() => {
+        const suites = config?.performanceSuites || [];
+        if (suites.length > 0 && !selectedPerformanceSuiteId) {
+            setSelectedPerformanceSuiteId(suites[0].id);
+        }
+    }, [config?.performanceSuites, selectedPerformanceSuiteId, setSelectedPerformanceSuiteId]);
+
+    // Auto-select first test case when none is selected but test cases exist
+    useEffect(() => {
+        // Flatten all test cases from all projects/suites
+        const allCases = projects.flatMap(p =>
+            (p.testSuites || []).flatMap(s => s.testCases || [])
+        );
+        if (allCases.length > 0 && !selectedTestCase) {
+            setSelectedTestCase(allCases[0]);
+        }
+    }, [projects, selectedTestCase, setSelectedTestCase]);
 
     const sidebarPerformanceProps = {
         suites: config?.performanceSuites || [],
@@ -974,7 +992,7 @@ function App() {
                     hideCausalityData,
                     onToggleHideCausalityData: handleToggleHideCausalityData
                 }}
-                configState={{ config, defaultEndpoint: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL', changelog, onChangeEnvironment: (env) => bridge.sendMessage({ command: 'setActiveEnvironment', env }), isReadOnly: false, backendConnected }}
+                configState={{ config, defaultEndpoint: '', changelog, onChangeEnvironment: (env) => bridge.sendMessage({ command: 'setActiveEnvironment', env }), isReadOnly: false, backendConnected }}
                 stepActions={{
                     onRunTestCase: handleRunTestCaseWrapper,
                     onOpenStepRequest: (req) => { setSelectedRequest(req); setActiveView(SidebarView.EXPLORER); console.warn('Legacy onOpenStepRequest called'); },
@@ -1012,6 +1030,10 @@ function App() {
                     activeBreakpoint,
                     onResolve: handleResolveBreakpoint
                 }}
+
+                coordinatorStatus={coordinatorStatus}
+                onStartCoordinator={handleStartCoordinator}
+                onStopCoordinator={handleStopCoordinator}
             />
 
             {

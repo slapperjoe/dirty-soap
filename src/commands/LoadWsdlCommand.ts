@@ -45,11 +45,10 @@ export class LoadWsdlCommand implements ICommand {
                 this._soapClient.log('Using system proxy for WSDL fetch...');
             }
 
-            // Instantiate Parser with proxy option
-            const parser = new WsdlParser(null, {});
+            this._soapClient.log(`Parsing WSDL from URL: ${url}`);
 
-            // Use instance method
-            const parsed = await parser.parseWsdl(url);
+            // Use the centralized soapClient to parse, which handles settings/proxies correctly
+            const parsed = await this._soapClient.parseWsdl(url);
 
             this._panel.webview.postMessage({
                 command: 'wsdlParsed',

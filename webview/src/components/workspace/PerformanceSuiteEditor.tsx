@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Play, Plus, Trash2, Settings, Clock, Repeat, Flame, Zap, GripVertical, Loader, Square, Calendar, ToggleLeft, ToggleRight, Import, Download, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Play, Plus, Trash2, Settings, Clock, Repeat, Flame, Zap, GripVertical, Loader, Square, Calendar, ToggleLeft, ToggleRight, Import, Download, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertTriangle, Users } from 'lucide-react';
 import { PerformanceSuite, PerformanceRun, PerformanceSchedule, PerformanceRequest, CoordinatorStatus } from '../../models';
 import { WorkerStatusPanel } from './WorkerStatusPanel';
 import {
@@ -18,23 +18,40 @@ const EditorContainer = styled.div`
     font-family: var(--vscode-font-family);
 `;
 
-const Section = styled.div`
+const Section = styled.div<{ $collapsed?: boolean }>`
     margin-bottom: 25px;
     background: var(--vscode-editor-inactiveSelectionBackground);
     border-radius: 6px;
-    padding: 15px;
+    padding: ${props => props.$collapsed ? '0' : '15px'};
     border: 1px solid var(--vscode-widget-border);
+    overflow: hidden;
 `;
 
-const SectionHeader = styled.h3`
-    margin: 0 0 15px 0;
+const SectionHeader = styled.div<{ $clickable?: boolean }>`
+    margin: 0;
+    padding: 15px;
     font-size: 1.1em;
     font-weight: 600;
     display: flex;
     align-items: center;
     gap: 8px;
     border-bottom: 1px solid var(--vscode-panel-border);
-    padding-bottom: 8px;
+    cursor: ${props => props.$clickable ? 'pointer' : 'default'};
+    user-select: none;
+    transition: background 0.15s ease;
+    
+    &:hover {
+        background: ${props => props.$clickable ? 'var(--vscode-list-hoverBackground)' : 'transparent'};
+    }
+`;
+
+const SectionContent = styled.div<{ $collapsed?: boolean }>`
+    display: ${props => props.$collapsed ? 'none' : 'block'};
+    padding: 15px;
+`;
+
+const SectionTitle = styled.span`
+    flex: 1;
 `;
 
 const Grid = styled.div`
@@ -276,6 +293,20 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
     const [showScheduleInput, setShowScheduleInput] = useState(false);
     const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
+    // Helper to check if section is collapsed
+    const isCollapsed = (sectionId: string) => {
+        return suite.collapsedSections?.includes(sectionId) ?? false;
+    };
+
+    // Toggle collapse state for a section
+    const toggleSection = (sectionId: string) => {
+        const current = suite.collapsedSections || [];
+        const updated = current.includes(sectionId)
+            ? current.filter(id => id !== sectionId)
+            : [...current, sectionId];
+        onUpdate({ ...suite, collapsedSections: updated });
+    };
+
     const handleChange = (field: keyof PerformanceSuite, value: any) => {
         onUpdate({ ...suite, [field]: value });
     };
@@ -377,214 +408,223 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
 
             <EditorContainer>
                 {/* Configuration Section */}
-                <Section>
-                    <SectionHeader>
-                        <Settings size={16} /> Configuration
+                <Section $collapsed={isCollapsed('config')}>
+                    <SectionHeader $clickable onClick={() => toggleSection('config')}>
+                        {isCollapsed('config') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                        <SectionTitle><Settings size={16} /> Configuration</SectionTitle>
                     </SectionHeader>
-                    <Grid>
-                        <FormGroup>
-                            <Label><Clock size={14} /> Delay (ms)</Label>
-                            <Input
-                                type="number"
-                                value={suite.delayBetweenRequests}
-                                onChange={(e) => handleConfigChange(e, 'delayBetweenRequests', 'number')}
-                                title="Delay between requests in sequence"
-                            />
-                        </FormGroup>
-                        <FormGroup>
-                            <Label><Repeat size={14} /> Iterations</Label>
-                            <Input
-                                type="number"
-                                value={suite.iterations}
-                                onChange={(e) => handleConfigChange(e, 'iterations', 'number')}
-                                title="Number of times to run the full sequence"
-                            />
-                        </FormGroup>
-                        <FormGroup>
-                            <Label><Zap size={14} /> Concurrency</Label>
-                            <Input
-                                type="number"
-                                value={suite.concurrency}
-                                onChange={(e) => handleConfigChange(e, 'concurrency', 'number')}
-                                min={1}
-                                title="Parallel requests (1 = sequential)"
-                            />
-                        </FormGroup>
-                        <FormGroup>
-                            <Label><Flame size={14} /> Warmup Runs</Label>
-                            <Input
-                                type="number"
-                                value={suite.warmupRuns}
-                                onChange={(e) => handleConfigChange(e, 'warmupRuns', 'number')}
-                                title="Runs to discard before measuring stats"
-                            />
-                        </FormGroup>
-                    </Grid>
+                    <SectionContent $collapsed={isCollapsed('config')}>
+                        <Grid>
+                            <FormGroup>
+                                <Label title="Delay between requests in sequence"><Clock size={14} /> Delay (ms)</Label>
+                                <Input
+                                    type="number"
+                                    value={suite.delayBetweenRequests}
+                                    onChange={(e) => handleConfigChange(e, 'delayBetweenRequests', 'number')}
+                                    title="Delay between requests in sequence"
+                                />
+                            </FormGroup>
+                            <FormGroup>
+                                <Label title="Number of times to run the full sequence"><Repeat size={14} /> Iterations</Label>
+                                <Input
+                                    type="number"
+                                    value={suite.iterations}
+                                    onChange={(e) => handleConfigChange(e, 'iterations', 'number')}
+                                    title="Number of times to run the full sequence"
+                                />
+                            </FormGroup>
+                            <FormGroup>
+                                <Label title="Parallel requests (1 = sequential)"><Zap size={14} /> Concurrency</Label>
+                                <Input
+                                    type="number"
+                                    value={suite.concurrency}
+                                    onChange={(e) => handleConfigChange(e, 'concurrency', 'number')}
+                                    min={1}
+                                    title="Parallel requests (1 = sequential)"
+                                />
+                            </FormGroup>
+                            <FormGroup>
+                                <Label title="Runs to discard before measuring stats"><Flame size={14} /> Warmup Runs</Label>
+                                <Input
+                                    type="number"
+                                    value={suite.warmupRuns}
+                                    onChange={(e) => handleConfigChange(e, 'warmupRuns', 'number')}
+                                    title="Runs to discard before measuring stats"
+                                />
+                            </FormGroup>
+                        </Grid>
+                    </SectionContent>
                 </Section>
 
-                {/* Steps Section */}
-                <Section>
-                    <SectionHeader>
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Play size={16} /> Test Requests
-                        </div>
-                        {onAddRequest && (
-                            <div style={{ display: 'flex', gap: 5 }}>
-                                <ToolbarButton onClick={() => onAddRequest(suite.id)}>
-                                    <Plus size={14} /> Add Request
-                                </ToolbarButton>
-                            </div>
+                {/* Test Requests Section */}
+                <Section $collapsed={isCollapsed('requests')}>
+                    <SectionHeader $clickable onClick={() => toggleSection('requests')}>
+                        {isCollapsed('requests') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                        <SectionTitle><Play size={16} /> Test Requests ({suite.requests.length})</SectionTitle>
+                        {onAddRequest && !isCollapsed('requests') && (
+                            <ToolbarButton onClick={(e) => { e.stopPropagation(); onAddRequest(suite.id); }}>
+                                <Plus size={14} /> Add Request
+                            </ToolbarButton>
                         )}
                     </SectionHeader>
-
-                    <RequestList>
-                        {sortedRequests.map((req, index) => (
-                            <RequestItem
-                                key={req.id}
-                                draggable
-                                isDragging={draggedId === req.id}
-                                isDropTarget={dropTargetId === req.id}
-                                onDragStart={(e) => handleDragStart(e, req.id)}
-                                onDragOver={(e) => handleDragOver(e, req.id)}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, req.id)}
-                                onDragEnd={handleDragEnd}
-                                onClick={() => onSelectRequest?.(req)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <DragHandle onClick={(e) => e.stopPropagation()}>
-                                    <GripVertical size={16} />
-                                </DragHandle>
-                                <div style={{ fontWeight: 'bold', width: 25, opacity: 0.6 }}>{index + 1}.</div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <MethodBadge>{req.method}</MethodBadge>
-                                        <span style={{ fontWeight: 500 }}>{req.name}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 4 }}>
-                                        {req.endpoint}
-                                    </div>
-                                    {(req.interfaceName || req.operationName) && (
-                                        <div style={{ fontSize: '0.8em', opacity: 0.6, marginTop: 2, fontStyle: 'italic' }}>
-                                            {req.interfaceName} {req.operationName && ` • ${req.operationName}`}
+                    <SectionContent $collapsed={isCollapsed('requests')}>
+                        <RequestList>
+                            {sortedRequests.map((req, index) => (
+                                <RequestItem
+                                    key={req.id}
+                                    draggable
+                                    isDragging={draggedId === req.id}
+                                    isDropTarget={dropTargetId === req.id}
+                                    onDragStart={(e) => handleDragStart(e, req.id)}
+                                    onDragOver={(e) => handleDragOver(e, req.id)}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => handleDrop(e, req.id)}
+                                    onDragEnd={handleDragEnd}
+                                    onClick={() => onSelectRequest?.(req)}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <DragHandle onClick={(e) => e.stopPropagation()}>
+                                        <GripVertical size={16} />
+                                    </DragHandle>
+                                    <div style={{ fontWeight: 'bold', width: 25, opacity: 0.6 }}>{index + 1}.</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <MethodBadge>{req.method}</MethodBadge>
+                                            <span style={{ fontWeight: 500 }}>{req.name}</span>
                                         </div>
-                                    )}
-                                    {req.soapAction && (
-                                        <div style={{ fontSize: '0.8em', opacity: 0.6, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.soapAction}>
-                                            Action: {req.soapAction}
+                                        <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 4 }}>
+                                            {req.endpoint}
                                         </div>
-                                    )}
+                                        {(req.interfaceName || req.operationName) && (
+                                            <div style={{ fontSize: '0.8em', opacity: 0.6, marginTop: 2, fontStyle: 'italic' }}>
+                                                {req.interfaceName} {req.operationName && ` • ${req.operationName}`}
+                                            </div>
+                                        )}
+                                        {req.soapAction && (
+                                            <div style={{ fontSize: '0.8em', opacity: 0.6, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.soapAction}>
+                                                Action: {req.soapAction}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                        {onDeleteRequest && (
+                                            <IconButton onClick={(e) => { e.stopPropagation(); onDeleteRequest(suite.id, req.id); }} title="Remove Request">
+                                                <Trash2 size={14} />
+                                            </IconButton>
+                                        )}
+                                    </div>
+                                </RequestItem>
+                            ))}
+                            {sortedRequests.length === 0 && (
+                                <div style={{ padding: 20, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
+                                    No requests in suite. Add a request to begin.
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    {onDeleteRequest && (
-                                        <IconButton onClick={(e) => { e.stopPropagation(); onDeleteRequest(suite.id, req.id); }} title="Remove Request">
-                                            <Trash2 size={14} />
-                                        </IconButton>
-                                    )}
-                                </div>
-                            </RequestItem>
-                        ))}
-                        {sortedRequests.length === 0 && (
-                            <div style={{ padding: 20, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
-                                No requests in suite. Add a request to begin.
-                            </div>
-                        )}
-                    </RequestList>
+                            )}
+                        </RequestList>
+                    </SectionContent>
                 </Section>
 
                 {/* Scheduling Section */}
-                <Section>
-                    <SectionHeader>
-                        <Calendar size={16} /> Scheduling
-                        <div style={{ marginLeft: 'auto' }}>
-                            {!showScheduleInput && (
-                                <IconButton onClick={() => setShowScheduleInput(true)} title="Add Schedule">
-                                    <Plus size={14} />
-                                </IconButton>
-                            )}
-                        </div>
+                <Section $collapsed={isCollapsed('scheduling')}>
+                    <SectionHeader $clickable onClick={() => toggleSection('scheduling')}>
+                        {isCollapsed('scheduling') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                        <SectionTitle><Calendar size={16} /> Scheduling ({schedules.filter(s => s.suiteId === suite.id).length})</SectionTitle>
+                        {!isCollapsed('scheduling') && !showScheduleInput && (
+                            <ToolbarButton onClick={(e) => { e.stopPropagation(); setShowScheduleInput(true); }} title="Add Schedule">
+                                <Plus size={14} /> Add Schedule
+                            </ToolbarButton>
+                        )}
                     </SectionHeader>
-
-                    {/* Add New Schedule */}
-                    {showScheduleInput && (
-                        <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
-                            <Input
-                                type="text"
-                                value={newCron}
-                                onChange={(e) => setNewCron(e.target.value)}
-                                placeholder="0 3 * * * (daily at 3am)"
-                                style={{ flex: 1 }}
-                            />
-                            <ToolbarButton
-                                onClick={() => {
-                                    if (onAddSchedule && newCron) {
-                                        onAddSchedule(suite.id, newCron);
-                                        setNewCron('0 3 * * *');
-                                        setShowScheduleInput(false);
-                                    }
-                                }}
-                                style={{ color: 'var(--vscode-testing-iconPassed)' }}
-                            >
-                                <Plus size={14} /> Add
-                            </ToolbarButton>
-                            <ToolbarButton onClick={() => setShowScheduleInput(false)}>
-                                Cancel
-                            </ToolbarButton>
-                        </div>
-                    )}
-
-                    {/* Schedule List */}
-                    {schedules.filter(s => s.suiteId === suite.id).map(schedule => (
-                        <RequestItem key={schedule.id}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                                <button
-                                    onClick={() => onToggleSchedule?.(schedule.id, !schedule.enabled)}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: schedule.enabled
-                                            ? 'var(--vscode-testing-iconPassed)'
-                                            : 'var(--vscode-disabledForeground)',
-                                        padding: 0
+                    <SectionContent $collapsed={isCollapsed('scheduling')}>
+                        {/* Add New Schedule */}
+                        {showScheduleInput && (
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
+                                <Input
+                                    type="text"
+                                    value={newCron}
+                                    onChange={(e) => setNewCron(e.target.value)}
+                                    placeholder="0 3 * * * (daily at 3am)"
+                                    style={{ flex: 1 }}
+                                />
+                                <ToolbarButton
+                                    onClick={() => {
+                                        if (onAddSchedule && newCron) {
+                                            onAddSchedule(suite.id, newCron);
+                                            setNewCron('0 3 * * *');
+                                            setShowScheduleInput(false);
+                                        }
                                     }}
-                                    title={schedule.enabled ? 'Disable' : 'Enable'}
+                                    style={{ color: 'var(--vscode-testing-iconPassed)' }}
                                 >
-                                    {schedule.enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                                </button>
-                                <div>
-                                    <div style={{ fontWeight: 500 }}>
-                                        <code>{schedule.cronExpression}</code>
-                                    </div>
-                                    <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
-                                        {schedule.enabled ? 'Active' : 'Disabled'}
-                                        {schedule.lastRun && ` • Last run: ${new Date(schedule.lastRun).toLocaleString()}`}
+                                    <Plus size={14} /> Add
+                                </ToolbarButton>
+                                <ToolbarButton onClick={() => setShowScheduleInput(false)}>
+                                    Cancel
+                                </ToolbarButton>
+                            </div>
+                        )}
+
+                        {/* Schedule List */}
+                        {schedules.filter(s => s.suiteId === suite.id).map(schedule => (
+                            <RequestItem key={schedule.id}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                                    <button
+                                        onClick={() => onToggleSchedule?.(schedule.id, !schedule.enabled)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: schedule.enabled
+                                                ? 'var(--vscode-testing-iconPassed)'
+                                                : 'var(--vscode-disabledForeground)',
+                                            padding: 0
+                                        }}
+                                        title={schedule.enabled ? 'Disable' : 'Enable'}
+                                    >
+                                        {schedule.enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                    </button>
+                                    <div>
+                                        <div style={{ fontWeight: 500 }}>
+                                            <code>{schedule.cronExpression}</code>
+                                        </div>
+                                        <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                                            {schedule.enabled ? 'Active' : 'Disabled'}
+                                            {schedule.lastRun && ` • Last run: ${new Date(schedule.lastRun).toLocaleString()}`}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <IconButton
-                                onClick={() => onDeleteSchedule?.(schedule.id)}
-                                title="Delete Schedule"
-                            >
-                                <Trash2 size={14} />
-                            </IconButton>
-                        </RequestItem>
-                    ))}
+                                <IconButton
+                                    onClick={() => onDeleteSchedule?.(schedule.id)}
+                                    title="Delete Schedule"
+                                >
+                                    <Trash2 size={14} />
+                                </IconButton>
+                            </RequestItem>
+                        ))}
 
-                    {schedules.filter(s => s.suiteId === suite.id).length === 0 && !showScheduleInput && (
-                        <div style={{ padding: 15, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
-                            No schedules. Click "Add Schedule" to run this suite automatically.
-                        </div>
-                    )}
+                        {schedules.filter(s => s.suiteId === suite.id).length === 0 && !showScheduleInput && (
+                            <div style={{ padding: 15, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
+                                No schedules. Click "Add Schedule" to run this suite automatically.
+                            </div>
+                        )}
+                    </SectionContent>
                 </Section>
 
                 {/* Distributed Workers Section */}
                 {coordinatorStatus && onStartCoordinator && onStopCoordinator && (
-                    <WorkerStatusPanel
-                        status={coordinatorStatus}
-                        onStart={onStartCoordinator}
-                        onStop={onStopCoordinator}
-                    />
+                    <Section $collapsed={isCollapsed('workers')}>
+                        <SectionHeader $clickable onClick={() => toggleSection('workers')}>
+                            {isCollapsed('workers') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                            <SectionTitle><Users size={16} /> Distributed Workers ({coordinatorStatus.workers.length})</SectionTitle>
+                        </SectionHeader>
+                        <SectionContent $collapsed={isCollapsed('workers')}>
+                            <WorkerStatusPanel
+                                status={coordinatorStatus}
+                                onStart={onStartCoordinator}
+                                onStop={onStopCoordinator}
+                            />
+                        </SectionContent>
+                    </Section>
                 )}
 
                 {/* Run Progress - Only show when running */}
@@ -593,162 +633,167 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                         <SectionHeader>
                             <Loader size={16} className="animate-spin" /> Running...
                         </SectionHeader>
-                        <ProgressContainer>
-                            <div style={{ marginBottom: 5, fontSize: '0.9em' }}>
-                                {progress && progress.total > 0
-                                    ? `Iteration ${progress.iteration} of ${progress.total}`
-                                    : 'Starting...'}
-                            </div>
-                            <ProgressBar>
-                                <ProgressFill $percent={progress && progress.total > 0 ? (progress.iteration / progress.total) * 100 : 0} />
-                            </ProgressBar>
-                        </ProgressContainer>
+                        <SectionContent>
+                            <ProgressContainer>
+                                <div style={{ marginBottom: 5, fontSize: '0.9em' }}>
+                                    {progress && progress.total > 0
+                                        ? `Iteration ${progress.iteration} of ${progress.total}`
+                                        : 'Starting...'}
+                                </div>
+                                <ProgressBar>
+                                    <ProgressFill $percent={progress && progress.total > 0 ? (progress.iteration / progress.total) * 100 : 0} />
+                                </ProgressBar>
+                            </ProgressContainer>
+                        </SectionContent>
                     </Section>
                 )}
 
-                {/* Run History - ALWAYS VISIBLE */}
-                <Section>
-                    <SectionHeader>
-                        <Clock size={16} /> Run History ({history.length})
+                {/* Run History */}
+                <Section $collapsed={isCollapsed('history')}>
+                    <SectionHeader $clickable onClick={() => toggleSection('history')}>
+                        {isCollapsed('history') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                        <SectionTitle><Clock size={16} /> Run History ({history.length})</SectionTitle>
                     </SectionHeader>
-                    {history.length > 0 ? (
-                        <>
-                            {history.slice(0, 5).map((run) => {
-                                const isExpanded = expandedRunId === run.id;
-                                const stats = run.summary;
-                                const maxDuration = Math.max(...run.results.map(r => r.duration), 1);
+                    <SectionContent $collapsed={isCollapsed('history')}>
+                        {history.length > 0 ? (
+                            <>
+                                {history.slice(0, 5).map((run) => {
+                                    const isExpanded = expandedRunId === run.id;
+                                    const stats = run.summary;
+                                    const maxDuration = Math.max(...run.results.map(r => r.duration), 1);
 
-                                return (
-                                    <RunItem key={run.id}>
-                                        <RunHeader onClick={() => setExpandedRunId(isExpanded ? null : run.id)}>
-                                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                            {run.status === 'completed' ? (
-                                                <CheckCircle size={16} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
-                                            ) : run.status === 'aborted' ? (
-                                                <AlertTriangle size={16} style={{ color: 'var(--vscode-editorWarning-foreground)' }} />
-                                            ) : (
-                                                <XCircle size={16} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
-                                            )}
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 500 }}>
-                                                    {new Date(run.startTime).toLocaleString()}
-                                                </div>
-                                                <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
-                                                    {stats.totalRequests} requests • {stats.successRate.toFixed(0)}% success • avg {stats.avgResponseTime.toFixed(0)}ms
-                                                </div>
-                                            </div>
-                                            <ToolbarButton
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    // Export CSV
-                                                    const csv = [
-                                                        'Request,Iteration,Duration (ms),Status,Success,SLA Breached,Timestamp',
-                                                        ...run.results.map(r =>
-                                                            `"${r.requestName}",${r.iteration},${r.duration.toFixed(2)},${r.status},${r.success},${r.slaBreached},${new Date(r.timestamp).toISOString()}`
-                                                        )
-                                                    ].join('\n');
-                                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                                    const url = URL.createObjectURL(blob);
-                                                    const a = document.createElement('a');
-                                                    a.href = url;
-                                                    a.download = `performance-run-${run.id}.csv`;
-                                                    a.click();
-                                                    URL.revokeObjectURL(url);
-                                                }}
-                                                title="Export CSV"
-                                            >
-                                                <Download size={14} />
-                                            </ToolbarButton>
-                                        </RunHeader>
-
-                                        {isExpanded && (
-                                            <RunDetails>
-                                                {/* SLA Statistics */}
-                                                <StatsGrid>
-                                                    <StatCard $variant={stats.successRate >= 95 ? 'success' : stats.successRate >= 80 ? 'warning' : 'error'}>
-                                                        <StatValue>{stats.successRate.toFixed(1)}%</StatValue>
-                                                        <StatLabel>Success Rate</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard>
-                                                        <StatValue>{stats.avgResponseTime.toFixed(0)}ms</StatValue>
-                                                        <StatLabel>Average</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard>
-                                                        <StatValue>{stats.minResponseTime.toFixed(0)}ms</StatValue>
-                                                        <StatLabel>Min</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard>
-                                                        <StatValue>{stats.maxResponseTime.toFixed(0)}ms</StatValue>
-                                                        <StatLabel>Max</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard>
-                                                        <StatValue>{stats.p50.toFixed(0)}ms</StatValue>
-                                                        <StatLabel>p50</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard>
-                                                        <StatValue>{stats.p95.toFixed(0)}ms</StatValue>
-                                                        <StatLabel>p95</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard $variant={stats.slaBreachCount > 0 ? 'error' : 'success'}>
-                                                        <StatValue>{stats.p99.toFixed(0)}ms</StatValue>
-                                                        <StatLabel>p99</StatLabel>
-                                                    </StatCard>
-                                                    <StatCard $variant={stats.slaBreachCount > 0 ? 'error' : undefined}>
-                                                        <StatValue>{stats.slaBreachCount}</StatValue>
-                                                        <StatLabel>SLA Breaches</StatLabel>
-                                                    </StatCard>
-                                                </StatsGrid>
-
-                                                {/* Response Time Chart */}
-                                                <div style={{ fontSize: '0.85em', marginBottom: 5, opacity: 0.7 }}>Response Times</div>
-                                                <ChartContainer>
-                                                    {run.results.slice(0, 50).map((result, idx) => (
-                                                        <ChartBar
-                                                            key={idx}
-                                                            $height={(result.duration / maxDuration) * 100}
-                                                            $success={result.success}
-                                                            title={`${result.requestName}: ${result.duration.toFixed(0)}ms`}
-                                                        />
-                                                    ))}
-                                                </ChartContainer>
-
-                                                {/* Individual Results */}
-                                                <div style={{ fontSize: '0.85em', marginBottom: 5, opacity: 0.7 }}>Results ({run.results.length})</div>
-                                                {run.results.slice(0, 20).map((result, idx) => (
-                                                    <ResultRow key={idx} $success={result.success}>
-                                                        {result.success ? (
-                                                            <CheckCircle size={12} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
-                                                        ) : (
-                                                            <XCircle size={12} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
-                                                        )}
-                                                        <span style={{ flex: 1 }}>{result.requestName}</span>
-                                                        <span style={{ opacity: 0.7 }}>#{result.iteration + 1}</span>
-                                                        <span style={{ fontWeight: 500 }}>{result.duration.toFixed(0)}ms</span>
-                                                        {result.slaBreached && (
-                                                            <span title="SLA Breached">
-                                                                <AlertTriangle size={12} style={{ color: 'var(--vscode-editorWarning-foreground)' }} />
-                                                            </span>
-                                                        )}
-                                                    </ResultRow>
-                                                ))}
-                                                {run.results.length > 20 && (
-                                                    <div style={{ textAlign: 'center', opacity: 0.6, fontSize: '0.85em', marginTop: 8 }}>
-                                                        ... and {run.results.length - 20} more results
-                                                    </div>
+                                    return (
+                                        <RunItem key={run.id}>
+                                            <RunHeader onClick={() => setExpandedRunId(isExpanded ? null : run.id)}>
+                                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                {run.status === 'completed' ? (
+                                                    <CheckCircle size={16} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
+                                                ) : run.status === 'aborted' ? (
+                                                    <AlertTriangle size={16} style={{ color: 'var(--vscode-editorWarning-foreground)' }} />
+                                                ) : (
+                                                    <XCircle size={16} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
                                                 )}
-                                            </RunDetails>
-                                        )}
-                                    </RunItem>
-                                );
-                            })}
-                        </>
-                    ) : (
-                        <div style={{ padding: 15, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
-                            No runs yet. History will appear after the first completed run.
-                        </div>
-                    )}
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 500 }}>
+                                                        {new Date(run.startTime).toLocaleString()}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                                                        {stats.totalRequests} requests • {stats.successRate.toFixed(0)}% success • avg {stats.avgResponseTime.toFixed(0)}ms
+                                                    </div>
+                                                </div>
+                                                <ToolbarButton
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        // Export CSV
+                                                        const csv = [
+                                                            'Request,Iteration,Duration (ms),Status,Success,SLA Breached,Timestamp',
+                                                            ...run.results.map(r =>
+                                                                `"${r.requestName}",${r.iteration},${r.duration.toFixed(2)},${r.status},${r.success},${r.slaBreached},${new Date(r.timestamp).toISOString()}`
+                                                            )
+                                                        ].join('\n');
+                                                        const blob = new Blob([csv], { type: 'text/csv' });
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `performance-run-${run.id}.csv`;
+                                                        a.click();
+                                                        URL.revokeObjectURL(url);
+                                                    }}
+                                                    title="Export CSV"
+                                                >
+                                                    <Download size={14} />
+                                                </ToolbarButton>
+                                            </RunHeader>
+
+                                            {isExpanded && (
+                                                <RunDetails>
+                                                    {/* SLA Statistics */}
+                                                    <StatsGrid>
+                                                        <StatCard $variant={stats.successRate >= 95 ? 'success' : stats.successRate >= 80 ? 'warning' : 'error'}>
+                                                            <StatValue>{stats.successRate.toFixed(1)}%</StatValue>
+                                                            <StatLabel>Success Rate</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard>
+                                                            <StatValue>{stats.avgResponseTime.toFixed(0)}ms</StatValue>
+                                                            <StatLabel>Average</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard>
+                                                            <StatValue>{stats.minResponseTime.toFixed(0)}ms</StatValue>
+                                                            <StatLabel>Min</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard>
+                                                            <StatValue>{stats.maxResponseTime.toFixed(0)}ms</StatValue>
+                                                            <StatLabel>Max</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard>
+                                                            <StatValue>{stats.p50.toFixed(0)}ms</StatValue>
+                                                            <StatLabel>p50</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard>
+                                                            <StatValue>{stats.p95.toFixed(0)}ms</StatValue>
+                                                            <StatLabel>p95</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard $variant={stats.slaBreachCount > 0 ? 'error' : 'success'}>
+                                                            <StatValue>{stats.p99.toFixed(0)}ms</StatValue>
+                                                            <StatLabel>p99</StatLabel>
+                                                        </StatCard>
+                                                        <StatCard $variant={stats.slaBreachCount > 0 ? 'error' : undefined}>
+                                                            <StatValue>{stats.slaBreachCount}</StatValue>
+                                                            <StatLabel>SLA Breaches</StatLabel>
+                                                        </StatCard>
+                                                    </StatsGrid>
+
+                                                    {/* Response Time Chart */}
+                                                    <div style={{ fontSize: '0.85em', marginBottom: 5, opacity: 0.7 }}>Response Times</div>
+                                                    <ChartContainer>
+                                                        {run.results.slice(0, 50).map((result, idx) => (
+                                                            <ChartBar
+                                                                key={idx}
+                                                                $height={(result.duration / maxDuration) * 100}
+                                                                $success={result.success}
+                                                                title={`${result.requestName}: ${result.duration.toFixed(0)}ms`}
+                                                            />
+                                                        ))}
+                                                    </ChartContainer>
+
+                                                    {/* Individual Results */}
+                                                    <div style={{ fontSize: '0.85em', marginBottom: 5, opacity: 0.7 }}>Results ({run.results.length})</div>
+                                                    {run.results.slice(0, 20).map((result, idx) => (
+                                                        <ResultRow key={idx} $success={result.success}>
+                                                            {result.success ? (
+                                                                <CheckCircle size={12} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
+                                                            ) : (
+                                                                <XCircle size={12} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
+                                                            )}
+                                                            <span style={{ flex: 1 }}>{result.requestName}</span>
+                                                            <span style={{ opacity: 0.7 }}>#{result.iteration + 1}</span>
+                                                            <span style={{ fontWeight: 500 }}>{result.duration.toFixed(0)}ms</span>
+                                                            {result.slaBreached && (
+                                                                <span title="SLA Breached">
+                                                                    <AlertTriangle size={12} style={{ color: 'var(--vscode-editorWarning-foreground)' }} />
+                                                                </span>
+                                                            )}
+                                                        </ResultRow>
+                                                    ))}
+                                                    {run.results.length > 20 && (
+                                                        <div style={{ textAlign: 'center', opacity: 0.6, fontSize: '0.85em', marginTop: 8 }}>
+                                                            ... and {run.results.length - 20} more results
+                                                        </div>
+                                                    )}
+                                                </RunDetails>
+                                            )}
+                                        </RunItem>
+                                    );
+                                })}
+                            </>
+                        ) : (
+                            <div style={{ padding: 15, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
+                                No runs yet. History will appear after the first completed run.
+                            </div>
+                        )}
+                    </SectionContent>
                 </Section>
             </EditorContainer>
-        </Content>
+        </Content >
     );
 };

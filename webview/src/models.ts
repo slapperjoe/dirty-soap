@@ -385,6 +385,8 @@ export interface PerformanceSuite {
         suiteId: string;
         suiteName: string;
     };
+    /** Collapsed sections state for UI persistence */
+    collapsedSections?: string[];
 }
 
 /** Single request within a performance suite */

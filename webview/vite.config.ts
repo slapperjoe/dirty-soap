@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -18,6 +19,11 @@ export default defineConfig({
                 manualChunks: {
                     vendor: ['react', 'react-dom'],
                     monaco: ['monaco-editor', '@monaco-editor/react']
+                },
+                // Help IDEs map source paths correctly
+                sourcemapPathTransform: (relativeSourcePath) => {
+                    // Map paths to be relative to webview/src
+                    return path.join('webview/src', relativeSourcePath.replace(/^\.\.\/src\//, ''))
                 }
             }
         }

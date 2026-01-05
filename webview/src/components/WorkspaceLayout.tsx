@@ -63,7 +63,11 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     onImportFromWorkspace,
     performanceProgress,
     performanceHistory,
-    onBackToSuite
+    onBackToSuite,
+    // Coordinator props
+    coordinatorStatus,
+    onStartCoordinator,
+    onStopCoordinator
 }) => {
     // Destructure groups
     const { request: selectedRequest, operation: selectedOperation, testCase: selectedTestCase, testStep: selectedStep, performanceSuite: selectedPerformanceSuite } = selectionState;
@@ -313,6 +317,9 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                     onSelectRequest={onSelectPerformanceRequest}
                     onUpdateRequest={onUpdatePerformanceRequest}
                     onImportFromWorkspace={onImportFromWorkspace}
+                    coordinatorStatus={coordinatorStatus}
+                    onStartCoordinator={onStartCoordinator}
+                    onStopCoordinator={onStopCoordinator}
                 />
             );
         }

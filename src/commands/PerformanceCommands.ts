@@ -38,7 +38,9 @@ export class AddPerformanceSuiteCommand implements ICommand {
             warmupRuns: message.warmupRuns || 1,
             concurrency: message.concurrency || 1,
             createdAt: now,
-            modifiedAt: now
+            modifiedAt: now,
+            // Default: Scheduling and Workers sections collapsed on new suites
+            collapsedSections: ['scheduling', 'workers']
         };
 
         this._performanceService.addSuite(suite);
@@ -146,6 +148,7 @@ export class PickOperationForPerformanceCommand implements ICommand {
                             // Attach metadata for PerformanceRequest
                             (enrichedRequest as any).interfaceName = iface.name;
                             (enrichedRequest as any).operationName = op.name;
+                            enrichedRequest.name = `${op.name} - ${req.name}`;
 
                             items.push({
                                 label: `${op.name} - ${req.name}`, // Include Op Name in label for search
