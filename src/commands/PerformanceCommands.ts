@@ -148,8 +148,8 @@ export class PickOperationForPerformanceCommand implements ICommand {
                             (enrichedRequest as any).operationName = op.name;
 
                             items.push({
-                                label: req.name, // label
-                                description: `${op.name} (${iface.name}) - ${enrichedRequest.endpoint}`,
+                                label: `${op.name} - ${req.name}`, // Include Op Name in label for search
+                                description: `(${iface.name}) - ${enrichedRequest.endpoint}`,
                                 detail: project.name,
                                 // @ts-ignore
                                 request: enrichedRequest,
