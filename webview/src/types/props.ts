@@ -10,7 +10,8 @@ import {
     MockConfig,
     MockRule,
     MockEvent,
-    PerformanceSuite
+    PerformanceSuite,
+    RequestHistoryEntry
     // SidebarView
 } from '../models';
 
@@ -195,6 +196,13 @@ export interface SidebarPerformanceProps {
     selectedSuiteId?: string;
     deleteConfirm: string | null;
     setDeleteConfirm: (id: string | null) => void;
+}
+
+export interface SidebarHistoryProps {
+    history: RequestHistoryEntry[];
+    onReplay: (entry: RequestHistoryEntry) => void;
+    onToggleStar: (id: string) => void;
+    onDelete: (id: string) => void;
 }
 
 // ============================================================================

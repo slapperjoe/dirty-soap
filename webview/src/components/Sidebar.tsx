@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity, Home } from 'lucide-react';
+import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity, Home, Clock } from 'lucide-react';
 import { SidebarView } from '../models';
 
 // Components
@@ -9,6 +9,7 @@ import { WatcherPanel } from './sidebar/WatcherPanel';
 import { TestsUi } from './sidebar/TestsUi';
 import { ServerUi } from './sidebar/ServerUi';
 import { PerformanceUi } from './sidebar/PerformanceUi';
+import { HistorySidebar } from './sidebar/HistorySidebar';
 
 // Prop Groups
 import {
@@ -20,7 +21,8 @@ import {
     SidebarWatcherProps,
     SidebarTestsProps,
     SidebarServerProps,
-    SidebarPerformanceProps
+    SidebarPerformanceProps,
+    SidebarHistoryProps
 } from '../types/props';
 
 interface SidebarProps {
@@ -33,6 +35,7 @@ interface SidebarProps {
     testsProps: SidebarTestsProps;
     serverProps?: SidebarServerProps;
     performanceProps?: SidebarPerformanceProps;
+    historyProps?: SidebarHistoryProps;
 
     // View State
     activeView: SidebarView;
@@ -62,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     testsProps,
     serverProps,
     performanceProps,
+    historyProps,
     backendConnected,
     workspaceDirty,
     onOpenSettings,
@@ -170,6 +174,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     active={activeView === SidebarView.PERFORMANCE}
                     onClick={() => onChangeView(SidebarView.PERFORMANCE)}
                     title="Performance"
+                />
+                <NavItem
+                    icon={Clock}
+                    active={activeView === SidebarView.HISTORY}
+                    onClick={() => onChangeView(SidebarView.HISTORY)}
+                    title="History"
                 />
 
 
@@ -335,6 +345,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {activeView === SidebarView.PERFORMANCE && performanceProps && (
                     <PerformanceUi
                         {...performanceProps}
+                    />
+                )}
+
+                {activeView === SidebarView.HISTORY && historyProps && (
+                    <HistorySidebar
+                        {...historyProps}
                     />
                 )}
 

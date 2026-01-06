@@ -174,6 +174,8 @@ export enum SidebarView {
     PROJECTS = 'projects',
     EXPLORER = 'explorer',
     TESTS = 'tests',
+    PERFORMANCE = 'performance',
+    HISTORY = 'history',
     WATCHER = 'watcher',
     PROXY = 'proxy'
 }
@@ -463,3 +465,44 @@ export interface CoordinatorStatus {
     workers: DistributedWorker[];
     expectedWorkers: number;
 }
+
+// ============================================
+// Request History Types
+// ============================================
+
+/** Entry in request history tracking manual executions */
+export interface RequestHistoryEntry {
+    id: string;
+    timestamp: number;
+    projectName: string;
+    projectId?: string;
+    interfaceName: string;
+    operationName: string;
+    requestName: string;
+    endpoint: string;
+
+    /** Request details */
+    requestBody: string;
+    headers: Record<string, string>;
+
+    /** Response details */
+    statusCode?: number;
+    duration?: number;
+    responseSize?: number;
+    success?: boolean;
+    error?: string;
+
+    /** User metadata */
+    starred: boolean;
+    notes?: string;
+    color?: string;
+}
+
+/** Configuration for request history */
+export interface HistoryConfig {
+    maxEntries: number;
+    groupBy: 'time' | 'project' | 'flat';
+    autoClear: boolean;
+    clearAfterDays?: number;
+}
+

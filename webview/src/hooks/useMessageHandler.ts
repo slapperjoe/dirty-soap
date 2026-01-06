@@ -17,7 +17,8 @@ import {
     WatcherEvent,
     SidebarView,
     MockEvent,
-    MockConfig
+    MockConfig,
+    RequestHistoryEntry
 } from '../models';
 
 // Debug logger - sends to VS Code output and console
@@ -95,6 +96,7 @@ export interface MessageHandlerState {
     setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
     setActiveRunId: React.Dispatch<React.SetStateAction<string | undefined>>;
     setPerformanceProgress: React.Dispatch<React.SetStateAction<{ iteration: number; total: number } | null>>;
+    setRequestHistory: React.Dispatch<React.SetStateAction<RequestHistoryEntry[]>>;
 
 
     // Current values needed for message handling
@@ -144,6 +146,7 @@ export function useMessageHandler(state: MessageHandlerState) {
         setMockConfig,
         setActiveRunId,
         setPerformanceProgress,
+        setRequestHistory,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -759,6 +762,19 @@ ${getInitialXml(perfOp.input)}
                         }
                         return newState;
                     });
+                    break;
+
+                // Request History handlers
+                case BackendCommand.HistoryLoaded:
+                    debugLog('historyLoaded', { count: message.entries?.length || 0 });
+                    setRequestHistory(message.entries || []);
+                    break;
+
+                case BackendCommand.HistoryUpdate:
+                    debugLog('historyUpdate', { entryId: message.entry?.id });
+                    if (message.entry) {
+                        setRequestHistory(prev => [message.entry, ...prev].slice(0, 100));
+                    }
                     break;
 
                 default:

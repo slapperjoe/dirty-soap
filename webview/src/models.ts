@@ -176,7 +176,8 @@ export enum SidebarView {
     TESTS = 'tests',
     WATCHER = 'watcher',
     SERVER = 'server',  // Unified server tab (replaces PROXY + MOCK)
-    PERFORMANCE = 'performance'
+    PERFORMANCE = 'performance',
+    HISTORY = 'history'
 }
 
 /**
@@ -510,3 +511,36 @@ export interface CoordinatorStatus {
     workers: DistributedWorker[];
     expectedWorkers: number;
 }
+
+// ============================================
+// Request History Types
+// ============================================
+
+/** Entry in request history tracking manual executions */
+export interface RequestHistoryEntry {
+    id: string;
+    timestamp: number;
+    projectName: string;
+    projectId?: string;
+    interfaceName: string;
+    operationName: string;
+    requestName: string;
+    endpoint: string;
+
+    /** Request details */
+    requestBody: string;
+    headers: Record<string, string>;
+
+    /** Response details */
+    statusCode?: number;
+    duration?: number;
+    responseSize?: number;
+    success?: boolean;
+    error?: string;
+
+    /** User metadata */
+    starred: boolean;
+    notes?: string;
+    color?: string;
+}
+

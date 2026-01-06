@@ -14,7 +14,8 @@ import { SettingsEditorModal } from './components/modals/SettingsEditorModal';
 import { CreateReplaceRuleModal } from './components/modals/CreateReplaceRuleModal';
 import { AddToDevOpsModal } from './components/modals/AddToDevOpsModal';
 import { AddToProjectModal } from './components/modals/AddToProjectModal';
-import { SoapUIRequest, SoapTestCase, SoapTestStep, SidebarView, ReplaceRule, PerformanceSuite, PerformanceRequest } from './models';
+import { SoapUIRequest, SoapTestCase, SoapTestStep, SidebarView, ReplaceRule, PerformanceSuite, PerformanceRequest, RequestHistoryEntry } from './models';
+import { FrontendCommand } from './messages';
 import { useMessageHandler } from './hooks/useMessageHandler';
 import { useProject } from './contexts/ProjectContext';
 import { useSelection } from './contexts/SelectionContext';
@@ -551,6 +552,31 @@ function App() {
         }
     }, [projects, selectedTestCase, setSelectedTestCase]);
 
+    const handleReplayRequest = (entry: RequestHistoryEntry) => {
+        const req: SoapUIRequest = {
+            id: entry.id,
+            name: entry.requestName || 'Replayed Request',
+            endpoint: entry.endpoint,
+            request: entry.requestBody,
+            headers: entry.headers
+        };
+        setSelectedRequest(req);
+    };
+
+    const handleToggleHistoryStar = (id: string) => {
+        bridge.sendMessage({
+            command: FrontendCommand.ToggleStarHistory,
+            id
+        });
+    };
+
+    const handleDeleteHistory = (id: string) => {
+        bridge.sendMessage({
+            command: FrontendCommand.DeleteHistoryEntry,
+            id
+        });
+    };
+
     const sidebarPerformanceProps = {
         suites: config?.performanceSuites || [],
         onAddSuite: handleAddPerformanceSuite,
@@ -616,6 +642,8 @@ function App() {
 
     // Workspace State
     const [changelog, setChangelog] = useState<string>('');
+    const [requestHistory, setRequestHistory] = useState<RequestHistoryEntry[]>([]);
+
 
     // NOTE: saveProject now comes from ProjectContext
 
@@ -654,6 +682,7 @@ function App() {
         setMockConfig,
         setActiveRunId,
         setPerformanceProgress,
+        setRequestHistory,
         wsdlUrl,
         projects,
         proxyConfig,
@@ -670,6 +699,8 @@ function App() {
         bridge.sendMessage({ command: 'getSettings' });
         bridge.sendMessage({ command: 'getAutosave' });
         bridge.sendMessage({ command: 'getWatcherHistory' });
+        bridge.sendMessage({ command: FrontendCommand.GetHistory });
+
 
         const state = bridge.getState();
         if (state) {
@@ -1079,6 +1110,12 @@ function App() {
                     deleteConfirm
                 }}
                 performanceProps={sidebarPerformanceProps}
+                historyProps={{
+                    history: requestHistory,
+                    onReplay: handleReplayRequest,
+                    onToggleStar: handleToggleHistoryStar,
+                    onDelete: handleDeleteHistory
+                }}
                 serverProps={{
                     serverConfig: {
                         mode: serverMode,  // Use dedicated state instead of deriving from running

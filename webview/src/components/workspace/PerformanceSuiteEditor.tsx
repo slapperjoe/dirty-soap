@@ -409,6 +409,104 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
             </Toolbar>
 
             <EditorContainer>
+                {/* Summary Card - Only shown when there's run history */}
+                {history && history.length > 0 && (
+                    <Section style={{ marginBottom: 20, background: 'var(--vscode-editor-background)', borderColor: 'var(--vscode-testing-iconPassed)' }}>
+                        <SectionHeader>
+                            <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <CheckCircle size={16} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
+                                Performance Summary
+                            </SectionTitle>
+                        </SectionHeader>
+                        <SectionContent>
+                            <Grid style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Total Requests</div>
+                                    <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>{suite.requests?.length || 0}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Last Run</div>
+                                    <div style={{ fontSize: '1.5em', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        {history[0].status === 'completed' ? (
+                                            <CheckCircle size={18} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
+                                        ) : (
+                                            <XCircle size={18} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
+                                        )}
+                                        <span style={{ fontSize: '0.7em' }}>{new Date(history[0].startTime).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Avg Response Time</div>
+                                    <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
+                                        {history[0].summary?.avgResponseTime ?
+                                            history[0].summary.avgResponseTime.toFixed(0)
+                                            : '0'}ms
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Success Rate</div>
+                                    <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
+                                        {history[0].summary?.successRate !== undefined ?
+                                            (history[0].summary.successRate * 100).toFixed(0)
+                                            : '0'}%
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Iterations</div>
+                                    <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>{
+                                        history[0].summary?.totalRequests ?
+                                            Math.floor(history[0].summary.totalRequests / (suite.requests?.length || 1))
+                                            : '0'
+                                    }</div>
+                                </div>
+                            </Grid>
+                        </SectionContent>
+                    </Section>
+                )}
+
+                {/* Info Banner - Only shown when there are no runs */}
+                {(!history || history.length === 0) && (
+                    <div style={{
+                        padding: 15,
+                        marginBottom: 20,
+                        background: 'var(--vscode-inputValidation-infoBackground)',
+                        border: '1px solid var(--vscode-inputValidation-infoBorder)',
+                        borderRadius: 6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10
+                    }}>
+                        <AlertTriangle size={18} style={{ color: 'var(--vscode-inputValidation-infoForeground)' }} />
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>No performance runs yet</div>
+                            <div style={{ fontSize: '0.9em', opacity: 0.9 }}>
+                                Configure your test requests below and click "Run Suite" to start your first performance test.
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Run Progress - Only show when running */}
+                {isRunning && (
+                    <Section>
+                        <SectionHeader>
+                            <Loader size={16} className="animate-spin" /> Running...
+                        </SectionHeader>
+                        <SectionContent>
+                            <ProgressContainer>
+                                <div style={{ marginBottom: 5, fontSize: '0.9em' }}>
+                                    {progress && progress.total > 0
+                                        ? `Iteration ${progress.iteration} of ${progress.total}`
+                                        : 'Starting...'}
+                                </div>
+                                <ProgressBar>
+                                    <ProgressFill $percent={progress && progress.total > 0 ? (progress.iteration / progress.total) * 100 : 0} />
+                                </ProgressBar>
+                            </ProgressContainer>
+                        </SectionContent>
+                    </Section>
+                )}
+
                 {/* Configuration Section */}
                 <Section $collapsed={isCollapsed('config')}>
                     <SectionHeader $clickable onClick={() => toggleSection('config')}>
@@ -671,27 +769,6 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                             <WorkerStatusPanel
                                 status={coordinatorStatus}
                             />
-                        </SectionContent>
-                    </Section>
-                )}
-
-                {/* Run Progress - Only show when running */}
-                {isRunning && (
-                    <Section>
-                        <SectionHeader>
-                            <Loader size={16} className="animate-spin" /> Running...
-                        </SectionHeader>
-                        <SectionContent>
-                            <ProgressContainer>
-                                <div style={{ marginBottom: 5, fontSize: '0.9em' }}>
-                                    {progress && progress.total > 0
-                                        ? `Iteration ${progress.iteration} of ${progress.total}`
-                                        : 'Starting...'}
-                                </div>
-                                <ProgressBar>
-                                    <ProgressFill $percent={progress && progress.total > 0 ? (progress.iteration / progress.total) * 100 : 0} />
-                                </ProgressBar>
-                            </ProgressContainer>
                         </SectionContent>
                     </Section>
                 )}

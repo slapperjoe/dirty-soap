@@ -94,6 +94,13 @@ export enum FrontendCommand {
     StartCoordinator = 'startCoordinator',
     StopCoordinator = 'stopCoordinator',
     GetCoordinatorStatus = 'getCoordinatorStatus',
+
+    // History
+    GetHistory = 'getHistory',
+    ToggleStarHistory = 'toggleStarHistory',
+    DeleteHistoryEntry = 'deleteHistoryEntry',
+    ClearHistory = 'clearHistory',
+    UpdateHistoryConfig = 'updateHistoryConfig',
 }
 
 export enum BackendCommand {
@@ -144,5 +151,9 @@ export enum BackendCommand {
     PerformanceRunStarted = 'performanceRunStarted',
     ConfigSwitched = 'configSwitched',
     ConfigRestored = 'configRestored',
-    UpdateProxyTarget = 'updateProxyTarget'
+    UpdateProxyTarget = 'updateProxyTarget',
+
+    // History
+    HistoryUpdate = 'historyUpdate',
+    HistoryLoaded = 'historyLoaded',
 }

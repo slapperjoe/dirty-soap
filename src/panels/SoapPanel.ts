@@ -14,6 +14,7 @@ import { AzureDevOpsService } from '../services/AzureDevOpsService';
 import { MockService } from '../services/MockService';
 import { PerformanceService } from '../services/PerformanceService';
 import { ScheduleService } from '../services/ScheduleService';
+import { RequestHistoryService } from '../services/RequestHistoryService';
 
 export class SoapPanel {
     public static currentPanel: SoapPanel | undefined;
@@ -33,6 +34,7 @@ export class SoapPanel {
     private _azureDevOpsService: AzureDevOpsService;
     private _mockService: MockService;
     private _performanceService: PerformanceService;
+    private _historyService: RequestHistoryService;
     private _controller: WebviewController;
     private _disposables: vscode.Disposable[] = [];
     private _autosaveTimeout: NodeJS.Timeout | undefined;
@@ -147,6 +149,10 @@ export class SoapPanel {
             this._panel.webview.postMessage({ command: 'performanceRunComplete', run });
         });
 
+        // Request History Service
+        const configDir = this._settingsManager['configDir']; // Access config directory
+        this._historyService = new RequestHistoryService(configDir);
+
         // Schedule Service
         const scheduleService = new ScheduleService(this._performanceService);
 
@@ -170,7 +176,8 @@ export class SoapPanel {
             this._azureDevOpsService,
             this._mockService,
             this._performanceService,
-            scheduleService
+            scheduleService,
+            this._historyService
         );
 
         // Watcher starts stopped by default.

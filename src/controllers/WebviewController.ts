@@ -82,7 +82,9 @@ import {
 } from '../commands/ScheduleCommands';
 import { PerformanceService } from '../services/PerformanceService';
 import { ScheduleService } from '../services/ScheduleService';
+import { RequestHistoryService } from '../services/RequestHistoryService';
 import { DiagnosticService } from '../services/DiagnosticService';
+import { HistoryCommand } from '../commands/HistoryCommand';
 
 export class WebviewController {
     private _loadedProjects: Map<string, SoapUIProject> = new Map();
@@ -105,13 +107,14 @@ export class WebviewController {
         private readonly _azureDevOpsService: AzureDevOpsService,
         private readonly _mockService: MockService,
         private readonly _performanceService: PerformanceService,
-        private readonly _scheduleService: ScheduleService
+        private readonly _scheduleService: ScheduleService,
+        private readonly _historyService: RequestHistoryService
     ) {
         this._diagnosticService.log('BACKEND', 'WebviewController Initialized');
 
         // Initialize Commands
 
-        this._commands.set(FrontendCommand.ExecuteRequest, new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager));
+        this._commands.set(FrontendCommand.ExecuteRequest, new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager, this._historyService));
         this._commands.set(FrontendCommand.SaveProject, new SaveProjectCommand(
             this._panel,
             this._folderStorage,
@@ -463,6 +466,30 @@ export class WebviewController {
                 break;
             case FrontendCommand.GetCoordinatorStatus:
                 this._postMessage({ command: BackendCommand.CoordinatorStatus, status: this._coordinatorService.getStatus() });
+                break;
+
+            // History Commands
+            case FrontendCommand.GetHistory:
+                const historyCommand = new HistoryCommand(this._historyService);
+                const entries = historyCommand.getHistory();
+                this._postMessage({ command: BackendCommand.HistoryLoaded, entries });
+                break;
+            case FrontendCommand.ToggleStarHistory:
+                new HistoryCommand(this._historyService).toggleStar(message.id);
+                // Send updated history
+                this._postMessage({ command: BackendCommand.HistoryLoaded, entries: this._historyService.getAll() });
+                break;
+            case FrontendCommand.DeleteHistoryEntry:
+                new HistoryCommand(this._historyService).deleteEntry(message.id);
+                // Send updated history
+                this._postMessage({ command: BackendCommand.HistoryLoaded, entries: this._historyService.getAll() });
+                break;
+            case FrontendCommand.ClearHistory:
+                new HistoryCommand(this._historyService).clearAll();
+                this._postMessage({ command: BackendCommand.HistoryLoaded, entries: [] });
+                break;
+            case FrontendCommand.UpdateHistoryConfig:
+                new HistoryCommand(this._historyService).updateConfig(message.config);
                 break;
 
         }

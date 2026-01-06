@@ -4,13 +4,16 @@ import { SoapClient } from '../soapClient';
 import { SettingsManager } from '../utils/SettingsManager';
 import { WildcardProcessor } from '../utils/WildcardProcessor';
 import { AssertionRunner } from '../utils/AssertionRunner';
+import { RequestHistoryService } from '../services/RequestHistoryService';
+import { RequestHistoryEntry } from '../models';
 import * as vscode from 'vscode';
 
 export class ExecuteRequestCommand implements ICommand {
     constructor(
         private readonly _panel: vscode.WebviewPanel,
         private readonly _soapClient: SoapClient,
-        private readonly _settingsManager: SettingsManager
+        private readonly _settingsManager: SettingsManager,
+        private readonly _historyService?: RequestHistoryService
     ) { }
 
     async execute(message: any): Promise<void> {
@@ -69,11 +72,72 @@ export class ExecuteRequestCommand implements ICommand {
             }
 
             this._panel.webview.postMessage({ command: 'response', result, assertionResults, timeTaken });
+
+            // Capture to history if this is a manual request (not from test run)
+            if (this._historyService && !message.isTestRun) {
+                try {
+                    const historyEntry: RequestHistoryEntry = {
+                        id: `hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        timestamp: startTime,
+                        projectName: message.projectName || 'Unknown',
+                        projectId: message.projectId,
+                        interfaceName: message.interfaceName || 'Unknown',
+                        operationName: message.operation || 'Unknown',
+                        requestName: message.requestName || 'Manual Request',
+                        endpoint: processedUrl,
+                        requestBody: processedXml,
+                        headers: headers || {},
+                        statusCode: 200, // Assume success if we got here
+                        duration: timeTaken,
+                        responseSize: typeof result === 'string' ? result.length : JSON.stringify(result).length,
+                        success: true,
+                        starred: false
+                    };
+                    this._historyService.addEntry(historyEntry);
+
+                    // Notify frontend of history update
+                    this._panel.webview.postMessage({
+                        command: 'historyUpdate',
+                        entry: historyEntry
+                    });
+                } catch (histErr) {
+                    console.error('Failed to save to history:', histErr);
+                }
+            }
         } catch (error: any) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             this._soapClient.log(`Request Execution Error: ${errorMessage}`);
             if (error.stack) this._soapClient.log(error.stack);
             this._panel.webview.postMessage({ command: 'error', message: errorMessage });
+
+            // Capture failed requests to history too
+            if (this._historyService && !message.isTestRun) {
+                try {
+                    const historyEntry: RequestHistoryEntry = {
+                        id: `hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        timestamp: Date.now(),
+                        projectName: message.projectName || 'Unknown',
+                        projectId: message.projectId,
+                        interfaceName: message.interfaceName || 'Unknown',
+                        operationName: message.operation || 'Unknown',
+                        requestName: message.requestName || 'Manual Request',
+                        endpoint: message.url,
+                        requestBody: message.xml,
+                        headers: message.headers || {},
+                        success: false,
+                        error: errorMessage,
+                        starred: false
+                    };
+                    this._historyService.addEntry(historyEntry);
+
+                    this._panel.webview.postMessage({
+                        command: 'historyUpdate',
+                        entry: historyEntry
+                    });
+                } catch (histErr) {
+                    console.error('Failed to save error to history:', histErr);
+                }
+            }
         }
     }
 }

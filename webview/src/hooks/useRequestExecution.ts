@@ -8,6 +8,7 @@
 import { useRef, useCallback } from 'react';
 import { bridge } from '../utils/bridge';
 import { CustomXPathEvaluator } from '../utils/xpathEvaluator';
+import { FrontendCommand } from '../messages';
 import { getInitialXml } from '../utils/xmlUtils';
 import {
     SoapUIProject,
@@ -143,14 +144,18 @@ export function useRequestExecution({
             }
 
             bridge.sendMessage({
-                command: 'executeRequest',
+                command: FrontendCommand.ExecuteRequest,
                 url,
                 operation: opName,
                 xml,
                 contentType: selectedRequest?.contentType,
                 assertions: selectedRequest?.assertions,
                 headers: selectedRequest?.headers,
-                contextVariables
+                contextVariables,
+                // History context fields
+                projectName: selectedProjectName || undefined,
+                interfaceName: selectedInterface?.name || undefined,
+                requestName: selectedRequest?.name || undefined
             });
         } else {
             console.error('[App] executeRequest aborted: No selectedOperation or selectedRequest');
@@ -159,7 +164,7 @@ export function useRequestExecution({
     }, [selectedOperation, selectedRequest, selectedInterface, selectedTestCase, selectedStep, wsdlUrl, testExecution, setLoading, setResponse]);
 
     const cancelRequest = useCallback(() => {
-        bridge.sendMessage({ command: 'cancelRequest' });
+        bridge.sendMessage({ command: FrontendCommand.CancelRequest });
         setLoading(false);
     }, [setLoading]);
 

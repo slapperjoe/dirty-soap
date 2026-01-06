@@ -6,6 +6,7 @@
 
 import { useCallback, useRef } from 'react';
 import { bridge } from '../utils/bridge';
+import { FrontendCommand } from '../messages';
 import { CustomXPathEvaluator } from '../utils/xpathEvaluator';
 import { useProject } from '../contexts/ProjectContext';
 import { SoapUIRequest, SoapUIOperation, SoapUIInterface, SoapTestCase } from '../models';
@@ -111,14 +112,18 @@ export function useRequestHandlers({
             }
 
             bridge.sendMessage({
-                command: 'executeRequest',
+                command: FrontendCommand.ExecuteRequest,
                 url,
                 operation: opName,
                 xml,
                 contentType: selectedRequest?.contentType,
                 assertions: selectedRequest?.assertions,
                 headers: selectedRequest?.headers,
-                contextVariables
+                contextVariables,
+                // History context fields
+                projectName: selectedProjectName || undefined,
+                interfaceName: selectedInterface?.name || undefined,
+                requestName: selectedRequest?.name || undefined
             });
         } else {
             console.error('[useRequestHandlers] executeRequest aborted: No selectedOperation or selectedRequest');
@@ -127,7 +132,7 @@ export function useRequestHandlers({
     }, [selectedOperation, selectedRequest, selectedInterface, selectedTestCase, selectedStep, testExecution, wsdlUrl, setLoading, setResponse]);
 
     const cancelRequest = useCallback(() => {
-        bridge.sendMessage({ command: 'cancelRequest' });
+        bridge.sendMessage({ command: FrontendCommand.CancelRequest });
         setLoading(false);
     }, [setLoading]);
 
