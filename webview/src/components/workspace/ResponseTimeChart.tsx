@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { PerformanceStats } from '../../models';
+import { PerformanceStats } from '@shared/models';
 
 interface DataPoint {
     label: string;

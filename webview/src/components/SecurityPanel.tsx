@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Shield, Key, Clock, Hash } from 'lucide-react';
-import { WSSecurityConfig, WSSecurityType, PasswordType } from '../models';
+import { WSSecurityConfig, WSSecurityType, PasswordType } from '@shared/models';
 
 const Container = styled.div`
     display: flex;

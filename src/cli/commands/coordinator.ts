@@ -9,7 +9,7 @@ import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const chalk = require('chalk');
 import * as WebSocket from 'ws';
-import { PerformanceSuite, PerformanceResult, PerformanceStats } from '../../models';
+import { PerformanceSuite, PerformanceResult, PerformanceStats } from '@shared/models';
 import { formatJson, formatTable } from '../output/formatters';
 
 interface CoordinatorOptions {

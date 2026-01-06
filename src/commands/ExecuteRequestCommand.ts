@@ -5,8 +5,9 @@ import { SettingsManager } from '../utils/SettingsManager';
 import { WildcardProcessor } from '../utils/WildcardProcessor';
 import { AssertionRunner } from '../utils/AssertionRunner';
 import { WSSecurityUtil } from '../utils/WSSecurityUtil';
+import { AttachmentUtil } from '../utils/AttachmentUtil';
 import { RequestHistoryService } from '../services/RequestHistoryService';
-import { RequestHistoryEntry, WSSecurityConfig, WSSecurityType } from '../models';
+import { RequestHistoryEntry, WSSecurityConfig, WSSecurityType, SoapAttachment } from '@shared/models';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
@@ -65,6 +66,26 @@ export class ExecuteRequestCommand implements ICommand {
                 }
             }
 
+            // Process Attachments
+            const attachments = message.attachments as SoapAttachment[] | undefined;
+            let formData: any = null;
+            let isMultipart = false;
+
+            if (attachments && attachments.length > 0) {
+                // First, inline Base64 attachments
+                processedXml = AttachmentUtil.inlineBase64Attachments(processedXml, attachments);
+                this._soapClient.log(`Base64 attachments inlined`);
+
+                // Check if we need multipart for SwA/MTOM
+                if (AttachmentUtil.hasMultipartAttachments(attachments)) {
+                    const result = AttachmentUtil.processAttachments(processedXml, attachments);
+                    processedXml = result.xml;
+                    formData = result.formData;
+                    isMultipart = result.isMultipart;
+                    this._soapClient.log(`SwA multipart request prepared with ${attachments.filter(a => a.type === 'SwA' || a.type === 'MTOM').length} attachment(s)`);
+                }
+            }
+
             this._soapClient.log('--- Executing Request ---');
             this._soapClient.log('Original URL:', message.url);
             this._soapClient.log('Substituted URL:', processedUrl);
@@ -84,14 +105,22 @@ export class ExecuteRequestCommand implements ICommand {
                 headers = processedHeaders;
             }
 
-            // Merge Content-Type
-            if (message.contentType) {
+            // Merge Content-Type (only for non-multipart)
+            if (message.contentType && !isMultipart) {
                 headers['Content-Type'] = message.contentType;
             }
             if (Object.keys(headers).length === 0) headers = undefined;
 
             const startTime = Date.now();
-            const result = await this._soapClient.executeRequest(processedUrl, message.operation, processedXml, headers);
+            let result;
+
+            if (isMultipart && formData) {
+                // Use multipart request for SwA attachments
+                result = await this._soapClient.executeMultipartRequest(processedUrl, message.operation, processedXml, formData, headers);
+            } else {
+                // Standard request
+                result = await this._soapClient.executeRequest(processedUrl, message.operation, processedXml, headers);
+            }
             const timeTaken = Date.now() - startTime;
 
             // Run Assertions

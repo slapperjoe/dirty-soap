@@ -17,7 +17,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { SoapUIProject } from '../models';
+import { SoapUIProject } from '@shared/models';
 import { bridge } from '../utils/bridge';
 
 // =============================================================================

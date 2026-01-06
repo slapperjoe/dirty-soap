@@ -4,7 +4,7 @@ import { Layout as LayoutIcon, ListOrdered, Play, Loader2, RotateCcw, WrapText, 
 // Checking code: TestStepType is used in props interface but not local var?
 // Actually TestStepType is used in onAddStep signature but onAddStep comes from props.
 // Let's remove them and add back if needed.
-import { SidebarView } from '../models';
+import { SidebarView } from '@shared/models';
 // ... imports
 import emptyServerImg from '../assets/empty-server.png';
 import emptyWsdlImg from '../assets/empty-wsdl.png';
@@ -16,10 +16,11 @@ import { MonacoResponseViewer } from './MonacoResponseViewer';
 import { AssertionsPanel } from './AssertionsPanel';
 import { HeadersPanel } from './HeadersPanel';
 import { SecurityPanel } from './SecurityPanel';
+import { AttachmentsPanel } from './AttachmentsPanel';
 import { ExtractorsPanel } from './ExtractorsPanel';
 // ReactMarkdown moved to WelcomePanel
 import { MonacoSingleLineInput, MonacoSingleLineInputHandle } from './MonacoSingleLineInput';
-import { formatXml, stripCausalityData } from '../utils/xmlFormatter';
+import { formatXml, stripCausalityData } from '@shared/utils/xmlFormatter';
 import { XPathGenerator } from '../utils/xpathGenerator';
 import { WelcomePanel, BreakpointOverlay, TestCaseView, EmptyTestCase } from './workspace';
 import { PerformanceSuiteEditor } from './workspace/PerformanceSuiteEditor';
@@ -90,7 +91,7 @@ const EmptyServer: React.FC = () => (
     />
 );
 
-const ProjectSummary: React.FC<{ project: import('../models').SoapUIProject; onSelectInterface?: (i: import('../models').SoapUIInterface) => void }> = ({ project, onSelectInterface }) => {
+const ProjectSummary: React.FC<{ project: import('@shared/models').SoapUIProject; onSelectInterface?: (i: import('@shared/models').SoapUIInterface) => void }> = ({ project, onSelectInterface }) => {
     // Calculate statistics
     const totalOperations = project.interfaces.reduce((sum, iface) => sum + iface.operations.length, 0);
     const totalRequests = project.interfaces.reduce((sum, iface) =>
@@ -163,7 +164,7 @@ const ProjectSummary: React.FC<{ project: import('../models').SoapUIProject; onS
 };
 
 
-const InterfaceSummary: React.FC<{ interface: import('../models').SoapUIInterface; onSelectOperation?: (o: import('../models').SoapUIOperation) => void }> = ({ interface: iface, onSelectOperation }) => {
+const InterfaceSummary: React.FC<{ interface: import('@shared/models').SoapUIInterface; onSelectOperation?: (o: import('@shared/models').SoapUIOperation) => void }> = ({ interface: iface, onSelectOperation }) => {
     // Get endpoint from first operation if available
     const firstEndpoint = iface.operations[0]?.requests[0]?.endpoint;
 
@@ -208,7 +209,7 @@ const InterfaceSummary: React.FC<{ interface: import('../models').SoapUIInterfac
     );
 };
 
-const TestSuiteSummary: React.FC<{ suite: import('../models').SoapTestSuite; onSelectTestCase?: (c: import('../models').SoapTestCase) => void }> = ({ suite, onSelectTestCase }) => {
+const TestSuiteSummary: React.FC<{ suite: import('@shared/models').SoapTestSuite; onSelectTestCase?: (c: import('@shared/models').SoapTestCase) => void }> = ({ suite, onSelectTestCase }) => {
     // Calculate total steps
     const totalSteps = suite.testCases.reduce((sum, tc) => sum + tc.steps.length, 0);
 
@@ -257,7 +258,7 @@ const TestSuiteSummary: React.FC<{ suite: import('../models').SoapTestSuite; onS
     );
 };
 
-const OperationSummary: React.FC<{ operation: import('../models').SoapUIOperation; onSelectRequest?: (r: import('../models').SoapUIRequest) => void }> = ({ operation, onSelectRequest }) => (
+const OperationSummary: React.FC<{ operation: import('@shared/models').SoapUIOperation; onSelectRequest?: (r: import('@shared/models').SoapUIRequest) => void }> = ({ operation, onSelectRequest }) => (
     <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
         <h1>Operation: {operation.name}</h1>
 
@@ -359,7 +360,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
 
     const [alignAttributes, setAlignAttributes] = React.useState(false);
-    const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth' | 'extractors'>('request');
+    const [activeTab, setActiveTab] = React.useState<'request' | 'headers' | 'assertions' | 'auth' | 'extractors' | 'attachments'>('request');
     const [showVariables, setShowVariables] = React.useState(false);
 
     // Breakpoint State
@@ -920,6 +921,18 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 Auth
                                 {selectedRequest.wsSecurity && selectedRequest.wsSecurity.type !== 'none' && ' ✓'}
                             </div>
+                            <div
+                                style={{
+                                    cursor: 'pointer',
+                                    borderBottom: activeTab === 'attachments' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
+                                    padding: '5px 0',
+                                    color: activeTab === 'attachments' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
+                                }}
+                                onClick={() => setActiveTab('attachments')}
+                            >
+                                Attachments
+                                {selectedRequest.attachments && selectedRequest.attachments.length > 0 && ` (${selectedRequest.attachments.length})`}
+                            </div>
 
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', alignItems: 'center', fontSize: '0.9em' }}>
                                 {/* Formatting Toggles */}
@@ -1081,6 +1094,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                             <SecurityPanel
                                 security={selectedRequest.wsSecurity}
                                 onChange={(newSecurity) => onUpdateRequest({ ...selectedRequest, wsSecurity: newSecurity })}
+                            />
+                        )}
+                        {activeTab === 'attachments' && (
+                            <AttachmentsPanel
+                                attachments={selectedRequest.attachments || []}
+                                onChange={(newAttachments) => onUpdateRequest({ ...selectedRequest, attachments: newAttachments })}
                             />
                         )}
                     </div>

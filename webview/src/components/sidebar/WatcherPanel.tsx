@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock, Play, Square, Trash2, Download } from 'lucide-react';
-import { WatcherEvent } from '../../models';
+import { WatcherEvent } from '@shared/models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
 import { exportWatcherEvents } from '../../utils/csvExport';
 

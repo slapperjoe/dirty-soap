@@ -7,7 +7,7 @@
 
 import { EventEmitter } from 'events';
 import * as WebSocket from 'ws';
-import { DistributedWorker, CoordinatorStatus } from '../models';
+import { DistributedWorker, CoordinatorStatus } from '@shared/models';
 
 export class CoordinatorService extends EventEmitter {
     private wss: WebSocket.Server | null = null;

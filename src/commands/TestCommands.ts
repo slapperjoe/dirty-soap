@@ -1,7 +1,7 @@
 
 import { ICommand } from './ICommand';
 import { TestRunnerService } from '../services/TestRunnerService';
-import { SoapUIProject, SoapTestSuite, SoapTestCase } from '../models';
+import { SoapUIProject, SoapTestSuite, SoapTestCase } from '@shared/models';
 import * as vscode from 'vscode';
 
 // Helper to find Test Suite/Case

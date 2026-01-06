@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Trash2, CheckCircle2, XCircle, Clock } from 'lucide-react';
-import { SoapUIAssertion } from '../models';
+import { SoapUIAssertion } from '@shared/models';
 
 const Container = styled.div`
     display: flex;

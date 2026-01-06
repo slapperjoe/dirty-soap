@@ -1,5 +1,5 @@
 import * as vm from 'vm';
-import { SoapTestCase, SoapTestStep } from "../models";
+import { SoapTestCase, SoapTestStep } from '@shared/models';
 import { SoapClient } from "../soapClient";
 import { AssertionRunner } from "../utils/AssertionRunner";
 import { BackendXPathEvaluator } from "../utils/BackendXPathEvaluator";

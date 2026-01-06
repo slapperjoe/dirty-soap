@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { Play, Square, Trash2, Settings, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield } from 'lucide-react';
-import { WatcherEvent, MockEvent, ServerMode, ServerConfig, MockRule } from '../../models';
+import { WatcherEvent, MockEvent, ServerMode, ServerConfig, MockRule } from '@shared/models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';

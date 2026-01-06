@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpdateTestStepCommand } from '../commands/UpdateTestStepCommand';
-import { SoapUIProject, SoapTestStep } from '../models';
+import { SoapUIProject, SoapTestStep } from '@shared/models';
 import * as vscode from 'vscode';
 
 // Mock vscode

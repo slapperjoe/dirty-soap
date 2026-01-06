@@ -17,7 +17,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { SidebarView, DirtySoapConfig } from '../models';
+import { SidebarView, DirtySoapConfig } from '@shared/models';
 import { bridge } from '../utils/bridge';
 
 // =============================================================================

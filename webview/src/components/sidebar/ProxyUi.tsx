@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Play, Square, Shield, Trash2, FolderOpen, Network, FileCode, FileDown, Bug, Plus, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
-import { WatcherEvent } from '../../models';
+import { WatcherEvent } from '@shared/models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
-import { formatXml } from '../../utils/xmlFormatter';
+import { formatXml } from '@shared/utils/xmlFormatter';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 
 export interface ProxyUiProps {

@@ -4,7 +4,7 @@ import Editor from '@monaco-editor/react';
 import { X, Save, AlertTriangle, Settings, FileJson, Server, Globe, Replace, Cloud, Network } from 'lucide-react';
 import { GeneralTab, EnvironmentsTab, GlobalsTab, ReplaceRulesTab, IntegrationsTab, ServerTab, DirtySoapConfig, ReplaceRuleSettings } from './settings';
 import { bridge } from '../../utils/bridge';
-import { ServerConfig } from '../../models';
+import { ServerConfig } from '@shared/models';
 
 const ModalOverlay = styled.div`
     position: fixed;

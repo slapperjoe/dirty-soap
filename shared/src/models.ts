@@ -82,6 +82,19 @@ export interface WSSecurityConfig {
     publicCertPath?: string;
 }
 
+// SOAP Attachments
+export type AttachmentType = 'Base64' | 'MTOM' | 'SwA';
+
+export interface SoapAttachment {
+    id: string;          // UUID
+    name: string;        // "document.pdf"
+    fsPath: string;      // Absolute path to file
+    contentId: string;   // "part1" (used for cid:part1 reference)
+    contentType: string; // "application/pdf"
+    type: AttachmentType; // Optimization intent
+    size?: number;       // File size in bytes for UI display
+}
+
 export interface SoapUIRequest {
     name: string;
     request: string; // The XML content
@@ -94,6 +107,7 @@ export interface SoapUIRequest {
     headers?: Record<string, string>;
     id?: string;
     wsSecurity?: WSSecurityConfig;
+    attachments?: SoapAttachment[];
 }
 
 export interface SoapUIOperation {
@@ -203,10 +217,10 @@ export enum SidebarView {
     PROJECTS = 'projects',
     EXPLORER = 'explorer',
     TESTS = 'tests',
-    PERFORMANCE = 'performance',
-    HISTORY = 'history',
     WATCHER = 'watcher',
-    PROXY = 'proxy'
+    SERVER = 'server',  // Unified server tab (replaces PROXY + MOCK)
+    PERFORMANCE = 'performance',
+    HISTORY = 'history'
 }
 
 /**
@@ -230,6 +244,32 @@ export interface ReplaceRule {
     isRegex?: boolean;
     /** Rule is active */
     enabled: boolean;
+}
+
+// ============================================
+// Unified Server Types
+// ============================================
+
+/** Server operating mode */
+export type ServerMode = 'off' | 'proxy' | 'mock' | 'both';
+
+/** Unified server configuration */
+export interface ServerConfig {
+    mode: ServerMode;
+    port: number;
+    targetUrl: string;
+
+    /** Use system proxy for outgoing requests */
+    useSystemProxy?: boolean;
+
+    /** Mock rules (active when mode is 'mock' or 'both') */
+    mockRules: MockRule[];
+
+    /** Forward unmatched requests to target */
+    passthroughEnabled: boolean;
+
+    /** Auto-capture real responses as mocks */
+    recordMode?: boolean;
 }
 
 // ============================================
@@ -289,6 +329,23 @@ export interface MockConfig {
     recordMode?: boolean;
 }
 
+/** Mock event for traffic log */
+export interface MockEvent {
+    id: string;
+    timestamp: number;
+    timestampLabel: string;
+    method: string;
+    url: string;
+    requestHeaders: Record<string, any>;
+    requestBody: string;
+    status?: number;
+    responseHeaders?: Record<string, any>;
+    responseBody?: string;
+    duration?: number;
+    matchedRule?: string;
+    passthrough?: boolean;
+}
+
 /** Rule for proxy routing */
 export interface ProxyRule {
     id: string; // valid UUID
@@ -303,7 +360,7 @@ export interface DirtySoapConfig {
         defaultTimeout?: number;
         retryCount?: number;
         proxy?: string;
-        strictSSL?: boolean; // Default should be true
+        strictSSL?: boolean;
         proxyRules?: ProxyRule[];
     };
     ui?: {
@@ -321,6 +378,7 @@ export interface DirtySoapConfig {
     environments?: Record<string, {
         endpoint_url?: string;
         env?: string;
+        color?: string;
         [key: string]: string | undefined;
     }>;
     globals?: Record<string, string>;
@@ -334,7 +392,7 @@ export interface DirtySoapConfig {
         orgUrl?: string;
         project?: string;
     };
-    /** Mock server configuration */
+    /** Mock server configuration (legacy, use server instead) */
     mockServer?: MockConfig;
     /** Performance testing suites */
     performanceSuites?: PerformanceSuite[];
@@ -342,6 +400,8 @@ export interface DirtySoapConfig {
     performanceHistory?: PerformanceRun[];
     /** Scheduled performance runs */
     performanceSchedules?: PerformanceSchedule[];
+    /** Unified server configuration */
+    server?: ServerConfig;
 }
 
 // ============================================
@@ -387,7 +447,7 @@ export interface PerformanceRequest {
     operationName?: string;
     requestBody: string;
     headers?: Record<string, string>;
-    /** Extractors for passing values between requests (reuses test extractor model) */
+    /** Extractors for passing values between requests */
     extractors: SoapRequestExtractor[];
     /** Expected max response time in ms */
     slaThreshold?: number;
@@ -534,4 +594,3 @@ export interface HistoryConfig {
     autoClear: boolean;
     clearAfterDays?: number;
 }
-

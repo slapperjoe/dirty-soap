@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ScriptEditor } from '../ScriptEditor';
-import { SoapTestStep } from '../../models';
+import { SoapTestStep } from '@shared/models';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the bridge

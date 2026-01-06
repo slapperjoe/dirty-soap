@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2, Save } from 'lucide-react';
-import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapUIProject } from '../../models';
+import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapUIProject } from '@shared/models';
 import { HeaderButton, OperationItem, RequestItem, DirtyMarker } from './shared/SidebarStyles';
 
 export interface ServiceTreeProps {

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { SoapUIProject, SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapTestSuite, SoapTestCase } from './models';
+import { SoapUIProject, SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapTestSuite, SoapTestCase } from '@shared/models';
 
 export class FolderProjectStorage {
     private outputChannel: any = null;

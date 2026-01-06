@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Trash2, Pencil } from 'lucide-react';
 import { CustomXPathEvaluator } from '../utils/xpathEvaluator';
-import { SoapRequestExtractor } from '../models';
+import { SoapRequestExtractor } from '@shared/models';
 
 const Container = styled.div`
     height: 100%;

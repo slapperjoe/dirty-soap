@@ -8,8 +8,8 @@
 import { useRef, useCallback } from 'react';
 import { bridge } from '../utils/bridge';
 import { CustomXPathEvaluator } from '../utils/xpathEvaluator';
-import { FrontendCommand } from '../messages';
-import { getInitialXml } from '../utils/xmlUtils';
+import { FrontendCommand } from '@shared/messages';
+import { getInitialXml } from '@shared/utils/xmlUtils';
 import {
     SoapUIProject,
     SoapUIInterface,
@@ -17,7 +17,7 @@ import {
     SoapUIRequest,
     SoapTestCase,
     SoapTestStep
-} from '../models';
+} from '@shared/models';
 
 interface UseRequestExecutionParams {
     // Selection state
@@ -157,7 +157,9 @@ export function useRequestExecution({
                 interfaceName: selectedInterface?.name || undefined,
                 requestName: selectedRequest?.name || undefined,
                 // WS-Security
-                wsSecurity: selectedRequest?.wsSecurity
+                wsSecurity: selectedRequest?.wsSecurity,
+                // Attachments
+                attachments: selectedRequest?.attachments
             });
         } else {
             console.error('[App] executeRequest aborted: No selectedOperation or selectedRequest');

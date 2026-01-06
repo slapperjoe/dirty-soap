@@ -1,6 +1,6 @@
 import * as soap from 'soap';
 import axios from 'axios';
-import { SoapService, SoapSchemaNode } from './models';
+import { SoapService, SoapSchemaNode } from '@shared/models';
 import { WsdlParser } from './WsdlParser';
 import { DiagnosticService } from './services/DiagnosticService';
 import { SettingsManager } from './utils/SettingsManager';
@@ -278,6 +278,135 @@ export class SoapClient {
                 };
             }
             this.log('Request failed:', error.message);
+            if (error.response) {
+                this.log('Error Response:', error.response.data);
+            }
+            return {
+                success: false,
+                error: error.message,
+                rawResponse: error.response ? error.response.data : null,
+                rawRequest: xml,
+                timeTaken: timeTaken
+            };
+        }
+    }
+
+    /**
+     * Execute a multipart SOAP request with attachments (SwA)
+     */
+    async executeMultipartRequest(
+        endpoint: string,
+        operation: string,
+        xml: string,
+        formData: any,
+        headers?: any
+    ): Promise<any> {
+        if (!endpoint) {
+            return {
+                success: false,
+                error: "Invalid URL: Endpoint is missing.",
+                rawResponse: null,
+                rawRequest: xml,
+                timeTaken: 0
+            };
+        }
+
+        // Get SOAPAction from WSDL if client exists
+        let soapAction = '';
+        if (this.client) {
+            const definitions = (this.client as any).wsdl.definitions;
+            for (const bindingName in definitions.bindings) {
+                const binding = definitions.bindings[bindingName];
+                if (binding.operations && binding.operations[operation]) {
+                    soapAction = binding.operations[operation].soapAction;
+                    break;
+                }
+            }
+        }
+
+        // Prepare Headers - FormData sets its own Content-Type with boundary
+        const requestHeaders: any = {
+            ...formData.getHeaders(),
+            ...headers
+        };
+        if (soapAction) {
+            requestHeaders['SOAPAction'] = soapAction;
+        }
+
+        // Cancel token
+        const CancelToken = axios.CancelToken;
+        this.cancelTokenSource = CancelToken.source();
+
+        // Proxy/SSL settings
+        const { proxyUrl, strictSSL } = this.getProxySettings();
+        const agentOptions = { keepAlive: false, rejectUnauthorized: strictSSL };
+
+        let httpsAgent: any;
+        let httpAgent: any;
+
+        if (proxyUrl) {
+            const { HttpsProxyAgent } = require('https-proxy-agent');
+            const { HttpProxyAgent } = require('http-proxy-agent');
+            const isHttps = endpoint.toLowerCase().startsWith('https');
+
+            if (isHttps) {
+                httpsAgent = new HttpsProxyAgent(proxyUrl, agentOptions);
+            } else {
+                httpsAgent = new HttpProxyAgent(proxyUrl);
+            }
+            httpAgent = httpsAgent;
+        } else {
+            httpsAgent = new (require('https').Agent)(agentOptions);
+            httpAgent = new (require('http').Agent)(agentOptions);
+        }
+
+        this.log(`Multipart POST ${endpoint}`);
+        this.log('Headers:', requestHeaders);
+
+        const startTime = Date.now();
+        try {
+            const response = await axios.post(endpoint, formData, {
+                headers: requestHeaders,
+                httpsAgent: httpsAgent,
+                httpAgent: httpAgent,
+                cancelToken: this.cancelTokenSource.token,
+                transformResponse: [(data) => data],
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity
+            });
+            const endTime = Date.now();
+            const timeTaken = endTime - startTime;
+
+            this.log('Response Status:', response.status);
+            this.log('Response Body:', response.data);
+
+            this.cancelTokenSource = null;
+            return {
+                success: true,
+                result: null,
+                headers: response.headers,
+                rawResponse: response.data,
+                rawRequest: xml,
+                timeTaken: timeTaken
+            };
+
+        } catch (error: any) {
+            const endTime = Date.now();
+            const timeTaken = endTime - startTime;
+            this.cancelTokenSource = null;
+
+            if (axios.isCancel(error)) {
+                this.log('Request canceled by user');
+                return {
+                    success: false,
+                    error: "Request Canceled",
+                    rawResponse: null,
+                    rawRequest: xml,
+                    timeTaken: timeTaken
+                };
+            }
+
+            this.log('Multipart request failed:', error.message);
             if (error.response) {
                 this.log('Error Response:', error.response.data);
             }

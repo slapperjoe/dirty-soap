@@ -12,7 +12,7 @@ import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
 import { ReplaceRuleApplier, ReplaceRule } from '../utils/ReplaceRuleApplier';
 import type { MockService } from './MockService';
-import { ProxyRule } from '../models';
+import { ProxyRule } from '@shared/models';
 
 export type ServerMode = 'off' | 'mock' | 'proxy' | 'both';
 export interface ProxyConfig {

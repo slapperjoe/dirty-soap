@@ -5,7 +5,7 @@
  */
 
 import styled from 'styled-components';
-import { DirtySoapConfig, ReplaceRule } from '../../../models';
+import { DirtySoapConfig, ReplaceRule } from '@shared/models';
 
 export type { DirtySoapConfig };
 export type ReplaceRuleSettings = ReplaceRule;

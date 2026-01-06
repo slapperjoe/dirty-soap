@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { SoapUIProject } from '../models';
+import { SoapUIProject } from '@shared/models';
 import { Play, Plus, ChevronRight, ChevronDown, FlaskConical, Folder, Trash2 } from 'lucide-react';
 
 const Container = styled.div`

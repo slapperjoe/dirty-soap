@@ -14,8 +14,8 @@ import { SettingsEditorModal } from './components/modals/SettingsEditorModal';
 import { CreateReplaceRuleModal } from './components/modals/CreateReplaceRuleModal';
 import { AddToDevOpsModal } from './components/modals/AddToDevOpsModal';
 import { AddToProjectModal } from './components/modals/AddToProjectModal';
-import { SoapUIRequest, SoapTestCase, SoapTestStep, SidebarView, ReplaceRule, PerformanceSuite, PerformanceRequest, RequestHistoryEntry } from './models';
-import { FrontendCommand } from './messages';
+import { SoapUIRequest, SoapTestCase, SoapTestStep, SidebarView, ReplaceRule, PerformanceSuite, PerformanceRequest, RequestHistoryEntry } from '@shared/models';
+import { FrontendCommand } from '@shared/messages';
 import { useMessageHandler } from './hooks/useMessageHandler';
 import { useProject } from './contexts/ProjectContext';
 import { useSelection } from './contexts/SelectionContext';
@@ -233,7 +233,7 @@ function App() {
     });
 
     // Cleanup wrappers for Project structure
-    const handleDeleteInterface = (iface: import('./models').SoapUIInterface) => {
+    const handleDeleteInterface = (iface: import('@shared/models').SoapUIInterface) => {
         _handleDeleteInterface(iface);
         // If selected interface matches, or selected operation/request belongs to it
         if (selectedInterface?.name === iface.name) {
@@ -247,7 +247,7 @@ function App() {
         // ... (Checking strictly by name might be risky if duplicates allowed, but names are usually unique per project)
     };
 
-    const handleDeleteOperation = (op: import('./models').SoapUIOperation, iface: import('./models').SoapUIInterface) => {
+    const handleDeleteOperation = (op: import('@shared/models').SoapUIOperation, iface: import('@shared/models').SoapUIInterface) => {
         _handleDeleteOperation(op, iface);
         if (selectedOperation?.name === op.name) {
             setSelectedOperation(null);
@@ -259,8 +259,8 @@ function App() {
         }
     };
 
-    const handleDeleteRequest = (req?: import('./models').SoapUIRequest) => {
-        const target = req || (contextMenu?.type === 'request' ? contextMenu.data as import('./models').SoapUIRequest : null);
+    const handleDeleteRequest = (req?: import('@shared/models').SoapUIRequest) => {
+        const target = req || (contextMenu?.type === 'request' ? contextMenu.data as import('@shared/models').SoapUIRequest : null);
         _handleDeleteRequest(req);
 
         if (target && selectedRequest?.id === target.id) {
@@ -690,7 +690,15 @@ function App() {
         selectedTestCase,
         selectedRequest,
         startTimeRef,
-        saveProject
+        saveProject,
+        onAttachmentSelected: (attachment) => {
+            // Add selected attachment to current request
+            if (selectedRequest) {
+                const updatedAttachments = [...(selectedRequest.attachments || []), attachment];
+                setSelectedRequest({ ...selectedRequest, attachments: updatedAttachments, dirty: true });
+                setWorkspaceDirty(true);
+            }
+        }
     });
 
     // Initial Load

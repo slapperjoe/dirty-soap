@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { X, ChevronRight, ChevronDown, Check } from 'lucide-react';
-import { SoapUIProject, SoapUIRequest } from '../../models';
+import { SoapUIProject, SoapUIRequest } from '@shared/models';
 
 const Overlay = styled.div`
     position: fixed;

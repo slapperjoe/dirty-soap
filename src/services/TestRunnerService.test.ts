@@ -1,6 +1,6 @@
 import { TestRunnerService } from './TestRunnerService';
 import { SoapClient } from '../soapClient';
-import { SoapTestCase, SoapTestStep } from '../models';
+import { SoapTestCase, SoapTestStep } from '@shared/models';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('TestRunnerService Scripting', () => {

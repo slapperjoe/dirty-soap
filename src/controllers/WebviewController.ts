@@ -13,7 +13,7 @@ import { TestRunnerService } from '../services/TestRunnerService';
 import { AzureDevOpsService } from '../services/AzureDevOpsService';
 import { MockService } from '../services/MockService';
 import { CoordinatorService } from '../services/CoordinatorService';
-import { SoapUIProject } from '../models';
+import { SoapUIProject } from '@shared/models';
 import { FolderProjectStorage } from '../FolderProjectStorage';
 
 import { ICommand } from '../commands/ICommand';
@@ -26,7 +26,7 @@ import { DownloadWsdlCommand } from '../commands/DownloadWsdlCommand';
 import { LoadWsdlCommand } from '../commands/LoadWsdlCommand';
 import { GetLocalWsdlsCommand } from '../commands/GetLocalWsdlsCommand';
 import { SelectLocalWsdlCommand } from '../commands/SelectLocalWsdlCommand';
-import { FrontendCommand, BackendCommand } from '../messages';
+import { FrontendCommand, BackendCommand } from '@shared/messages';
 import {
     StartProxyCommand,
     StopProxyCommand,
@@ -492,6 +492,11 @@ export class WebviewController {
                 new HistoryCommand(this._historyService).updateConfig(message.config);
                 break;
 
+            // Attachment Commands
+            case FrontendCommand.SelectAttachment:
+                this.handleSelectAttachment();
+                break;
+
         }
     }
 
@@ -502,7 +507,60 @@ export class WebviewController {
         }
     }
 
+    private async handleSelectAttachment() {
+        try {
+            const uris = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                canSelectFolders: false,
+                canSelectFiles: true,
+                openLabel: 'Select Attachment',
+                title: 'Select File to Attach'
+            });
 
+            if (uris && uris.length > 0) {
+                const filePath = uris[0].fsPath;
+                const stat = fs.statSync(filePath);
+                const fileName = path.basename(filePath);
+
+                // Detect content type based on extension
+                const ext = path.extname(filePath).toLowerCase();
+                const mimeTypes: Record<string, string> = {
+                    '.pdf': 'application/pdf',
+                    '.xml': 'application/xml',
+                    '.json': 'application/json',
+                    '.txt': 'text/plain',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.png': 'image/png',
+                    '.gif': 'image/gif',
+                    '.doc': 'application/msword',
+                    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    '.xls': 'application/vnd.ms-excel',
+                    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                };
+                const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+                // Generate a unique ID and default content ID
+                const id = `att-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const contentId = fileName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                this._postMessage({
+                    command: BackendCommand.AttachmentSelected,
+                    attachment: {
+                        id,
+                        name: fileName,
+                        fsPath: filePath,
+                        contentId,
+                        contentType,
+                        type: 'Base64', // Default to Base64
+                        size: stat.size
+                    }
+                });
+            }
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Failed to select attachment: ${e.message}`);
+        }
+    }
 
 
 

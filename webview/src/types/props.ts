@@ -13,7 +13,7 @@ import {
     PerformanceSuite,
     RequestHistoryEntry
     // SidebarView
-} from '../models';
+} from '@shared/models';
 
 // ============================================================================
 // SIDEBAR PROP GROUPS
@@ -154,10 +154,10 @@ export interface SidebarMockProps {
 }
 
 export interface SidebarServerProps {
-    serverConfig: import('../models').ServerConfig;
+    serverConfig: import('@shared/models').ServerConfig;
     isRunning: boolean;
 
-    onModeChange: (mode: import('../models').ServerMode) => void;
+    onModeChange: (mode: import('@shared/models').ServerMode) => void;
     onStart: () => void;
     onStop: () => void;
     onOpenSettings: () => void;
@@ -185,7 +185,7 @@ export interface SidebarServerProps {
 }
 
 export interface SidebarPerformanceProps {
-    suites: import('../models').PerformanceSuite[];
+    suites: import('@shared/models').PerformanceSuite[];
     onAddSuite: (name: string) => void;
     onDeleteSuite: (id: string) => void;
     onRunSuite: (id: string) => void;
@@ -210,11 +210,11 @@ export interface SidebarHistoryProps {
 // ============================================================================
 
 export interface WorkspaceSelectionState {
-    project?: import('../models').SoapUIProject | null;
-    interface?: import('../models').SoapUIInterface | null;
+    project?: import('@shared/models').SoapUIProject | null;
+    interface?: import('@shared/models').SoapUIInterface | null;
     request: SoapUIRequest | null;
     operation: SoapUIOperation | null;
-    testSuite?: import('../models').SoapTestSuite | null;
+    testSuite?: import('@shared/models').SoapTestSuite | null;
     testCase?: SoapTestCase | null;
     testStep?: SoapTestStep | null;
     performanceSuite?: PerformanceSuite | null;
@@ -230,7 +230,7 @@ export interface WorkspaceRequestActions {
 }
 
 export interface WorkspaceViewState {
-    activeView: import('../models').SidebarView;
+    activeView: import('@shared/models').SidebarView;
     layoutMode: 'vertical' | 'horizontal';
     showLineNumbers: boolean;
     splitRatio: number;
@@ -267,25 +267,25 @@ export interface WorkspaceStepActions {
 
 export interface WorkspaceToolsActions {
     onAddExtractor?: (data: { xpath: string, value: string, source: 'body' | 'header' }) => void;
-    onEditExtractor?: (extractor: import('../models').SoapRequestExtractor, index: number) => void;
+    onEditExtractor?: (extractor: import('@shared/models').SoapRequestExtractor, index: number) => void;
     onAddAssertion?: (data: { xpath: string, expectedContent: string }) => void;
     onAddExistenceAssertion?: (data: { xpath: string }) => void;
     onAddReplaceRule?: (data: { xpath: string, matchText: string, target: 'request' | 'response' }) => void;
-    onAddMockRule?: (rule: import('../models').MockRule) => void;
+    onAddMockRule?: (rule: import('@shared/models').MockRule) => void;
     onOpenDevOps?: () => void;
 }
 
 export interface WorkspacePerformanceActions {
-    onUpdateSuite?: (suite: import('../models').PerformanceSuite) => void;
+    onUpdateSuite?: (suite: import('@shared/models').PerformanceSuite) => void;
     onAddPerformanceRequest?: (suiteId: string) => void;
     onDeletePerformanceRequest?: (suiteId: string, requestId: string) => void;
-    onSelectPerformanceRequest?: (request: import('../models').PerformanceRequest) => void;
-    onUpdatePerformanceRequest?: (suiteId: string, requestId: string, updates: Partial<import('../models').PerformanceRequest>) => void;
+    onSelectPerformanceRequest?: (request: import('@shared/models').PerformanceRequest) => void;
+    onUpdatePerformanceRequest?: (suiteId: string, requestId: string, updates: Partial<import('@shared/models').PerformanceRequest>) => void;
     onImportFromWorkspace?: (suiteId: string) => void;
     onRunSuite?: (id: string) => void;
     onStopRun?: () => void;
     performanceProgress?: { iteration: number; total: number } | null;
-    performanceHistory?: import('../models').PerformanceRun[];
+    performanceHistory?: import('@shared/models').PerformanceRun[];
     onBackToSuite?: () => void;
 }
 
@@ -303,9 +303,9 @@ export interface WorkspaceBreakpointState {
 }
 
 export interface NavigationActions {
-    onSelectProject: (project: import('../models').SoapUIProject) => void;
-    onSelectInterface: (iface: import('../models').SoapUIInterface) => void;
-    onSelectOperation: (operation: import('../models').SoapUIOperation) => void;
+    onSelectProject: (project: import('@shared/models').SoapUIProject) => void;
+    onSelectInterface: (iface: import('@shared/models').SoapUIInterface) => void;
+    onSelectOperation: (operation: import('@shared/models').SoapUIOperation) => void;
     onSelectRequest: (request: SoapUIRequest) => void;
     onSelectTestCase: (testCase: SoapTestCase) => void;
 }
@@ -320,7 +320,7 @@ export interface WorkspaceLayoutProps extends WorkspacePerformanceActions {
     breakpointState?: WorkspaceBreakpointState;
     navigationActions?: NavigationActions;
     // Coordinator props for distributed workers
-    coordinatorStatus?: import('../models').CoordinatorStatus;
+    coordinatorStatus?: import('@shared/models').CoordinatorStatus;
     onStartCoordinator?: (port: number, expectedWorkers: number) => void;
     onStopCoordinator?: () => void;
 }

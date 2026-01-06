@@ -16,7 +16,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapTestCase, SoapTestStep } from '../models';
+import { SoapUIInterface, SoapUIOperation, SoapUIRequest, SoapTestCase, SoapTestStep } from '@shared/models';
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -44,7 +44,7 @@ export interface SelectionContextValue {
     selectedStep: SoapTestStep | null;
 
     /** Currently selected Test Suite */
-    selectedTestSuite: import('../models').SoapTestSuite | null;
+    selectedTestSuite: import('@shared/models').SoapTestSuite | null;
 
     /** Currently selected test case (for test runner) */
     selectedTestCase: SoapTestCase | null;
@@ -70,7 +70,7 @@ export interface SelectionContextValue {
     setSelectedOperation: React.Dispatch<React.SetStateAction<SoapUIOperation | null>>;
     setSelectedRequest: React.Dispatch<React.SetStateAction<SoapUIRequest | null>>;
     setSelectedStep: React.Dispatch<React.SetStateAction<SoapTestStep | null>>;
-    setSelectedTestSuite: React.Dispatch<React.SetStateAction<import('../models').SoapTestSuite | null>>;
+    setSelectedTestSuite: React.Dispatch<React.SetStateAction<import('@shared/models').SoapTestSuite | null>>;
     setSelectedTestCase: React.Dispatch<React.SetStateAction<SoapTestCase | null>>;
     setSelectedPerformanceSuiteId: React.Dispatch<React.SetStateAction<string | null>>;
     setResponse: React.Dispatch<React.SetStateAction<any>>;
@@ -124,7 +124,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
     const [selectedOperation, setSelectedOperation] = useState<SoapUIOperation | null>(null);
     const [selectedRequest, setSelectedRequest] = useState<SoapUIRequest | null>(null);
     const [selectedStep, setSelectedStep] = useState<SoapTestStep | null>(null);
-    const [selectedTestSuite, setSelectedTestSuite] = useState<import('../models').SoapTestSuite | null>(null);
+    const [selectedTestSuite, setSelectedTestSuite] = useState<import('@shared/models').SoapTestSuite | null>(null);
     const [selectedTestCase, setSelectedTestCase] = useState<SoapTestCase | null>(null);
     const [selectedPerformanceSuiteId, setSelectedPerformanceSuiteId] = useState<string | null>(null);
     const [response, setResponse] = useState<any>(null);

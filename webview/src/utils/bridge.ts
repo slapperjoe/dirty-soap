@@ -20,7 +20,7 @@ if (isVsCode() && !vscodeApi) {
     vscodeApi = window.acquireVsCodeApi!();
 }
 
-import { FrontendCommand } from '../messages';
+import { FrontendCommand } from '@shared/messages';
 
 export interface BridgeMessage {
     command: FrontendCommand | string;

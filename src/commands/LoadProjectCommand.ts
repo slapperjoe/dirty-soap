@@ -3,7 +3,7 @@ import { ICommand } from './ICommand';
 import { ProjectStorage } from '../ProjectStorage';
 import { FolderProjectStorage } from '../FolderProjectStorage';
 import { SoapClient } from '../soapClient';
-import { SoapUIProject } from '../models';
+import { SoapUIProject } from '@shared/models';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';

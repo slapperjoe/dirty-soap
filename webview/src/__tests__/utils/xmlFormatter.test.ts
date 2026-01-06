@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatXml, stripCausalityData } from '../../utils/xmlFormatter';
+import { formatXml, stripCausalityData } from '@shared/utils/xmlFormatter';
 
 describe('xmlFormatter', () => {
     describe('stripCausalityData', () => {

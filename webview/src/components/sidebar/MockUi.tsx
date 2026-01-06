@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Square, Trash2, Plus, Edit2, ToggleLeft, ToggleRight, Radio, ArrowRight, Circle } from 'lucide-react';
-import { MockConfig, MockRule, MockEvent } from '../../models';
+import { MockConfig, MockRule, MockEvent } from '@shared/models';
 import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
 

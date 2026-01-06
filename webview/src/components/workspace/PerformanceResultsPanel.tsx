@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Clock, AlertTriangle, CheckCircle, XCircle, BarChart3, Activity, Download, FileText } from 'lucide-react';
-import { PerformanceRun, PerformanceStats } from '../../models';
+import { PerformanceRun, PerformanceStats } from '@shared/models';
 import { ResponseTimeChart, statsToChartData } from './ResponseTimeChart';
 import { generateMarkdownReport, downloadMarkdownReport } from '../../utils/reportGenerator';
 

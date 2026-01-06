@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ScheduleService } from '../../services/ScheduleService';
 import { PerformanceService } from '../../services/PerformanceService';
-import { PerformanceSchedule } from '../../models';
+import { PerformanceSchedule } from '@shared/models';
 
 // Mock node-cron
 vi.mock('node-cron', () => ({

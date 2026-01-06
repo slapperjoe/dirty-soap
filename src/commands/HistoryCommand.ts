@@ -1,4 +1,4 @@
-import { RequestHistoryEntry } from '../models';
+import { RequestHistoryEntry } from '@shared/models';
 import { RequestHistoryService } from '../services/RequestHistoryService';
 
 /**

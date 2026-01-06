@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Play, Plus, Trash2, ChevronDown, ChevronRight, FlaskConical, FolderOpen, ListChecks, Edit2 } from 'lucide-react';
-import { SoapUIProject, SoapTestSuite } from '../../models';
+import { SoapUIProject, SoapTestSuite } from '@shared/models';
 import { HeaderButton, OperationItem, RequestItem } from './shared/SidebarStyles';
 
 export interface TestsUiProps {

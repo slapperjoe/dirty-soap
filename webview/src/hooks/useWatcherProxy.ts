@@ -6,8 +6,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { WatcherEvent, SoapUIRequest, SoapUIOperation, SoapUIInterface, SidebarView, MockEvent, MockConfig } from '../models';
-import { formatXml } from '../utils/xmlFormatter';
+import { WatcherEvent, SoapUIRequest, SoapUIOperation, SoapUIInterface, SidebarView, MockEvent, MockConfig } from '@shared/models';
+import { formatXml } from '@shared/utils/xmlFormatter';
 
 interface UseWatcherProxyParams {
     // UI State

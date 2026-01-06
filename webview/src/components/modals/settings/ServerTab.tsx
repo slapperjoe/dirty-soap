@@ -18,7 +18,7 @@ import {
     IconButton,
     PrimaryButton,
 } from './SettingsTypes';
-import { ServerMode, MockRule, ServerConfig } from '../../../models';
+import { ServerMode, MockRule, ServerConfig } from '@shared/models';
 import { MockRuleModal } from '../MockRuleModal';
 
 interface ServerTabProps {

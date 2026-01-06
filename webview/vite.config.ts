@@ -6,6 +6,11 @@ import path from 'path'
 export default defineConfig({
     plugins: [react()],
     base: './',
+    resolve: {
+        alias: {
+            '@shared': path.resolve(__dirname, '../shared/src')
+        }
+    },
     build: {
         outDir: '../webview-build',
         assetsInlineLimit: 1048576, // Inline assets up to 1MB (Mascot is ~635KB)
@@ -29,3 +34,4 @@ export default defineConfig({
         }
     }
 })
+

@@ -2,7 +2,7 @@ import { ICommand } from './ICommand';
 import { MockService } from '../services/MockService';
 import { SettingsManager } from '../utils/SettingsManager';
 import { ConfigSwitcherService } from '../services/ConfigSwitcherService';
-import { MockRule, MockConfig } from '../models';
+import { MockRule, MockConfig } from '@shared/models';
 import * as vscode from 'vscode';
 
 export class StartMockServerCommand implements ICommand {

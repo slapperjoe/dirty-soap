@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SoapUIProject, SoapTestStep } from '../models';
+import { SoapUIProject, SoapTestStep } from '@shared/models';
 
 /**
  * Integration tests for step sync logic

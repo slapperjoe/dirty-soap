@@ -7,7 +7,7 @@ import { SoapClient } from '../soapClient';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { BackendCommand } from '../messages';
+import { BackendCommand } from '@shared/messages';
 
 export class StartProxyCommand implements ICommand {
     constructor(private readonly _proxyService: ProxyService) { }

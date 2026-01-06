@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import { bridge } from '../utils/bridge';
-import { BackendCommand, FrontendCommand } from '../messages';
+import { BackendCommand, FrontendCommand } from '@shared/messages';
 import {
     SoapUIInterface,
     SoapUIProject,
@@ -18,8 +18,9 @@ import {
     SidebarView,
     MockEvent,
     MockConfig,
-    RequestHistoryEntry
-} from '../models';
+    RequestHistoryEntry,
+    SoapAttachment
+} from '@shared/models';
 
 // Debug logger - sends to VS Code output and console
 const debugLog = (context: string, data?: any) => {
@@ -110,6 +111,7 @@ export interface MessageHandlerState {
 
     // Callbacks
     saveProject: (project: SoapUIProject) => void;
+    onAttachmentSelected?: (attachment: SoapAttachment) => void;
 }
 
 export function useMessageHandler(state: MessageHandlerState) {
@@ -154,7 +156,8 @@ export function useMessageHandler(state: MessageHandlerState) {
         selectedTestCase,
         selectedRequest,
         startTimeRef,
-        saveProject
+        saveProject,
+        onAttachmentSelected
     } = state;
 
     const hasPerformedInitialLoad = useRef(false);
@@ -774,6 +777,13 @@ ${getInitialXml(perfOp.input)}
                     debugLog('historyUpdate', { entryId: message.entry?.id });
                     if (message.entry) {
                         setRequestHistory(prev => [message.entry, ...prev].slice(0, 100));
+                    }
+                    break;
+
+                case BackendCommand.AttachmentSelected:
+                    debugLog('attachmentSelected', { name: message.attachment?.name });
+                    if (message.attachment && onAttachmentSelected) {
+                        onAttachmentSelected(message.attachment);
                     }
                     break;
 

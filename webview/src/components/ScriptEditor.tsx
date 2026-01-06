@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
-import { SoapTestStep } from '../models';
+import { SoapTestStep } from '@shared/models';
 import { bridge } from '../utils/bridge';
 import { Toolbar, ToolbarButton } from '../styles/WorkspaceLayout.styles';
 import { ChevronLeft, Save } from 'lucide-react';

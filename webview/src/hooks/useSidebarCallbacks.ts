@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { SoapUIProject, SoapTestCase, SoapTestSuite } from '../models';
+import { SoapUIProject, SoapTestCase, SoapTestSuite } from '@shared/models';
 import { bridge } from '../utils/bridge';
 
 interface UseSidebarCallbacksParams {

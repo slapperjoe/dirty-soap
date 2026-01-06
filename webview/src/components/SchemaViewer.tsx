@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SoapSchemaNode } from '../models';
+import { SoapSchemaNode } from '@shared/models';
 import { ChevronRight, ChevronDown, Box, FileType } from 'lucide-react';
 
 const TreeItem = styled.div`

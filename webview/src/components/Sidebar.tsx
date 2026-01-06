@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity, Home, Clock } from 'lucide-react';
-import { SidebarView } from '../models';
+import { SidebarView } from '@shared/models';
 
 // Components
 import { ProjectList } from './sidebar/ProjectList';

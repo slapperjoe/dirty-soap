@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Plus, FileCode, Loader2, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
-import { SoapTestCase, SoapTestStep, TestStepType } from '../../models';
+import { SoapTestCase, SoapTestStep, TestStepType } from '@shared/models';
 import { ToolbarButton, IconButton, EmptyStateImage } from '../../styles/WorkspaceLayout.styles';
 import emptyTestsImg from '../../assets/empty-tests.png';
 

@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { SoapUIInterface, SoapUIProject } from '../models';
+import { SoapUIInterface, SoapUIProject } from '@shared/models';
 
 interface UseExplorerParams {
     projects: SoapUIProject[];

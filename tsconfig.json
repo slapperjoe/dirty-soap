@@ -7,13 +7,22 @@
             "ES2020"
         ],
         "sourceMap": true,
-        "rootDir": "src",
         "strict": true,
         "skipLibCheck": true,
         "types": [
             "vitest/globals"
-        ]
+        ],
+        "baseUrl": ".",
+        "paths": {
+            "@shared/*": [
+                "shared/src/*"
+            ]
+        }
     },
+    "include": [
+        "src/**/*",
+        "shared/**/*"
+    ],
     "exclude": [
         "node_modules",
         ".vscode-test",

@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { SoapUIProject, SoapUIInterface, SoapUIOperation, SoapUIRequest } from '../models';
+import { SoapUIProject, SoapUIInterface, SoapUIOperation, SoapUIRequest } from '@shared/models';
 import { bridge } from '../utils/bridge';
 
 interface ContextMenuState {

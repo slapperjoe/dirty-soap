@@ -1,5 +1,5 @@
 import { RequestHistoryService } from '../../services/RequestHistoryService';
-import { RequestHistoryEntry } from '../../models';
+import { RequestHistoryEntry } from '@shared/models';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

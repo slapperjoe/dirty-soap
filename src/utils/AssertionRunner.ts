@@ -1,4 +1,4 @@
-import { SoapUIAssertion } from "../models";
+import { SoapUIAssertion } from '@shared/models';
 import { BackendXPathEvaluator } from "./BackendXPathEvaluator";
 
 export interface AssertionResult {

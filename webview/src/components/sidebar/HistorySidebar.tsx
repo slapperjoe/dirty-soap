@@ -5,7 +5,7 @@ import {
     Trash2,
     Clock
 } from 'lucide-react';
-import { RequestHistoryEntry } from '../../models';
+import { RequestHistoryEntry } from '@shared/models';
 
 const Container = styled.div`
     display: flex;

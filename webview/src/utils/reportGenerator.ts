@@ -4,7 +4,7 @@
  * Generates markdown summary reports for performance runs.
  */
 
-import { PerformanceRun } from '../models';
+import { PerformanceRun } from '@shared/models';
 
 /**
  * Generate a markdown summary report for a performance run

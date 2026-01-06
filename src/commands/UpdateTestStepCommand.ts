@@ -1,6 +1,6 @@
 
 import { ICommand } from './ICommand';
-import { SoapUIProject, SoapTestStep } from '../models';
+import { SoapUIProject, SoapTestStep } from '@shared/models';
 import { ProjectStorage } from '../ProjectStorage';
 import { FolderProjectStorage } from '../FolderProjectStorage';
 import { DiagnosticService } from '../services/DiagnosticService';

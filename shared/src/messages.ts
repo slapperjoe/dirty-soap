@@ -66,6 +66,7 @@ export enum FrontendCommand {
     RunTestSuite = 'runTestSuite',
     RunTestCase = 'runTestCase',
     PickOperationForTestCase = 'pickOperationForTestCase',
+    UpdateTestStep = 'updateTestStep',
 
     // Performance
     GetPerformanceSuites = 'getPerformanceSuites',
@@ -100,6 +101,9 @@ export enum FrontendCommand {
     DeleteHistoryEntry = 'deleteHistoryEntry',
     ClearHistory = 'clearHistory',
     UpdateHistoryConfig = 'updateHistoryConfig',
+
+    // Attachments
+    SelectAttachment = 'selectAttachment',
 }
 
 export enum BackendCommand {
@@ -155,4 +159,7 @@ export enum BackendCommand {
     // Request History
     HistoryLoaded = 'historyLoaded',
     HistoryUpdate = 'historyUpdate',
+
+    // Attachments
+    AttachmentSelected = 'attachmentSelected',
 }

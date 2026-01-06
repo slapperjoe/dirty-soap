@@ -19,10 +19,17 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
-        "noImplicitAny": false
+        "noImplicitAny": false,
+        "baseUrl": ".",
+        "paths": {
+            "@shared/*": [
+                "../shared/src/*"
+            ]
+        }
     },
     "include": [
-        "src"
+        "src",
+        "../shared/src"
     ],
     "references": [
         {

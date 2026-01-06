@@ -7,7 +7,7 @@ import axios, { AxiosRequestConfig, Method } from 'axios';
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
 import * as selfsigned from 'selfsigned';
-import { MockConfig, MockRule, MockMatchCondition } from '../models';
+import { MockConfig, MockRule, MockMatchCondition } from '@shared/models';
 import { DOMParser } from '@xmldom/xmldom';
 import * as xpath from 'xpath';
 

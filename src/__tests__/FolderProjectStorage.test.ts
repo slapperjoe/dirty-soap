@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 import { FolderProjectStorage } from '../FolderProjectStorage';
-import { SoapUIProject } from '../models';
+import { SoapUIProject } from '@shared/models';
 
 describe('FolderProjectStorage', () => {
     let storage: FolderProjectStorage;

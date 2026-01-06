@@ -17,9 +17,9 @@ import {
     SoapUIAssertion,
     SoapRequestExtractor,
     SidebarView
-} from '../models';
+} from '@shared/models';
 import { bridge } from '../utils/bridge';
-import { getInitialXml } from '../utils/xmlUtils';
+import { getInitialXml } from '@shared/utils/xmlUtils';
 
 interface UseTestCaseHandlersParams {
     projects: SoapUIProject[];

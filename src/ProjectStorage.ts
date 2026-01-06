@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import { SoapUIProject } from './models';
+import { SoapUIProject } from '@shared/models';
 import { DiagnosticService } from './services/DiagnosticService';
 
 export class ProjectStorage {

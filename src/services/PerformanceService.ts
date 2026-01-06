@@ -6,7 +6,7 @@ import {
     PerformanceResult,
     PerformanceStats,
     SoapRequestExtractor
-} from '../models';
+} from '@shared/models';
 import { SoapClient } from '../soapClient';
 import * as xpath from 'xpath';
 import { DOMParser } from '@xmldom/xmldom';

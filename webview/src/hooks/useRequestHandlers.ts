@@ -6,10 +6,10 @@
 
 import { useCallback, useRef } from 'react';
 import { bridge } from '../utils/bridge';
-import { FrontendCommand } from '../messages';
+import { FrontendCommand } from '@shared/messages';
 import { CustomXPathEvaluator } from '../utils/xpathEvaluator';
 import { useProject } from '../contexts/ProjectContext';
-import { SoapUIRequest, SoapUIOperation, SoapUIInterface, SoapTestCase } from '../models';
+import { SoapUIRequest, SoapUIOperation, SoapUIInterface, SoapTestCase } from '@shared/models';
 
 interface UseRequestHandlersProps {
     selectedRequest: SoapUIRequest | null;
@@ -125,7 +125,9 @@ export function useRequestHandlers({
                 interfaceName: selectedInterface?.name || undefined,
                 requestName: selectedRequest?.name || undefined,
                 // WS-Security
-                wsSecurity: selectedRequest?.wsSecurity
+                wsSecurity: selectedRequest?.wsSecurity,
+                // Attachments
+                attachments: selectedRequest?.attachments
             });
         } else {
             console.error('[useRequestHandlers] executeRequest aborted: No selectedOperation or selectedRequest');

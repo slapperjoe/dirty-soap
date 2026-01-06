@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
-import { MockRule, MockMatchCondition } from '../../models';
+import { MockRule, MockMatchCondition } from '@shared/models';
 
 interface MockRuleModalProps {
     open: boolean;

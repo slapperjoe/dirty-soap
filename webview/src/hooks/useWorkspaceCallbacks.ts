@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { SoapUIProject, SoapTestStep, SoapTestCase, TestStepType, SoapRequestExtractor } from '../models';
+import { SoapUIProject, SoapTestStep, SoapTestCase, TestStepType, SoapRequestExtractor } from '@shared/models';
 import { bridge } from '../utils/bridge';
 
 interface UseWorkspaceCallbacksParams {

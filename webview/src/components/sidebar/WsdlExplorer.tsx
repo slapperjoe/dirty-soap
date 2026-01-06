@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Globe, FileCode, Play, Plus, Trash2 } from 'lucide-react';
-import { SoapUIInterface, SoapUIOperation, SoapUIRequest } from '../../models';
+import { SoapUIInterface, SoapUIOperation, SoapUIRequest } from '@shared/models';
 import { HeaderButton, SectionHeader, Input } from './shared/SidebarStyles';
 import { ServiceTree } from './ServiceTree';
 

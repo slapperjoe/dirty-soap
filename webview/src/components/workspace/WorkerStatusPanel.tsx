@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Users, Server, Cpu, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { CoordinatorStatus } from '../../models';
+import { CoordinatorStatus } from '@shared/models';
 
 const Container = styled.div`
     /* No outer styling - panel is now embedded in a Section */

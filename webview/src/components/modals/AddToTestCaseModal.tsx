@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SoapUIProject } from '../../models';
+import { SoapUIProject } from '@shared/models';
 import { FlaskConical, Play } from 'lucide-react';
 
 const Overlay = styled.div`

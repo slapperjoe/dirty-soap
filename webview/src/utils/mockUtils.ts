@@ -1,4 +1,4 @@
-import { MockRule } from '../models';
+import { MockRule } from '@shared/models';
 
 export interface MockSourceData {
     url: string;

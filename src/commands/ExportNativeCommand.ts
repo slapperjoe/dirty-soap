@@ -1,7 +1,7 @@
 
 import { ICommand } from './ICommand';
 import { FolderProjectStorage } from '../FolderProjectStorage';
-import { SoapUIProject } from '../models';
+import { SoapUIProject } from '@shared/models';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';

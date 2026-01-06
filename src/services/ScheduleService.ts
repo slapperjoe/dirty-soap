@@ -6,7 +6,7 @@
 
 import * as cron from 'node-cron';
 import { EventEmitter } from 'events';
-import { PerformanceSchedule } from '../models';
+import { PerformanceSchedule } from '@shared/models';
 import { PerformanceService } from './PerformanceService';
 
 interface ScheduledTask {
