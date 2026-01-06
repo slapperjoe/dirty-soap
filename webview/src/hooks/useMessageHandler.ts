@@ -360,7 +360,7 @@ export function useMessageHandler(state: MessageHandlerState) {
    <soapenv:Header/>
    <soapenv:Body>
       <tem:${perfOp.name}>
-         <!--TODO: Add parameters-->
+${getInitialXml(perfOp.input)}
       </tem:${perfOp.name}>
    </soapenv:Body>
 </soapenv:Envelope>`,

@@ -153,7 +153,9 @@ export class SettingsManager {
             // Logic not needed if we overwrite below
         }
 
-        // TODO: Comment/jsonc handling
+        // NOTE: JSONC comment handling is implemented via updateConfigPath() method
+        // which uses jsonc-parser's modify() to preserve comments during updates.
+        // This method (saveConfig) is only used for full config overwrites where comments are expected to be lost.
 
         // This is a bit tricky. If we just dump JSON, we kill comments.
         // We should try to update specific paths if possible, or just overwrite if it's a structural save.

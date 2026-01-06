@@ -89,134 +89,204 @@ const EmptyServer: React.FC = () => (
     />
 );
 
-const ProjectSummary: React.FC<{ project: import('../models').SoapUIProject; onSelectInterface?: (i: import('../models').SoapUIInterface) => void }> = ({ project, onSelectInterface }) => (
-    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
-        <h1>Project: {project.name}</h1>
-        {project.description && <p style={{ fontSize: '1.1em', opacity: 0.8, marginBottom: 20 }}>{project.description}</p>}
+const ProjectSummary: React.FC<{ project: import('../models').SoapUIProject; onSelectInterface?: (i: import('../models').SoapUIInterface) => void }> = ({ project, onSelectInterface }) => {
+    // Calculate statistics
+    const totalOperations = project.interfaces.reduce((sum, iface) => sum + iface.operations.length, 0);
+    const totalRequests = project.interfaces.reduce((sum, iface) =>
+        sum + iface.operations.reduce((opSum, op) => opSum + op.requests.length, 0), 0
+    );
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20, marginTop: 30 }}>
-            <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
-                <h3>Interfaces</h3>
-                <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{project.interfaces.length}</span>
-            </div>
-            <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
-                <h3>Test Suites</h3>
-                <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{project.testSuites?.length || 0}</span>
-            </div>
-        </div>
-
-        <h2 style={{ marginTop: 40, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Interfaces</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 15 }}>
-            {project.interfaces.map(iface => (
-                <div
-                    key={iface.name}
-                    onClick={() => onSelectInterface && onSelectInterface(iface)}
-                    style={{
-                        padding: 15,
-                        background: 'var(--vscode-list-hoverBackground)',
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}
-                >
-                    <div>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{iface.name}</span>
-                        <div style={{ fontSize: '0.8em', opacity: 0.7, marginTop: 4 }}>{iface.operations.length} operations</div>
-                    </div>
-                    <ChevronLeft size={16} style={{ transform: 'rotate(180deg)', opacity: 0.5 }} />
+    return (
+        <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+                <div>
+                    <h1 style={{ margin: 0 }}>Project: {project.name}</h1>
+                    {project.description && <p style={{ fontSize: '1.1em', opacity: 0.8, margin: '8px 0 0 0' }}>{project.description}</p>}
                 </div>
-            ))}
-        </div>
-    </div>
-);
+                {/* Action buttons could go here - placeholder for now since we need to wire up handlers */}
+            </div>
 
-const InterfaceSummary: React.FC<{ interface: import('../models').SoapUIInterface; onSelectOperation?: (o: import('../models').SoapUIOperation) => void }> = ({ interface: iface, onSelectOperation }) => (
-    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
-        <h1>Interface: {iface.name}</h1>
-        <div style={{ marginTop: 20 }}>
-            <p><strong>WSDL:</strong> <a href="#" style={{ color: 'var(--vscode-textLink-foreground)' }}>{iface.definition}</a></p>
-            <p><strong>SOAP Version:</strong> {iface.soapVersion}</p>
-            <p><strong>Operations:</strong> {iface.operations.length}</p>
-        </div>
-        <h2 style={{ marginTop: 30, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Operations</h2>
-        <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
-            {iface.operations.map(op => (
-                <li
-                    key={op.name}
-                    onClick={() => onSelectOperation && onSelectOperation(op)}
-                    style={{
-                        padding: '12px 10px',
-                        borderBottom: '1px solid var(--vscode-panel-border)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                    <span>{op.name}</span>
-                    <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.3 }} />
-                </li>
-            ))}
-        </ul>
-    </div>
-);
+            {/* Statistics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 20, marginTop: 20 }}>
+                <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 8 }}>Interfaces</div>
+                    <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{project.interfaces.length}</span>
+                </div>
+                <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 8 }}>Test Suites</div>
+                    <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{project.testSuites?.length || 0}</span>
+                </div>
+                <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 8 }}>Operations</div>
+                    <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{totalOperations}</span>
+                </div>
+                <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 8 }}>Requests</div>
+                    <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{totalRequests}</span>
+                </div>
+            </div>
 
-const TestSuiteSummary: React.FC<{ suite: import('../models').SoapTestSuite; onSelectTestCase?: (c: import('../models').SoapTestCase) => void }> = ({ suite, onSelectTestCase }) => (
-    <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
-        <h1>Test Suite: {suite.name}</h1>
-        <div style={{ marginTop: 20 }}>
-            <p><strong>Test Cases:</strong> {suite.testCases.length}</p>
+            {/* Interfaces List */}
+            <h2 style={{ marginTop: 40, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Interfaces</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 15 }}>
+                {project.interfaces.map(iface => (
+                    <div
+                        key={iface.name}
+                        onClick={() => onSelectInterface && onSelectInterface(iface)}
+                        style={{
+                            padding: 15,
+                            background: 'var(--vscode-list-hoverBackground)',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <div style={{ flex: 1 }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{iface.name}</span>
+                            <div style={{ fontSize: '0.8em', opacity: 0.7, marginTop: 4 }}>{iface.operations.length} operations</div>
+                            {iface.definition && (
+                                <div style={{ fontSize: '0.75em', opacity: 0.5, marginTop: 4, fontFamily: 'monospace' }}>
+                                    {iface.definition}
+                                </div>
+                            )}
+                        </div>
+                        <ChevronLeft size={16} style={{ transform: 'rotate(180deg)', opacity: 0.5 }} />
+                    </div>
+                ))}
+            </div>
         </div>
-        <h2 style={{ marginTop: 30, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Test Cases</h2>
-        <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
-            {suite.testCases.map(tc => (
-                <li
-                    key={tc.id}
-                    onClick={() => onSelectTestCase && onSelectTestCase(tc)}
-                    style={{
-                        padding: '12px 10px',
-                        borderBottom: '1px solid var(--vscode-panel-border)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                    <span>{tc.name}</span>
-                    <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.3 }} />
-                </li>
-            ))}
-        </ul>
-    </div>
-);
+    );
+};
+
+
+const InterfaceSummary: React.FC<{ interface: import('../models').SoapUIInterface; onSelectOperation?: (o: import('../models').SoapUIOperation) => void }> = ({ interface: iface, onSelectOperation }) => {
+    // Get endpoint from first operation if available
+    const firstEndpoint = iface.operations[0]?.requests[0]?.endpoint;
+
+    return (
+        <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+            <h1>Interface: {iface.name}</h1>
+            <div style={{ marginTop: 20, padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                <div style={{ display: 'grid', gap: 12 }}>
+                    <div><strong>WSDL:</strong> <a href="#" style={{ color: 'var(--vscode-textLink-foreground)' }}>{iface.definition}</a></div>
+                    <div><strong>SOAP Version:</strong> {iface.soapVersion}</div>
+                    {iface.bindingName && <div><strong>Binding:</strong> {iface.bindingName}</div>}
+                    {firstEndpoint && <div><strong>Endpoint:</strong> <span style={{ fontFamily: 'monospace', fontSize: '0.9em' }}>{firstEndpoint}</span></div>}
+                    <div><strong>Operations:</strong> {iface.operations.length}</div>
+                </div>
+            </div>
+            <h2 style={{ marginTop: 30, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Operations</h2>
+            <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
+                {iface.operations.map(op => (
+                    <li
+                        key={op.name}
+                        onClick={() => onSelectOperation && onSelectOperation(op)}
+                        style={{
+                            padding: '12px 10px',
+                            borderBottom: '1px solid var(--vscode-panel-border)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <div>
+                            <span>{op.name}</span>
+                            <span style={{ marginLeft: 10, fontSize: '0.85em', opacity: 0.6 }}>({op.requests.length} request{op.requests.length !== 1 ? 's' : ''})</span>
+                        </div>
+                        <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.3 }} />
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+const TestSuiteSummary: React.FC<{ suite: import('../models').SoapTestSuite; onSelectTestCase?: (c: import('../models').SoapTestCase) => void }> = ({ suite, onSelectTestCase }) => {
+    // Calculate total steps
+    const totalSteps = suite.testCases.reduce((sum, tc) => sum + tc.steps.length, 0);
+
+    return (
+        <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
+            <h1>Test Suite: {suite.name}</h1>
+
+            {/* Statistics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 20, marginTop: 30 }}>
+                <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 8 }}>Test Cases</div>
+                    <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{suite.testCases.length}</span>
+                </div>
+                <div style={{ padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 8 }}>Total Steps</div>
+                    <span style={{ fontSize: '2em', fontWeight: 'bold' }}>{totalSteps}</span>
+                </div>
+            </div>
+
+            <h2 style={{ marginTop: 40, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Test Cases</h2>
+            <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
+                {suite.testCases.map(tc => (
+                    <li
+                        key={tc.id}
+                        onClick={() => onSelectTestCase && onSelectTestCase(tc)}
+                        style={{
+                            padding: '12px 10px',
+                            borderBottom: '1px solid var(--vscode-panel-border)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <div>
+                            <span>{tc.name}</span>
+                            <span style={{ marginLeft: 10, fontSize: '0.85em', opacity: 0.6 }}>({tc.steps.length} step{tc.steps.length !== 1 ? 's' : ''})</span>
+                        </div>
+                        <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.3 }} />
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
 
 const OperationSummary: React.FC<{ operation: import('../models').SoapUIOperation; onSelectRequest?: (r: import('../models').SoapUIRequest) => void }> = ({ operation, onSelectRequest }) => (
     <div style={{ padding: 40, color: 'var(--vscode-foreground)', overflowY: 'auto', flex: 1 }}>
         <h1>Operation: {operation.name}</h1>
-        {operation.input && <div style={{ marginTop: 20, padding: 15, background: 'var(--vscode-textBlockQuote-background)', borderLeft: '4px solid var(--vscode-textBlockQuote-border)' }}>
-            <strong>Input:</strong> {JSON.stringify(operation.input)}
-        </div>}
-        <h2 style={{ marginTop: 30 }}>Requests ({operation.requests.length})</h2>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 15 }}>
+
+        {/* Metadata */}
+        <div style={{ marginTop: 20, padding: 20, background: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 6 }}>
+            <div style={{ display: 'grid', gap: 12 }}>
+                {operation.action && <div><strong>Action:</strong> <span style={{ fontFamily: 'monospace', fontSize: '0.9em' }}>{operation.action}</span></div>}
+                <div><strong>Requests:</strong> {operation.requests.length}</div>
+            </div>
+        </div>
+
+        <h2 style={{ marginTop: 30, borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 10 }}>Requests</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 15, marginTop: 15 }}>
             {operation.requests.map(req => (
                 <div
                     key={req.id}
                     onClick={() => onSelectRequest && onSelectRequest(req)}
                     style={{
-                        padding: '10px 15px',
-                        background: 'var(--vscode-badge-background)',
-                        color: 'var(--vscode-badge-foreground)',
-                        borderRadius: 4,
-                        cursor: 'pointer'
+                        padding: 15,
+                        background: 'var(--vscode-list-hoverBackground)',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        border: '1px solid var(--vscode-panel-border)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
                     }}
                 >
-                    {req.name}
+                    <span style={{ fontWeight: '500' }}>{req.name}</span>
+                    <ChevronLeft size={14} style={{ transform: 'rotate(180deg)', opacity: 0.5 }} />
                 </div>
             ))}
         </div>

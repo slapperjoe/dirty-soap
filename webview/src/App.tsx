@@ -802,6 +802,32 @@ function App() {
         }
     }, [projects, selectedStep, selectedTestCase]);
 
+    // Sync selectedTestSuite - clear if deleted
+    useEffect(() => {
+        if (selectedTestSuite) {
+            // Check if the selected test suite still exists in projects
+            let suiteExists = false;
+            for (const p of projects) {
+                if (p.testSuites) {
+                    const foundSuite = p.testSuites.find(s => s.id === selectedTestSuite.id);
+                    if (foundSuite) {
+                        suiteExists = true;
+                        // Re-hydrate if suite has updated
+                        if (foundSuite !== selectedTestSuite) {
+                            setSelectedTestSuite(foundSuite);
+                        }
+                        break;
+                    }
+                }
+            }
+            // If suite no longer exists, clear selection
+            if (!suiteExists) {
+                setSelectedTestSuite(null);
+            }
+        }
+    }, [projects, selectedTestSuite]);
+
+
     // (Message handling moved to useMessageHandler hook)
 
     // Resizing Logic

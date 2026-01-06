@@ -5,11 +5,21 @@ import { ToolbarButton, IconButton, EmptyStateImage } from '../../styles/Workspa
 import emptyTestsImg from '../../assets/empty-tests.png';
 
 // Empty state component
-const EmptyTestCase: React.FC = () => (
+interface EmptyTestCaseProps {
+    onCreateTestSuite?: (projectName: string) => void;
+    projectName?: string;
+}
+
+const EmptyTestCase: React.FC<EmptyTestCaseProps> = ({ onCreateTestSuite, projectName }) => (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)', padding: 20, textAlign: 'center' }}>
         <EmptyStateImage src={emptyTestsImg} alt="No Test Case Selected" />
         <h2 style={{ marginBottom: 10, color: 'var(--vscode-foreground)' }}>No Test Case Selected</h2>
-        <p>Select a test case from the sidebar or create a new test suite.</p>
+        <p style={{ marginBottom: 20 }}>Select a test case from the sidebar or create a new test suite.</p>
+        {onCreateTestSuite && projectName && (
+            <ToolbarButton onClick={() => onCreateTestSuite(projectName)} style={{ fontSize: '1em', padding: '10px 20px' }}>
+                <Plus size={16} /> Create Test Suite
+            </ToolbarButton>
+        )}
     </div>
 );
 
