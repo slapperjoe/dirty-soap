@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.9.0] - 2026-01-07
+### Auto-Generated Changes
+- feat: Implement WSDL parsing and a new webview for managing settings and SOAP operations.
+
 ## [0.8.1] - 2026-01-01
 ### Auto-Generated Changes
 - feat: Implement WSDL parsing and a new webview for managing settings and SOAP operations.
