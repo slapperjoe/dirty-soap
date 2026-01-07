@@ -30,7 +30,7 @@ export interface SoapSchemaNode {
 
 // Assertion Types
 export interface SoapUIAssertion {
-    type: 'Simple Contains' | 'Simple Not Contains' | 'Response SLA' | 'XPath Match';
+    type: 'Simple Contains' | 'Simple Not Contains' | 'Response SLA' | 'XPath Match' | 'SOAP Fault' | 'HTTP Status' | 'Script';
     name?: string;
     id?: string;
     description?: string;
@@ -41,6 +41,13 @@ export interface SoapUIAssertion {
         sla?: string; // For SLA (ms)
         xpath?: string; // For XPath
         expectedContent?: string; // For XPath
+        // SOAP Fault
+        expectFault?: boolean; // true = expect fault, false = expect success
+        faultCode?: string; // Optional: e.g. "Client", "Server"
+        // HTTP Status
+        expectedStatus?: string; // Comma-separated, e.g. "200,201"
+        // Script
+        script?: string; // JavaScript code
     };
 }
 

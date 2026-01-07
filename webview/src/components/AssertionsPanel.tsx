@@ -2,6 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { Trash2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { SoapUIAssertion } from '@shared/models';
+import { StatusCodePicker } from './StatusCodePicker';
+import Editor from '@monaco-editor/react';
 
 const Container = styled.div`
     display: flex;
@@ -117,6 +119,9 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
         if (type === 'Simple Contains') newAssertion.configuration = { token: '', ignoreCase: true };
         if (type === 'Simple Not Contains') newAssertion.configuration = { token: '', ignoreCase: true };
         if (type === 'XPath Match') newAssertion.configuration = { xpath: '', expectedContent: '' };
+        if (type === 'SOAP Fault') newAssertion.configuration = { expectFault: false };
+        if (type === 'HTTP Status') newAssertion.configuration = { expectedStatus: '200' };
+        if (type === 'Script') newAssertion.configuration = { script: '// return true to pass, false to fail\n// Available: response, statusCode\nreturn response.includes("Success");' };
 
         onChange([...assertions, newAssertion]);
     };
@@ -150,6 +155,9 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
                     <option value="Simple Not Contains">Not Contains</option>
                     <option value="Response SLA">Response SLA</option>
                     <option value="XPath Match">XPath Match</option>
+                    <option value="SOAP Fault">SOAP Fault</option>
+                    <option value="HTTP Status">HTTP Status</option>
+                    <option value="Script">Script (JavaScript)</option>
                 </Select>
             </Toolbar>
 
@@ -214,6 +222,77 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
                                                     value={a.configuration?.expectedContent || ''}
                                                     onChange={(e) => updateConfig(a.id!, 'expectedContent', e.target.value)}
                                                     placeholder="Value"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {a.type === 'SOAP Fault' && (
+                                        <>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={a.configuration?.expectFault === true}
+                                                    onChange={(e) => updateConfig(a.id!, 'expectFault', e.target.checked)}
+                                                />
+                                                Expect Fault
+                                            </label>
+                                            <div style={{ marginTop: 5, display: 'flex', alignItems: 'center' }}>
+                                                <span style={{ marginRight: 5 }}>Fault Code:</span>
+                                                <Input
+                                                    value={a.configuration?.faultCode || ''}
+                                                    onChange={(e) => updateConfig(a.id!, 'faultCode', e.target.value)}
+                                                    placeholder="Optional (e.g. Client)"
+                                                    style={{ width: 140 }}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+                                    {a.type === 'HTTP Status' && (
+                                        <div style={{ marginTop: 5 }}>
+                                            <div style={{ marginBottom: 4, fontSize: 12 }}>Expected Codes:</div>
+                                            <StatusCodePicker
+                                                value={a.configuration?.expectedStatus || ''}
+                                                onChange={(val) => updateConfig(a.id!, 'expectedStatus', val)}
+                                            />
+                                        </div>
+                                    )}
+                                    {a.type === 'Script' && (
+                                        <div style={{ marginTop: 5, width: '100%' }}>
+                                            <div style={{ marginBottom: 4, fontSize: 11, opacity: 0.7 }}>
+                                                Return <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>true</code> to pass, <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>false</code> to fail.
+                                                Available: <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>response</code>, <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>statusCode</code>
+                                            </div>
+                                            <div style={{ border: '1px solid var(--vscode-input-border)', borderRadius: 4, overflow: 'hidden' }}>
+                                                <Editor
+                                                    height="100px"
+                                                    defaultLanguage="javascript"
+                                                    theme="vs-dark"
+                                                    value={a.configuration?.script || ''}
+                                                    onChange={(val) => updateConfig(a.id!, 'script', val || '')}
+                                                    onMount={(editor, monaco) => {
+                                                        // Fix Enter key to insert newline
+                                                        editor.addAction({
+                                                            id: 'insert-newline',
+                                                            label: 'Insert Newline',
+                                                            keybindings: [monaco.KeyCode.Enter],
+                                                            run: (ed) => {
+                                                                ed.trigger('keyboard', 'type', { text: '\n' });
+                                                            }
+                                                        });
+                                                    }}
+                                                    options={{
+                                                        minimap: { enabled: false },
+                                                        scrollBeyondLastLine: false,
+                                                        fontSize: 12,
+                                                        lineNumbers: 'off',
+                                                        folding: false,
+                                                        glyphMargin: false,
+                                                        lineDecorationsWidth: 0,
+                                                        lineNumbersMinChars: 0,
+                                                        automaticLayout: true,
+                                                        acceptSuggestionOnEnter: 'off',
+                                                        quickSuggestions: false,
+                                                    }}
                                                 />
                                             </div>
                                         </div>

@@ -126,7 +126,8 @@ export class ExecuteRequestCommand implements ICommand {
             // Run Assertions
             let assertionResults: any[] = [];
             if (message.assertions && Array.isArray(message.assertions)) {
-                assertionResults = AssertionRunner.run(typeof result === 'string' ? result : JSON.stringify(result), timeTaken, message.assertions);
+                const statusCode = result?.status;
+                assertionResults = AssertionRunner.run(typeof result === 'string' ? result : (result?.rawResponse || JSON.stringify(result)), timeTaken, message.assertions, statusCode);
                 if (assertionResults.length > 0) {
                     this._soapClient.log(`Assertion Results:`);
                     assertionResults.forEach(r => {

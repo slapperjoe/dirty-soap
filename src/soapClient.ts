@@ -260,7 +260,8 @@ export class SoapClient {
                 headers: response.headers,
                 rawResponse: response.data,
                 rawRequest: xml,
-                timeTaken: timeTaken
+                timeTaken: timeTaken,
+                status: response.status
             };
 
         } catch (error: any) {
@@ -286,7 +287,8 @@ export class SoapClient {
                 error: error.message,
                 rawResponse: error.response ? error.response.data : null,
                 rawRequest: xml,
-                timeTaken: timeTaken
+                timeTaken: timeTaken,
+                status: error.response?.status
             };
         }
     }

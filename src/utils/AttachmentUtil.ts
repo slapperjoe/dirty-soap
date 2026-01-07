@@ -90,7 +90,7 @@ export class AttachmentUtil {
         }
 
         // First, inline any Base64 attachments
-        let processedXml = this.inlineBase64Attachments(xml, attachments);
+        const processedXml = this.inlineBase64Attachments(xml, attachments);
 
         // Check if we need multipart
         if (this.hasMultipartAttachments(attachments)) {
