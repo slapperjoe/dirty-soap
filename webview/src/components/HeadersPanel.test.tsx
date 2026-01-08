@@ -24,13 +24,13 @@ describe('HeadersPanel', () => {
 
     it('should render headers', () => {
         const onChange = vi.fn();
-        const headers = { 'Content-Type': 'application/xml' };
+        const headers = { 'Authorization': 'Bearer token123' };
         render(<HeadersPanel headers={headers} onChange={onChange} />);
 
-        const nameInput = screen.getByDisplayValue('Content-Type');
+        const nameInput = screen.getByDisplayValue('Authorization');
         expect(nameInput).toBeInTheDocument();
 
-        const valueInput = screen.getByDisplayValue('application/xml');
+        const valueInput = screen.getByDisplayValue('Bearer token123');
         expect(valueInput).toBeInTheDocument();
     });
 
@@ -100,5 +100,37 @@ describe('HeadersPanel', () => {
         expect(screen.getByDisplayValue('value1')).toBeInTheDocument();
         expect(screen.getByDisplayValue('value2')).toBeInTheDocument();
         expect(screen.getByDisplayValue('value3')).toBeInTheDocument();
+    });
+
+    it('should render Content-Type as read-only', () => {
+        const onChange = vi.fn();
+        render(<HeadersPanel headers={{}} onChange={onChange} contentType="application/xml" />);
+
+        // Content-Type should be shown as text, not an editable input
+        expect(screen.getByText('Content-Type')).toBeInTheDocument();
+        expect(screen.getByText('application/xml')).toBeInTheDocument();
+    });
+
+    it('should show default Content-Type when not provided', () => {
+        const onChange = vi.fn();
+        render(<HeadersPanel headers={{}} onChange={onChange} />);
+
+        // Default Content-Type should be application/soap+xml
+        expect(screen.getByText('Content-Type')).toBeInTheDocument();
+        expect(screen.getByText('application/soap+xml')).toBeInTheDocument();
+    });
+
+    it('should filter Content-Type from editable headers', () => {
+        const onChange = vi.fn();
+        // Even if Content-Type is passed in headers, it should not be editable
+        const headers = { 'Content-Type': 'text/xml', 'Authorization': 'Bearer token' };
+        render(<HeadersPanel headers={headers} onChange={onChange} />);
+
+        // Authorization should be editable (found as input value)
+        expect(screen.getByDisplayValue('Authorization')).toBeInTheDocument();
+
+        // Content-Type should NOT be found as an input (it's read-only text)
+        expect(screen.queryByDisplayValue('Content-Type')).not.toBeInTheDocument();
+        expect(screen.queryByDisplayValue('text/xml')).not.toBeInTheDocument();
     });
 });

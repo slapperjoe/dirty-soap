@@ -162,6 +162,22 @@ export function useMessageHandler(state: MessageHandlerState) {
 
     const hasPerformedInitialLoad = useRef(false);
 
+    // Use refs for values that change frequently to avoid re-registering message listener
+    const projectsRef = useRef(projects);
+    const selectedRequestRef = useRef(selectedRequest);
+    const selectedTestCaseRef = useRef(selectedTestCase);
+    const configRef = useRef(config);
+    const proxyConfigRef = useRef(proxyConfig);
+    const wsdlUrlRef = useRef(wsdlUrl);
+
+    // Keep refs up to date
+    useEffect(() => { projectsRef.current = projects; }, [projects]);
+    useEffect(() => { selectedRequestRef.current = selectedRequest; }, [selectedRequest]);
+    useEffect(() => { selectedTestCaseRef.current = selectedTestCase; }, [selectedTestCase]);
+    useEffect(() => { configRef.current = config; }, [config]);
+    useEffect(() => { proxyConfigRef.current = proxyConfig; }, [proxyConfig]);
+    useEffect(() => { wsdlUrlRef.current = wsdlUrl; }, [wsdlUrl]);
+
     useEffect(() => {
         debugLog('Setting up message listener');
 
@@ -194,7 +210,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                 type: 'wsdl',
                                 bindingName: portName,
                                 soapVersion: portName.includes('12') ? '1.2' : '1.1',
-                                definition: wsdlUrl,
+                                definition: wsdlUrlRef.current,
                                 operations: ops.map((op: any) => ({
                                     name: op.name,
                                     action: '',
@@ -720,7 +736,7 @@ ${getInitialXml(perfOp.input)}
 
                 case BackendCommand.UpdateProxyTarget:
                     debugLog('updateProxyTarget', { target: message.target });
-                    const newConfig = { ...proxyConfig, target: message.target };
+                    const newConfig = { ...proxyConfigRef.current, target: message.target };
                     setProxyConfig(newConfig);
                     bridge.sendMessage({ command: FrontendCommand.UpdateProxyConfig, config: newConfig });
                     break;
@@ -751,10 +767,10 @@ ${getInitialXml(perfOp.input)}
                                 response: enhancedResponse
                             };
 
-                            if (selectedTestCase && selectedTestCase.id === caseId) {
-                                if (selectedRequest) {
-                                    const step = selectedTestCase.steps.find(s => s.id === stepId);
-                                    if (step && step.config.request && (step.config.request.id === selectedRequest.id)) {
+                            if (selectedTestCaseRef.current && selectedTestCaseRef.current.id === caseId) {
+                                if (selectedRequestRef.current) {
+                                    const step = selectedTestCaseRef.current.steps.find(s => s.id === stepId);
+                                    if (step && step.config.request && (step.config.request.id === selectedRequestRef.current.id)) {
                                         setResponse({
                                             ...enhancedResponse,
                                             assertionResults: message.data.assertionResults
@@ -799,5 +815,5 @@ ${getInitialXml(perfOp.input)}
             debugLog('Cleaning up message listener');
             cleanup();
         };
-    }, [wsdlUrl, projects, proxyConfig, config, selectedTestCase, selectedRequest]);
+    }, []); // Empty deps - refs are used to access current values
 }

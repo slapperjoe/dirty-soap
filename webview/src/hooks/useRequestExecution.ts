@@ -181,22 +181,31 @@ export function useRequestExecution({
     }, [setLoading]);
 
     const handleRequestUpdate = useCallback((updated: SoapUIRequest) => {
-        console.log('[handleRequestUpdate] Called with:', {
+        const logContext = {
             requestName: updated.name,
             requestId: updated.id,
             assertionCount: updated.assertions?.length || 0,
             selectedProjectName,
+            selectedInterfaceName: selectedInterface?.name,
+            selectedOperationName: selectedOperation?.name,
             selectedTestCaseName: selectedTestCase?.name,
-            selectedTestCaseId: selectedTestCase?.id
-        });
+            selectedTestCaseId: selectedTestCase?.id,
+            selectedPerformanceSuiteId
+        };
+
+        console.log('[handleRequestUpdate] Called with:', logContext);
+        bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] START', data: JSON.stringify(logContext) });
 
         const dirtyUpdated = { ...updated, dirty: true };
         setSelectedRequest(dirtyUpdated);
         setWorkspaceDirty(true);
 
+        bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] Set dirty: true on selectedRequest', data: JSON.stringify({ requestId: updated.id }) });
+
         // 0. Performance Request Modification
         if (selectedPerformanceSuiteId && updated.id?.startsWith('perf-req-')) {
             console.log('[handleRequestUpdate] Updating Performance Request:', updated.id);
+            bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] PERF PATH - updating perf request', data: JSON.stringify({ suiteId: selectedPerformanceSuiteId, requestId: updated.id }) });
 
             // Send update to backend
             bridge.sendMessage({
@@ -247,79 +256,120 @@ export function useRequestExecution({
         // Update in Project/Explorer
         // IMPORTANT: When updating test case steps, search ALL projects for the test case
         // because selectedProjectName may be stale/wrong
-        setProjects(prev => prev.map(p => {
-            // 1. Is it a Test Case modification? Search ALL projects for the test case
-            if (selectedTestCase) {
-                let caseUpdated = false;
-                const updatedSuites = p.testSuites?.map(s => {
-                    const tcIndex = s.testCases?.findIndex(tc => tc.id === selectedTestCase.id) ?? -1;
-                    if (tcIndex === -1) return s;
 
-                    console.log('[handleRequestUpdate] Found test case in project:', p.name, 'suite:', s.name);
+        bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] PROJECT PATH - updating projects state', data: JSON.stringify({ hasTestCase: !!selectedTestCase, projectName: selectedProjectName }) });
 
-                    const updatedCases = [...(s.testCases || [])];
+        setProjects(prev => {
+            bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] setProjects callback - projects count', data: JSON.stringify({ count: prev.length }) });
 
-                    // Find step containing this request - Prefer ID match, fallback to Name
-                    const stepIndex = updatedCases[tcIndex].steps.findIndex(step =>
+            return prev.map(p => {
+                // 1. Is it a Test Case modification? 
+                // Only take this path if selectedTestCase is set AND request is actually found in the test case
+                if (selectedTestCase) {
+                    // First, check if this request belongs to the selected test case
+                    const isRequestInTestCase = selectedTestCase.steps.some(step =>
                         (updated.id && step.config.request?.id === updated.id) ||
                         step.config.request?.name === updated.name ||
                         (selectedRequest && step.config.request?.name === selectedRequest.name)
                     );
 
-                    console.log('[handleRequestUpdate] Step Search:', stepIndex, 'for request:', updated.name);
+                    if (isRequestInTestCase) {
+                        let caseUpdated = false;
+                        const updatedSuites = p.testSuites?.map(s => {
+                            const tcIndex = s.testCases?.findIndex(tc => tc.id === selectedTestCase.id) ?? -1;
+                            if (tcIndex === -1) return s;
 
-                    if (stepIndex !== -1) {
-                        caseUpdated = true;
-                        console.log('[handleRequestUpdate] Updating step with assertions:', updated.assertions?.length || 0);
-                        updatedCases[tcIndex] = {
-                            ...updatedCases[tcIndex],
-                            steps: updatedCases[tcIndex].steps.map((st, i) => {
-                                if (i === stepIndex) {
-                                    const finalRequest = {
-                                        ...dirtyUpdated,
-                                        id: dirtyUpdated.id || `req-${Date.now()}-healed`
-                                    };
-                                    return { ...st, config: { ...st.config, request: finalRequest } };
-                                }
-                                return st;
+                            console.log('[handleRequestUpdate] Found test case in project:', p.name, 'suite:', s.name);
+                            bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] Found test case', data: JSON.stringify({ project: p.name, suite: s.name }) });
+
+                            const updatedCases = [...(s.testCases || [])];
+
+                            // Find step containing this request - Prefer ID match, fallback to Name
+                            const stepIndex = updatedCases[tcIndex].steps.findIndex(step =>
+                                (updated.id && step.config.request?.id === updated.id) ||
+                                step.config.request?.name === updated.name ||
+                                (selectedRequest && step.config.request?.name === selectedRequest.name)
+                            );
+
+                            console.log('[handleRequestUpdate] Step Search:', stepIndex, 'for request:', updated.name);
+
+                            if (stepIndex !== -1) {
+                                caseUpdated = true;
+                                console.log('[handleRequestUpdate] Updating step with assertions:', updated.assertions?.length || 0);
+                                updatedCases[tcIndex] = {
+                                    ...updatedCases[tcIndex],
+                                    steps: updatedCases[tcIndex].steps.map((st, i) => {
+                                        if (i === stepIndex) {
+                                            const finalRequest = {
+                                                ...dirtyUpdated,
+                                                id: dirtyUpdated.id || `req-${Date.now()}-healed`
+                                            };
+                                            return { ...st, config: { ...st.config, request: finalRequest } };
+                                        }
+                                        return st;
+                                    })
+                                };
+                            }
+                            return { ...s, testCases: updatedCases };
+                        });
+
+                        if (caseUpdated) {
+                            console.log('[handleRequestUpdate] Updated project:', p.name);
+                            bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] TEST CASE PATH - updated project', data: JSON.stringify({ project: p.name }) });
+                            return { ...p, testSuites: updatedSuites, dirty: true };
+                        }
+                        // Test case not in this project, continue to next project (don't fall through to normal path)
+                        return p;
+                    }
+                    // Request not in test case - fall through to normal workspace path
+                    bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] Request not in test case - trying normal path', data: JSON.stringify({ requestName: updated.name }) });
+                }
+
+                // 2. Normal Request Modification - requires selectedProjectName match
+                if (!selectedProjectName || p.name !== selectedProjectName) {
+                    bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] SKIP project - name mismatch', data: JSON.stringify({ projectName: p.name, selectedProjectName }) });
+                    return p;
+                }
+
+                bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] NORMAL PATH - updating project', data: JSON.stringify({ projectName: p.name, interfaceName: selectedInterface?.name, operationName: selectedOperation?.name }) });
+
+                // 2. Normal Request Modification
+                let requestFound = false;
+                const updatedProject = {
+                    ...p,
+                    dirty: true,
+                    interfaces: p.interfaces.map(i => {
+                        if (i.name !== selectedInterface?.name) return i;
+                        return {
+                            ...i,
+                            operations: i.operations.map(o => {
+                                if (o.name !== selectedOperation?.name) return o;
+                                return {
+                                    ...o,
+                                    requests: o.requests.map(r => {
+                                        if (r.id === updated.id) {
+                                            requestFound = true;
+                                            bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] FOUND request by ID - updating', data: JSON.stringify({ requestId: r.id }) });
+                                            return dirtyUpdated;
+                                        }
+                                        return r;
+                                    })
+                                };
                             })
                         };
-                    }
-                    return { ...s, testCases: updatedCases };
-                });
+                    })
+                };
 
-                if (caseUpdated) {
-                    console.log('[handleRequestUpdate] Updated project:', p.name);
-                    return { ...p, testSuites: updatedSuites, dirty: true };
+                if (!requestFound) {
+                    bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] WARNING - request NOT found', data: JSON.stringify({ requestId: updated.id, interfaceName: selectedInterface?.name, operationName: selectedOperation?.name }) });
                 }
-                // Test case not in this project, continue to next
-                return p;
-            }
 
-            // 2. Normal Request Modification - requires selectedProjectName match
-            if (!selectedProjectName || p.name !== selectedProjectName) return p;
+                // No longer auto-saving - user must click Save button
+                return updatedProject;
+            });
+        });
 
-            // 2. Normal Request Modification
-            const updatedProject = {
-                ...p,
-                dirty: true,
-                interfaces: p.interfaces.map(i => {
-                    if (i.name !== selectedInterface?.name) return i;
-                    return {
-                        ...i,
-                        operations: i.operations.map(o => {
-                            if (o.name !== selectedOperation?.name) return o;
-                            return {
-                                ...o,
-                                requests: o.requests.map(r => r.name === selectedRequest?.name ? dirtyUpdated : r)
-                            };
-                        })
-                    };
-                })
-            };
-            // No longer auto-saving - user must click Save button
-            return updatedProject;
-        }));
+        bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] END', data: '{}' });
     }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setSelectedRequest, setWorkspaceDirty, selectedPerformanceSuiteId, config, setConfig]);
 
     const handleResetRequest = useCallback(() => {

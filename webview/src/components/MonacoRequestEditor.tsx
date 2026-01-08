@@ -70,12 +70,21 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
             if (onFocus) onFocus();
         });
 
-        // Apply auto-folding if configured
         if (autoFoldElements && autoFoldElements.length > 0 && value) {
             applyAutoFolding(editor, value, autoFoldElements, () => setIsReady(true));
         } else {
             setIsReady(true);
         }
+
+        // Fix Enter key to insert newline (prevents Enter from being stolen)
+        editor.addAction({
+            id: 'insert-newline',
+            label: 'Insert Newline',
+            keybindings: [monaco.KeyCode.Enter],
+            run: (ed) => {
+                ed.trigger('keyboard', 'type', { text: '\n' });
+            }
+        });
 
         // --- Clipboard Fixes ---
 
@@ -223,6 +232,8 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
                     lineNumbers: 'on',
                     renderLineHighlight: 'none',
                     contextmenu: true,
+                    acceptSuggestionOnEnter: 'off',
+                    quickSuggestions: false,
                 }}
             />
         </EditorContainer>

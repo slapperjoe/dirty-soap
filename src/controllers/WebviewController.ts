@@ -274,7 +274,10 @@ export class WebviewController {
     }
 
     public async handleMessage(message: any) {
-        this._diagnosticService.log('BRIDGE_IN', message.command, message);
+        // Skip logging echo/ping commands to reduce noise
+        if (message.command !== 'echo') {
+            this._diagnosticService.log('BRIDGE_IN', message.command, message);
+        }
 
         if (this._commands.has(message.command)) {
             await this._commands.get(message.command)?.execute(message);

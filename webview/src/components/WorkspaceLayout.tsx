@@ -336,11 +336,17 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const {
         onExecute,
         onCancel,
-        onUpdate: onUpdateRequest,
+        onUpdate: rawOnUpdateRequest,
         onReset,
         response,
         loading
     } = requestActions;
+
+    // Wrapper to add logging for debugging
+    const onUpdateRequest = React.useCallback((updated: any) => {
+        console.log('[WorkspaceLayout] onUpdateRequest called:', { requestName: updated?.name, requestId: updated?.id });
+        rawOnUpdateRequest(updated);
+    }, [rawOnUpdateRequest]);
     const {
         activeView, // Now available
         layoutMode, showLineNumbers, splitRatio, isResizing, onToggleLayout, onToggleLineNumbers, onStartResizing,

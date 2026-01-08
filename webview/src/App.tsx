@@ -755,10 +755,10 @@ function App() {
 
         // Test Backend Connection
         bridge.sendMessage({ command: 'echo', message: 'ping' });
-        // Retry every 5 seconds if not connected
+        // Retry every 60 seconds if not connected
         const interval = setInterval(() => {
             bridge.sendMessage({ command: 'echo', message: 'ping' });
-        }, 5000);
+        }, 60000);
         return () => clearInterval(interval);
     }, []);
 
@@ -1225,24 +1225,33 @@ function App() {
                 navigationActions={{
                     onSelectProject: (p) => {
                         setSelectedProjectName(p.name);
+                        setSelectedPerformanceSuiteId(null); // Clear performance state when navigating to projects
+                        setSelectedTestCase(null); // Clear test case state when navigating to projects
                         setActiveView(SidebarView.PROJECTS);
                     },
                     onSelectInterface: (i) => {
                         // Ensure parent project is selected if possible (we only have interface here, might need project name context)
                         // If we are navigating from Project Summary, we assume Project Level is correct.
                         setSelectedInterface(i);
+                        setSelectedPerformanceSuiteId(null); // Clear performance state
+                        setSelectedTestCase(null); // Clear test case state
                         setActiveView(SidebarView.PROJECTS);
                     },
                     onSelectOperation: (o) => {
                         setSelectedOperation(o);
+                        setSelectedPerformanceSuiteId(null); // Clear performance state
+                        setSelectedTestCase(null); // Clear test case state
                         setActiveView(SidebarView.PROJECTS);
                     },
                     onSelectRequest: (r) => {
                         setSelectedRequest({ ...r, contentType: r.contentType || 'application/soap+xml' });
+                        setSelectedPerformanceSuiteId(null); // Clear performance state when selecting workspace request
+                        setSelectedTestCase(null); // Clear test case state when selecting workspace request
                         setActiveView(SidebarView.PROJECTS);
                     },
                     onSelectTestCase: (tc) => {
                         handleSelectTestCase(tc.id);
+                        setSelectedPerformanceSuiteId(null); // Clear performance state
                         setActiveView(SidebarView.TESTS);
                     }
                 }}
@@ -1250,7 +1259,10 @@ function App() {
                     onExecute: executeRequest,
                     onCancel: cancelRequest,
                     onUpdate: (updated) => {
-                        if (selectedPerformanceSuite) {
+                        // Check if this is actually a performance request by ID prefix
+                        const isPerformanceRequest = updated.id?.startsWith('perf-req-');
+
+                        if (selectedPerformanceSuite && isPerformanceRequest) {
                             // Map back to PerformanceRequest for saving
                             bridge.sendMessage({
                                 command: 'updatePerformanceRequest',
