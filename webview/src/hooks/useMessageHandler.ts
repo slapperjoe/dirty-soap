@@ -365,45 +365,47 @@ export function useMessageHandler(state: MessageHandlerState) {
                         hasPerfOp: !!perfOp,
                         hasPerfReq: !!perfReq,
                         hasSuiteId: !!message.suiteId,
-                        hasConfig: !!config,
-                        hasPerformanceSuites: !!config?.performanceSuites,
-                        suitesCount: config?.performanceSuites?.length || 0
+                        hasConfig: !!configRef.current,
+                        hasPerformanceSuites: !!configRef.current?.performanceSuites,
+                        suitesCount: configRef.current?.performanceSuites?.length || 0
                     });
 
-                    if ((perfOp || perfReq) && message.suiteId && config?.performanceSuites) {
-                        const suiteIndex = config.performanceSuites.findIndex((s: any) => s.id === message.suiteId);
-                        debugLog('addOperationToPerformance', { suiteIndex, lookingForId: message.suiteId });
-                        console.log('[useMessageHandler] ADD_OP_PERF: Found suite index', suiteIndex);
+                    try {
+                        if ((perfOp || perfReq) && message.suiteId && configRef.current?.performanceSuites) {
+                            const suiteIndex = configRef.current.performanceSuites.findIndex((s: any) => s.id === message.suiteId);
+                            debugLog('addOperationToPerformance', { suiteIndex, lookingForId: message.suiteId });
+                            console.log('[useMessageHandler] ADD_OP_PERF: Found suite index', suiteIndex);
 
-                        if (suiteIndex !== -1) {
-                            // Diagnostics
-                            console.log('[useMessageHandler] addOperationToPerformance', { suiteId: message.suiteId, existingRequests: config.performanceSuites[suiteIndex].requests?.length });
+                            if (suiteIndex !== -1) {
+                                // Diagnostics
+                                // Diagnostics
+                                console.log('[useMessageHandler] addOperationToPerformance', { suiteId: message.suiteId, existingRequests: configRef.current.performanceSuites[suiteIndex].requests?.length });
 
-                            const suite = { ...config.performanceSuites[suiteIndex] };
-                            let newRequest = message.request;
+                                const suite = { ...configRef.current.performanceSuites[suiteIndex] };
+                                let newRequest = message.request;
 
-                            // Ensure unique ID for the new request instance
-                            if (newRequest) {
-                                newRequest = {
-                                    ...newRequest,
-                                    id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                                    method: newRequest.method || 'POST',
-                                    requestBody: newRequest.requestBody || (newRequest as any).request || '',
-                                    interfaceName: newRequest.interfaceName, // From payload
-                                    operationName: newRequest.operationName, // From payload
-                                    order: (suite.requests?.length || 0) + 1
-                                };
-                            } else {
-                                // Fallback construction
-                                const perfOp = message.operation; // Assuming it might be passed if request isn't
-                                if (perfOp) {
+                                // Ensure unique ID for the new request instance
+                                if (newRequest) {
                                     newRequest = {
+                                        ...newRequest,
                                         id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                                        name: perfOp.name,
-                                        endpoint: (perfOp as any).originalEndpoint || '',
-                                        method: 'POST',
-                                        soapAction: perfOp.soapAction,
-                                        requestBody: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${perfOp.targetNamespace || 'http://tempuri.org/'}">
+                                        method: newRequest.method || 'POST',
+                                        requestBody: newRequest.requestBody || (newRequest as any).request || '',
+                                        interfaceName: newRequest.interfaceName, // From payload
+                                        operationName: newRequest.operationName, // From payload
+                                        order: (suite.requests?.length || 0) + 1
+                                    };
+                                } else {
+                                    // Fallback construction
+                                    const perfOp = message.operation; // Assuming it might be passed if request isn't
+                                    if (perfOp) {
+                                        newRequest = {
+                                            id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                                            name: perfOp.name,
+                                            endpoint: (perfOp as any).originalEndpoint || '',
+                                            method: 'POST',
+                                            soapAction: perfOp.soapAction,
+                                            requestBody: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${perfOp.targetNamespace || 'http://tempuri.org/'}">
    <soapenv:Header/>
    <soapenv:Body>
       <tem:${perfOp.name}>
@@ -411,41 +413,52 @@ ${getInitialXml(perfOp.input)}
       </tem:${perfOp.name}>
    </soapenv:Body>
 </soapenv:Envelope>`,
-                                        headers: {},
-                                        extractors: [],
-                                        slaThreshold: 200,
-                                        order: (suite.requests?.length || 0) + 1
-                                    };
-                                }
-                            }
-
-                            if (newRequest) {
-                                // Send to backend FIRST (side effect outside setConfig)
-                                const nextRequests = [...(suite.requests || []), newRequest];
-                                const nextSuite = { ...suite, requests: nextRequests };
-                                bridge.sendMessage({ command: FrontendCommand.UpdatePerformanceSuite, suiteId: nextSuite.id, updates: nextSuite });
-
-                                // Optimistic Update
-                                setConfig((prevConfig: any) => {
-                                    const currentSuites = prevConfig.performanceSuites || [];
-                                    const idx = currentSuites.findIndex((s: any) => s.id === message.suiteId);
-                                    if (idx !== -1) {
-                                        const s = { ...currentSuites[idx] };
-                                        // Use the NEW request with unique ID
-                                        s.requests = [...(s.requests || []), newRequest];
-
-                                        const newSuites = [...currentSuites];
-                                        newSuites[idx] = s;
-                                        return { ...prevConfig, performanceSuites: newSuites };
+                                            headers: {},
+                                            extractors: [],
+                                            slaThreshold: 200,
+                                            order: (suite.requests?.length || 0) + 1
+                                        };
                                     }
-                                    return prevConfig;
-                                });
+                                }
+
+                                if (newRequest) {
+                                    // Add to suite
+                                    const nextRequests = [...(suite.requests || []), newRequest];
+                                    const nextSuite = { ...suite, requests: nextRequests };
+
+                                    // Send FULL suite update to backend (Heavy Hammer approach like Test Suite saveProject)
+                                    // Send FULL suite update to backend (Heavy Hammer approach like Test Suite saveProject)
+                                    debugLog('addOperationToPerformance', { step: 'Sending UpdatePerformanceSuite', suiteId: nextSuite.id });
+                                    bridge.sendMessage({
+                                        command: FrontendCommand.UpdatePerformanceSuite,
+                                        suiteId: nextSuite.id,
+                                        updates: nextSuite
+                                    });
+
+                                    // Optimistic Update
+                                    setConfig((prevConfig: any) => {
+                                        const currentSuites = prevConfig.performanceSuites || [];
+                                        const idx = currentSuites.findIndex((s: any) => s.id === message.suiteId);
+                                        if (idx !== -1) {
+                                            const s = { ...currentSuites[idx] };
+                                            s.requests = [...(s.requests || []), newRequest];
+
+                                            const newSuites = [...currentSuites];
+                                            newSuites[idx] = s;
+                                            return { ...prevConfig, performanceSuites: newSuites };
+                                        }
+                                        return prevConfig;
+                                    });
+                                }
+                            } else {
+                                console.error('[useMessageHandler] Suite not found for addOperationToPerformance');
                             }
                         } else {
-                            console.error('[useMessageHandler] Suite not found for addOperationToPerformance');
+                            debugLog('addOperationToPerformance', { error: 'Missing required data' });
                         }
-                    } else {
-                        debugLog('addOperationToPerformance', { error: 'Missing required data' });
+                    } catch (error: any) {
+                        console.error('[useMessageHandler] Error in addOperationToPerformance:', error);
+                        debugLog('addOperationToPerformance error', { message: error.message, stack: error.stack });
                     }
                     break;
 

@@ -175,6 +175,8 @@ export interface SoapUIRequest {
     restConfig?: RestConfig;
     /** GraphQL-specific configuration (variables, operation name) */
     graphqlConfig?: GraphQLConfig;
+    /** Marks the request as read-only (e.g. within Samples project) */
+    readOnly?: boolean;
 }
 
 export interface SoapUIOperation {
@@ -249,6 +251,8 @@ export interface ApinoxProject {
     testSuites?: SoapTestSuite[];
     /** @deprecated Use folders instead */
     collections?: RestCollection[];
+    /** Marks the project as read-only (e.g. Samples) */
+    readOnly?: boolean;
 }
 
 /** @deprecated Use ApinoxProject instead - kept for backward compatibility */

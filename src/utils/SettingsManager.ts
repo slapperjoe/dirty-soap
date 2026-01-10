@@ -119,6 +119,20 @@ export class SettingsManager {
         try {
             const content = fs.readFileSync(this.configPath, 'utf8');
             const config = parse(content);
+
+            // Filter out read-only sample projects that might have been accidentally saved
+            if (config?.openProjects && Array.isArray(config.openProjects)) {
+                const originalLength = config.openProjects.length;
+                config.openProjects = config.openProjects.filter((p: string) => p !== 'Samples' && p !== 'samples-project-read-only');
+
+                // If we filtered invalid projects, update the file on screen to clean the dirty state
+                if (config.openProjects.length < originalLength) {
+                    console.log(`[SettingsManager] Cleaning invalid projects from config (removed ${originalLength - config.openProjects.length} items)`);
+                    // We call updateOpenProjects which triggers a save via jsonc-parser
+                    // Use setTimeout to avoid blocking/recursion in synchronous getConfig
+                    setTimeout(() => this.updateOpenProjects(config.openProjects), 0);
+                }
+            }
             // Merge with default to ensure all fields exist
             return { ...DEFAULT_CONFIG, ...config, ui: { ...DEFAULT_CONFIG.ui, ...config?.ui }, network: { ...DEFAULT_CONFIG.network, ...config?.network } };
         } catch (error) {
@@ -221,13 +235,37 @@ export class SettingsManager {
 
     public getAutosave(): string | null {
         if (fs.existsSync(this.autosavePath)) {
-            return fs.readFileSync(this.autosavePath, 'utf8');
+            try {
+                const content = fs.readFileSync(this.autosavePath, 'utf8');
+                const state = JSON.parse(content);
+                // Filter out Samples
+                if (state.projects) {
+                    state.projects = state.projects.filter((p: any) => p.name !== 'Samples' && p.id !== 'samples-project-read-only');
+                }
+                return JSON.stringify(state);
+            } catch (e) {
+                console.error('Failed to parse autosave', e);
+                return null;
+            }
         }
         return null;
     }
 
     public saveAutosave(content: string) {
-        fs.writeFileSync(this.autosavePath, content);
+        try {
+            const state = JSON.parse(content);
+            // Filter out Samples
+            if (state.projects) {
+                state.projects = state.projects.filter((p: any) => p.name !== 'Samples' && p.id !== 'samples-project-read-only');
+            }
+            const cleanContent = JSON.stringify(state);
+            fs.writeFileSync(this.autosavePath, cleanContent);
+        } catch (e) {
+            console.error('Failed to parse content for autosave', e);
+            // Fallback: write original (risky but better than crashing) - actually if parse fails, writing it likely writes bad data.
+            // But we should prioritize not crashing.
+            fs.writeFileSync(this.autosavePath, content);
+        }
     }
 
     public updateConfigFromObject(config: DirtySoapConfig) {

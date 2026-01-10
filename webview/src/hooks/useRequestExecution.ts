@@ -167,7 +167,13 @@ export function useRequestExecution({
                 // WS-Security
                 wsSecurity: selectedRequest?.wsSecurity,
                 // Attachments
-                attachments: selectedRequest?.attachments
+                attachments: selectedRequest?.attachments,
+                // REST/GraphQL Support
+                requestType: selectedRequest?.requestType,
+                method: selectedRequest?.method,
+                bodyType: selectedRequest?.bodyType,
+                restConfig: selectedRequest?.restConfig,
+                graphqlConfig: selectedRequest?.graphqlConfig
             });
         } else {
             console.error('[App] executeRequest aborted: No selectedOperation or selectedRequest');
@@ -193,6 +199,11 @@ export function useRequestExecution({
             selectedPerformanceSuiteId
         };
 
+
+        if (selectedRequest?.readOnly) {
+            console.log('[handleRequestUpdate] Blocked update on read-only request:', updated.id);
+            return;
+        }
 
         console.log('[handleRequestUpdate] Called with:', logContext);
         bridge.sendMessage({ command: 'log', message: '[handleRequestUpdate] START', data: JSON.stringify(logContext) });

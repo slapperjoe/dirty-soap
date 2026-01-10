@@ -22,6 +22,10 @@ export class SoapClient {
         this.wsdlParser = new WsdlParser(outputChannel);
     }
 
+    public getOutputChannel(): any {
+        return this.outputChannel;
+    }
+
     public log(message: string, data?: any) {
         // Also pipe to diagnostic service
         DiagnosticService.getInstance().log('BACKEND', `[SoapClient] ${message} `, data);

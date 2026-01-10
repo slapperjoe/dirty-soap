@@ -23,7 +23,8 @@ export interface SidebarProjectProps {
     projects: SoapUIProject[];
     savedProjects: Set<string>;
     loadProject: () => void;
-    saveProject: (proj: SoapUIProject) => void;
+    saveProject: (project: SoapUIProject) => void;
+    onUpdateProject: (oldProject: SoapUIProject, newProject: SoapUIProject) => void;
     closeProject: (name: string) => void;
     onAddProject: () => void;
     toggleProjectExpand: (name: string) => void;
@@ -134,6 +135,8 @@ export interface SidebarTestsProps {
     onRunCase: (caseId: string) => void;
     onSelectSuite: (suiteId: string) => void;
     onSelectTestCase: (caseId: string) => void;
+    onSelectTestStep?: (caseId: string, stepId: string) => void;
+    onRenameTestStep?: (caseId: string, stepId: string, newName: string) => void;
     onToggleSuiteExpand: (suiteId: string) => void;
     onToggleCaseExpand: (caseId: string) => void;
     deleteConfirm: string | null;
@@ -201,6 +204,13 @@ export interface SidebarPerformanceProps {
     selectedSuiteId?: string;
     deleteConfirm: string | null;
     setDeleteConfirm: (id: string | null) => void;
+    // Request handlers
+    onAddRequest?: (suiteId: string) => void;
+    onDeleteRequest?: (suiteId: string, requestId: string) => void;
+    onSelectRequest?: (req: import('@shared/models').PerformanceRequest) => void;
+    onUpdateRequest?: (suiteId: string, requestId: string, updates: Partial<import('@shared/models').PerformanceRequest>) => void;
+    onToggleSuiteExpand?: (suiteId: string) => void;
+    expandedSuiteIds?: string[];
 }
 
 export interface SidebarHistoryProps {

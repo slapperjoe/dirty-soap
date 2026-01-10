@@ -21,7 +21,7 @@ export class ExecuteRequestCommand implements ICommand {
         private readonly _settingsManager: SettingsManager,
         private readonly _historyService?: RequestHistoryService
     ) {
-        this._httpClient = new HttpClient(_settingsManager);
+        this._httpClient = new HttpClient(_settingsManager, _soapClient.getOutputChannel());
     }
 
     async execute(message: any): Promise<void> {
@@ -121,6 +121,9 @@ export class ExecuteRequestCommand implements ICommand {
 
             // Determine request type - default to 'soap' for backward compatibility
             const requestType: RequestType = message.requestType || 'soap';
+
+            this._soapClient.log(`[ExecuteRequest] RequestType: ${requestType} (Original: ${message.requestType || 'undefined'})`);
+            this._soapClient.log(`[ExecuteRequest] XML/Body: ${processedXml.substring(0, 100)}${processedXml.length > 100 ? '...' : ''}`);
 
             if (requestType === 'rest' || requestType === 'graphql') {
                 // Use HttpClient for REST and GraphQL

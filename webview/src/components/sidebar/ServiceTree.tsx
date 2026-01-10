@@ -37,7 +37,12 @@ export interface ServiceTreeProps {
 
     setConfirmDeleteId: (id: string | null) => void;
 
-
+    // Inline Rename Props
+    renameId?: string | null;
+    renameValue?: string;
+    onRenameChange?: (val: string) => void;
+    onRenameSubmit?: () => void;
+    onRenameCancel?: () => void;
 }
 
 export const ServiceTree: React.FC<ServiceTreeProps> = ({
@@ -61,8 +66,13 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
     onDeleteOperation,
     onDeleteRequest,
     onSaveProject,
-    setConfirmDeleteId
+    setConfirmDeleteId,
 
+    renameId,
+    renameValue,
+    onRenameChange,
+    onRenameSubmit,
+    onRenameCancel
 }) => {
     return (
         <>
@@ -164,51 +174,77 @@ export const ServiceTree: React.FC<ServiceTreeProps> = ({
                                 </OperationItem>
 
                                 {/* Always render request children */}
-                                {op.expanded !== false && op.requests.map((req: any, k: number) => (
-                                    <RequestItem
-                                        key={k}
-                                        active={selectedRequest?.id === req.id}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onSelectRequest(req, op, iface);
-                                        }}
-                                        onContextMenu={(e) => onContextMenu(e, 'request', req)}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
-                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.name}</span>
-                                            {!isExplorer && req.dirty && <DirtyMarker>●</DirtyMarker>}
-                                            {req.dirty && !isExplorer && onSaveProject && (
-                                                <HeaderButton
-                                                    onClick={(e) => { e.stopPropagation(); onSaveProject(); }}
-                                                    title="Save Project"
-                                                >
-                                                    <Save size={12} />
-                                                </HeaderButton>
-                                            )}
-                                            {!isExplorer && onDeleteRequest && (
-                                                <div style={{ marginLeft: 5 }}>
-                                                    <HeaderButton
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (confirmDeleteId === req.id) {
-                                                                onDeleteRequest(req);
-                                                                setConfirmDeleteId(null);
-                                                            } else {
-                                                                setConfirmDeleteId(req.id);
-                                                                setTimeout(() => setConfirmDeleteId(null), 3000);
-                                                            }
+                                {op.expanded !== false && op.requests.map((req: any, k: number) => {
+                                    const isRenaming = renameId === req.id;
+                                    return (
+                                        <RequestItem
+                                            key={k}
+                                            active={selectedRequest?.id === req.id}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelectRequest(req, op, iface);
+                                            }}
+                                            onContextMenu={(e) => onContextMenu(e, 'request', req)}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
+                                                {isRenaming ? (
+                                                    <input
+                                                        type="text"
+                                                        value={renameValue}
+                                                        onChange={(e) => onRenameChange?.(e.target.value)}
+                                                        onBlur={() => onRenameSubmit?.()}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') onRenameSubmit?.();
+                                                            if (e.key === 'Escape') onRenameCancel?.();
                                                         }}
-                                                        title={confirmDeleteId === req.id ? "Click again to Confirm Delete" : "Delete Request"}
-                                                        style={{ color: confirmDeleteId === req.id ? 'var(--vscode-errorForeground)' : undefined }}
-                                                        shake={confirmDeleteId === req.id}
+                                                        autoFocus
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        style={{
+                                                            background: 'var(--vscode-input-background)',
+                                                            color: 'var(--vscode-input-foreground)',
+                                                            border: '1px solid var(--vscode-input-border)',
+                                                            width: '100%'
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.name}</span>
+                                                )}
+
+                                                {!isExplorer && req.dirty && <DirtyMarker>●</DirtyMarker>}
+
+                                                {req.dirty && !isExplorer && onSaveProject && !isRenaming && (
+                                                    <HeaderButton
+                                                        onClick={(e) => { e.stopPropagation(); onSaveProject(); }}
+                                                        title="Save Project"
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <Save size={12} />
                                                     </HeaderButton>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </RequestItem>
-                                ))}
+                                                )}
+                                                {!isExplorer && onDeleteRequest && !isRenaming && (
+                                                    <div style={{ marginLeft: 5 }}>
+                                                        <HeaderButton
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (confirmDeleteId === req.id) {
+                                                                    onDeleteRequest(req);
+                                                                    setConfirmDeleteId(null);
+                                                                } else {
+                                                                    setConfirmDeleteId(req.id);
+                                                                    setTimeout(() => setConfirmDeleteId(null), 3000);
+                                                                }
+                                                            }}
+                                                            title={confirmDeleteId === req.id ? "Click again to Confirm Delete" : "Delete Request"}
+                                                            style={{ color: confirmDeleteId === req.id ? 'var(--vscode-errorForeground)' : undefined }}
+                                                            shake={confirmDeleteId === req.id}
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </HeaderButton>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </RequestItem>
+                                    );
+                                })}
                             </div>
                         );
                     })}

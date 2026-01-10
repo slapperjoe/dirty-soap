@@ -132,7 +132,8 @@ export class PickOperationForPerformanceCommand implements ICommand {
         const projects = this._projectProvider();
 
         for (const project of projects) {
-            for (const iface of project.interfaces) {
+            // 1. Interface-based requests
+            for (const iface of (project.interfaces || [])) {
                 for (const op of iface.operations) {
                     // Iterate requests to show specific saved requests
                     if (op.requests && op.requests.length > 0) {
@@ -163,12 +164,40 @@ export class PickOperationForPerformanceCommand implements ICommand {
                                 suiteId: message.suiteId
                             });
                         }
-                    } else {
-                        // Fallback for operations with no saved requests? 
-                        // Or just show operation? User said "show requests".
-                        // Let's stick to requests. If no requests, nothing to add (Performance runner executes requests).
                     }
                 }
+            }
+
+            // 2. Folder-based requests
+            const collectFromFolders = (folders: any[], path: string) => {
+                for (const folder of folders) {
+                    const currentPath = path ? `${path} / ${folder.name}` : folder.name;
+
+                    if (folder.requests) {
+                        for (const req of folder.requests) {
+                            const enrichedRequest = { ...req };
+                            // Ensure default values
+                            if (!enrichedRequest.endpoint) enrichedRequest.endpoint = '';
+                            if (!enrichedRequest.method) enrichedRequest.method = 'POST';
+
+                            items.push({
+                                label: req.name,
+                                description: `(${currentPath}) - ${enrichedRequest.endpoint}`,
+                                detail: project.name,
+                                request: enrichedRequest,
+                                suiteId: message.suiteId
+                            });
+                        }
+                    }
+
+                    if (folder.folders) {
+                        collectFromFolders(folder.folders, currentPath);
+                    }
+                }
+            };
+
+            if (project.folders) {
+                collectFromFolders(project.folders, '');
             }
         }
 

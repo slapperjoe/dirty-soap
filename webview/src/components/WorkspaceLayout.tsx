@@ -35,7 +35,7 @@ import { ScriptEditor } from './ScriptEditor';
 import { createMockRuleFromSource } from '../utils/mockUtils';
 import { findPathToRequest } from '../utils/projectUtils';
 import {
-    Toolbar, InfoBar, InfoBarMethod, InfoBarUrl,
+    Toolbar, InfoBarMethod, InfoBarUrl,
     ToolbarButton, MainFooter, IconButton, ToolbarSeparator,
     Content, EmptyStateImage
 } from '../styles/WorkspaceLayout.styles';
@@ -351,7 +351,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         layoutMode, showLineNumbers, splitRatio, isResizing, onToggleLayout, onToggleLineNumbers, onStartResizing,
         inlineElementValues, onToggleInlineElementValues, hideCausalityData, onToggleHideCausalityData
     } = viewState;
-    const { config, defaultEndpoint, changelog, isReadOnly } = configState;
+    const { config, defaultEndpoint, changelog, isReadOnly: isHistoryMode } = configState;
+
+    // Derived read-only state
+    const isContentLocked = (selectedRequest?.readOnly === true) || (selectedProject?.readOnly === true);
+    const preventEditing = isHistoryMode || isContentLocked;
+    const isReadOnly = preventEditing; // Defaults to preventing editing, specific overrides used below
     const {
         onRunTestCase, onOpenStepRequest, onBackToCase, onAddStep, testExecution,
         onUpdateStep, onSelectStep, onDeleteStep, onMoveStep
@@ -660,13 +665,8 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         <Content>
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                 {/* Toolbar */}
-                {isReadOnly && selectedRequest.endpoint && (
-                    <InfoBar>
-                        <InfoBarMethod>{selectedRequest.method || 'POST'}</InfoBarMethod>
-                        <InfoBarUrl title={selectedRequest.endpoint}>{selectedRequest.endpoint}</InfoBarUrl>
-                    </InfoBar>
-                )}
-                {!isReadOnly && (
+
+                {!isHistoryMode && (
                     <Toolbar>
                         {selectedTestCase && onBackToCase && (
                             <>
@@ -687,31 +687,41 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         )}
 
                         {/* Request Type / Method / Content-Type - Unified Selector */}
-                        <RequestTypeSelector
-                            requestType={selectedRequest.requestType}
-                            method={selectedRequest.method as HttpMethod}
-                            bodyType={selectedRequest.bodyType}
-                            contentType={selectedRequest.contentType}
-                            onRequestTypeChange={(type: RequestType) => onUpdateRequest({ ...selectedRequest, requestType: type })}
-                            onMethodChange={(method) => onUpdateRequest({ ...selectedRequest, method: method as string })}
-                            onBodyTypeChange={(type: BodyType) => onUpdateRequest({ ...selectedRequest, bodyType: type })}
-                            onContentTypeChange={(ct) => onUpdateRequest({ ...selectedRequest, contentType: ct })}
-                            compact={true}
-                        />
+                        {/* Request Type / Method / Content-Type - Unified Selector */}
+                        {preventEditing ? (
+                            <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 10, overflow: 'hidden' }}>
+                                <InfoBarMethod>{selectedRequest.method || 'POST'}</InfoBarMethod>
+                                <InfoBarUrl title={selectedRequest.endpoint} style={{ marginLeft: 10, fontSize: '1em' }}>{selectedRequest.endpoint}</InfoBarUrl>
+                            </div>
+                        ) : (
+                            <>
+                                <RequestTypeSelector
+                                    requestType={selectedRequest.requestType}
+                                    method={selectedRequest.method as HttpMethod}
+                                    bodyType={selectedRequest.bodyType}
+                                    contentType={selectedRequest.contentType}
+                                    onRequestTypeChange={(type: RequestType) => onUpdateRequest({ ...selectedRequest, requestType: type })}
+                                    onMethodChange={(method) => onUpdateRequest({ ...selectedRequest, method: method as string })}
+                                    onBodyTypeChange={(type: BodyType) => onUpdateRequest({ ...selectedRequest, bodyType: type })}
+                                    onContentTypeChange={(ct) => onUpdateRequest({ ...selectedRequest, contentType: ct })}
+                                    compact={true}
+                                />
 
-                        {/* URL */}
-                        <div style={{ flex: 1, minWidth: '150px' }}>
-                            <MonacoSingleLineInput
-                                ref={urlEditorRef}
-                                value={selectedRequest.endpoint || defaultEndpoint || ''}
-                                onChange={(val) => onUpdateRequest({ ...selectedRequest, endpoint: val })}
-                                placeholder="Endpoint URL"
-                                onFocus={() => lastFocusedRef.current = urlEditorRef.current}
-                            />
-                        </div>
+                                {/* URL */}
+                                <div style={{ flex: 1, minWidth: '150px' }}>
+                                    <MonacoSingleLineInput
+                                        ref={urlEditorRef}
+                                        value={selectedRequest.endpoint || defaultEndpoint || ''}
+                                        onChange={(val) => onUpdateRequest({ ...selectedRequest, endpoint: val })}
+                                        placeholder="Endpoint URL"
+                                        onFocus={() => lastFocusedRef.current = urlEditorRef.current}
+                                    />
+                                </div>
+                            </>
+                        )}
 
                         {/* Actions */}
-                        {!selectedTestCase && (
+                        {!selectedTestCase && !preventEditing && (
                             <ToolbarButton onClick={onReset} title="Revert to Default XML">
                                 <RotateCcw size={14} /> Reset
                             </ToolbarButton>
@@ -926,7 +936,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                     {selectedRequest.graphqlConfig?.variables && Object.keys(selectedRequest.graphqlConfig.variables).length > 0 && ' ✓'}
                                 </div>
                             )}
-                            {!isReadOnly && (
+                            {!isHistoryMode && (
                                 <>
                                     <div
                                         style={{

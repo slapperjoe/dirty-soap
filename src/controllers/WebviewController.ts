@@ -85,6 +85,8 @@ import { ScheduleService } from '../services/ScheduleService';
 import { RequestHistoryService } from '../services/RequestHistoryService';
 import { DiagnosticService } from '../services/DiagnosticService';
 import { HistoryCommand } from '../commands/HistoryCommand';
+import { WebviewReadyCommand } from '../commands/WebviewReadyCommand';
+import { SAMPLES_PROJECT } from '../data/DefaultSamples';
 
 export class WebviewController {
     private _loadedProjects: Map<string, SoapUIProject> = new Map();
@@ -115,6 +117,7 @@ export class WebviewController {
         // Initialize Commands
 
         this._commands.set(FrontendCommand.ExecuteRequest, new ExecuteRequestCommand(this._panel, this._soapClient, this._settingsManager, this._historyService));
+        this._commands.set('webviewReady', new WebviewReadyCommand(this));
         this._commands.set(FrontendCommand.SaveProject, new SaveProjectCommand(
             this._panel,
             this._folderStorage,
@@ -306,7 +309,9 @@ export class WebviewController {
                 break;
             // case 'loadProject': handled by registry
             case FrontendCommand.SaveOpenProjects:
-                this._settingsManager.updateOpenProjects(message.paths);
+                // Filter out read-only sample projects (which don't have valid paths)
+                const validPaths = (message.paths as string[]).filter(p => p !== 'Samples' && p !== 'samples-project-read-only');
+                this._settingsManager.updateOpenProjects(validPaths);
                 break;
             case FrontendCommand.SaveWorkspace:
                 await this.handleSaveWorkspace(message);
@@ -638,6 +643,19 @@ export class WebviewController {
             this._settingsManager.saveRawConfig(message.content);
         }
         this.sendSettingsToWebview();
+    }
+
+    public loadSamples() {
+        if (SAMPLES_PROJECT.id) {
+            this._loadedProjects.set(SAMPLES_PROJECT.id, SAMPLES_PROJECT);
+            this._panel.webview.postMessage({
+                command: BackendCommand.ProjectLoaded,
+                project: SAMPLES_PROJECT,
+                filename: 'Samples',
+                isReadOnly: true
+            });
+            this._diagnosticService.log('BACKEND', 'Samples project loaded');
+        }
     }
 
     public sendSettingsToWebview() {

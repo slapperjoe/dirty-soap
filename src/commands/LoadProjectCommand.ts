@@ -34,6 +34,11 @@ export class LoadProjectCommand implements ICommand {
             }
 
             if (targetPath) {
+                // Ignore internal sample project requests to prevent ENOENT
+                if (targetPath === 'Samples' || targetPath === 'samples-project-read-only') {
+                    return;
+                }
+
                 let project: SoapUIProject;
 
                 // Check if directory or file

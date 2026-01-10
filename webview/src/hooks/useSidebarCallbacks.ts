@@ -33,6 +33,7 @@ interface UseSidebarCallbacksReturn {
     handleAddTestCase: (suiteId: string) => void;
     handleDeleteTestCase: (caseId: string) => void;
     handleRenameTestCase: (caseId: string, newName: string) => void;
+    handleRenameTestStep: (caseId: string, stepId: string, newName: string) => void;
     handleStartWatcher: () => void;
     handleStopWatcher: () => void;
     handleClearWatcher: () => void;
@@ -201,6 +202,36 @@ export function useSidebarCallbacks({
         });
     }, [setProjects, saveProject]);
 
+    const handleRenameTestStep = useCallback((caseId: string, stepId: string, newName: string) => {
+        setProjects(prev => {
+            return prev.map(p => {
+                const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === caseId));
+                if (!suite) return p;
+
+                const updatedSuite = {
+                    ...suite,
+                    testCases: suite.testCases?.map(tc => {
+                        if (tc.id !== caseId) return tc;
+                        return {
+                            ...tc,
+                            steps: tc.steps.map(step =>
+                                step.id === stepId ? { ...step, name: newName } : step
+                            )
+                        };
+                    })
+                };
+
+                const updatedProject = {
+                    ...p,
+                    testSuites: p.testSuites!.map(s => s.id === suite.id ? updatedSuite : s),
+                    dirty: true
+                };
+                setTimeout(() => saveProject(updatedProject), 0);
+                return updatedProject;
+            });
+        });
+    }, [setProjects, saveProject]);
+
     // Watcher handlers
     const handleStartWatcher = useCallback(() => {
         setWatcherRunning(true);
@@ -265,6 +296,7 @@ export function useSidebarCallbacks({
         handleAddTestCase,
         handleDeleteTestCase,
         handleRenameTestCase,
+        handleRenameTestStep,
         handleStartWatcher,
         handleStopWatcher,
         handleClearWatcher,

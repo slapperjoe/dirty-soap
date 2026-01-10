@@ -123,7 +123,10 @@ export class HttpClient {
         // Apply auth if present
         this.applyAuth(headers, request.restConfig);
 
-        return this.sendRequest('POST', endpoint, JSON.stringify(graphqlBody), headers, options);
+        const jsonBody = JSON.stringify(graphqlBody);
+        this.log('[HttpClient] executeGraphQL Body: ' + jsonBody);
+
+        return this.sendRequest('POST', endpoint, jsonBody, headers, options);
     }
 
     /**
@@ -135,6 +138,11 @@ export class HttpClient {
             'Content-Type': request.contentType || 'text/xml;charset=UTF-8',
             ...request.headers
         };
+
+        const fs = require('fs');
+        try {
+            fs.appendFileSync('c:\\temp\\dirty_debug.txt', `\n[${new Date().toISOString()}] Sending POST to ${endpoint}\nBody: ${typeof request.request === 'string' ? request.request : JSON.stringify(request.request)}\nHeaders: ${JSON.stringify(headers)}\n`);
+        } catch (e) { /* ignore */ }
 
         return this.sendRequest('POST', endpoint, request.request, headers, options);
     }
@@ -179,7 +187,9 @@ export class HttpClient {
         this.log('Headers:', headers);
         if (body) {
             this.log('Body:', body);
+            this.log('[HttpClient] sendRequest Body: ' + (typeof body === 'string' ? body : JSON.stringify(body)));
         }
+        this.log('[HttpClient] sendRequest Headers: ' + JSON.stringify(headers));
 
         const startTime = Date.now();
 
@@ -194,7 +204,7 @@ export class HttpClient {
                 cancelToken: this.cancelTokenSource.token,
                 timeout: options?.timeout || 30000,
                 maxRedirects: options?.followRedirects === false ? 0 : 5,
-                transformResponse: [(data) => data], // Keep raw response
+                transformResponse: [(data: any) => data], // Keep raw response
                 validateStatus: () => true // Don't throw on non-2xx
             };
 
@@ -258,7 +268,13 @@ export class HttpClient {
      * Create HTTP/HTTPS agents with proxy support
      */
     private createAgents(endpoint: string, proxyUrl?: string, strictSSL: boolean = true) {
-        const agentOptions = { keepAlive: false, rejectUnauthorized: strictSSL };
+        if (!proxyUrl) {
+            // If no proxy, let axios use its default agents (which handles global settings correctly)
+            // This avoids issues with manually created agents in VS Code/Electron environment
+            return { httpsAgent: undefined, httpAgent: undefined };
+        }
+
+        const agentOptions: any = { keepAlive: false, rejectUnauthorized: strictSSL };
         const isHttps = endpoint.toLowerCase().startsWith('https');
 
         let httpsAgent: any;
@@ -274,9 +290,6 @@ export class HttpClient {
                 httpsAgent = new HttpProxyAgent(proxyUrl);
             }
             httpAgent = httpsAgent;
-        } else {
-            httpsAgent = new (require('https').Agent)(agentOptions);
-            httpAgent = new (require('http').Agent)(agentOptions);
         }
 
         return { httpsAgent, httpAgent };

@@ -89,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return index >= 0 ? envColors[index % envColors.length] : 'var(--vscode-charts-green)';
     };
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
-    const { projects, savedProjects, loadProject, saveProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation, onAddFolder, onAddRequestToFolder, onDeleteFolder, onToggleFolderExpand } = projectProps;
+    const { projects, savedProjects, loadProject, saveProject, onUpdateProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation, onAddFolder, onAddRequestToFolder, onDeleteFolder, onToggleFolderExpand } = projectProps;
     const { exploredInterfaces, addToProject, addAllToProject, clearExplorer, removeFromExplorer, toggleExploredInterface, toggleExploredOperation } = explorerProps;
     const { inputType, setInputType, wsdlUrl, setWsdlUrl, wsdlUrlHistory, selectedFile, loadWsdl, pickLocalWsdl, downloadStatus, useProxy, setUseProxy } = wsdlProps;
     const {
@@ -340,6 +340,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onSelectTestCase={testsProps.onSelectTestCase}
                         onToggleSuiteExpand={testsProps.onToggleSuiteExpand}
                         onToggleCaseExpand={testsProps.onToggleCaseExpand}
+                        onSelectTestStep={testsProps.onSelectTestStep}
+                        onRenameTestStep={testsProps.onRenameTestStep}
                         deleteConfirm={testsProps.deleteConfirm}
                     />
                 )}
@@ -399,6 +401,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onAddProject={onAddProject}
                         loadProject={loadProject}
                         saveProject={saveProject}
+                        onUpdateProject={onUpdateProject}
                         closeProject={closeProject}
                         toggleProjectExpand={toggleProjectExpand}
                         toggleInterfaceExpand={toggleInterfaceExpand}
@@ -429,7 +432,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
 
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };

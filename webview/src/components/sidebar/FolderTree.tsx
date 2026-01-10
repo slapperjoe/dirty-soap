@@ -28,6 +28,15 @@ export interface FolderTreeProps {
     setDeleteConfirm: (id: string | null) => void;
 
     handleContextMenu?: (e: React.MouseEvent, type: string, data: any) => void;
+
+    // Inline Rename Props
+    renameId?: string | null;
+    renameValue?: string;
+    onRenameChange?: (val: string) => void;
+    onRenameSubmit?: () => void;
+    onRenameCancel?: () => void;
+
+    readOnly?: boolean;
 }
 
 export const FolderTree: React.FC<FolderTreeProps> = ({
@@ -48,7 +57,14 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
     deleteConfirm,
     setDeleteConfirm,
     onSaveProject,
-    handleContextMenu
+    handleContextMenu,
+
+    renameId,
+    renameValue,
+    onRenameChange,
+    onRenameSubmit,
+    onRenameCancel,
+    readOnly
 }) => {
     // Track hovered folder for showing buttons
     const [_hoveredId, setHoveredId] = useState<string | null>(null);
@@ -71,6 +87,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
             {folders.map((folder) => {
                 const isSelected = selectedFolderId === folder.id;
                 const isExpanded = folder.expanded !== false;
+                const isRenaming = renameId === folder.id;
 
                 return (
                     <div key={folder.id} style={{ marginLeft: level * 10 }}>
@@ -79,7 +96,8 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                             onClick={() => handleFolderClick(folder)}
                             onMouseEnter={() => setHoveredId(folder.id)}
                             onMouseLeave={() => setHoveredId(null)}
-                            onContextMenu={(e) => handleContextMenu && handleContextMenu(e, 'folder', folder)}
+
+                            onContextMenu={(e) => !readOnly && handleContextMenu && handleContextMenu(e, 'folder', folder)}
                         >
                             <span
                                 onClick={(e) => {
@@ -91,12 +109,34 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                 {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             </span>
                             <Folder size={14} style={{ marginRight: 5, opacity: 0.7 }} />
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {folder.name}
-                            </span>
+
+                            {isRenaming ? (
+                                <input
+                                    type="text"
+                                    value={renameValue}
+                                    onChange={(e) => onRenameChange?.(e.target.value)}
+                                    onBlur={() => onRenameSubmit?.()}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') onRenameSubmit?.();
+                                        if (e.key === 'Escape') onRenameCancel?.();
+                                    }}
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        background: 'var(--vscode-input-background)',
+                                        color: 'var(--vscode-input-foreground)',
+                                        border: '1px solid var(--vscode-input-border)',
+                                        flex: 1
+                                    }}
+                                />
+                            ) : (
+                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {folder.name}
+                                </span>
+                            )}
 
                             {/* Show buttons only when selected */}
-                            {isSelected && (
+                            {isSelected && !isRenaming && !readOnly && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                     {onAddRequest && (
                                         <HeaderButton
@@ -140,6 +180,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                         {/* Render requests when expanded */}
                         {
                             isExpanded && folder.requests.map((req) => {
+                                const isReqRenaming = renameId === req.id;
                                 // Determine icon and color based on request type
                                 const getRequestIcon = () => {
                                     const type = req.requestType || 'soap';
@@ -162,16 +203,39 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                         active={selectedRequest?.id === req.id}
                                         onClick={() => handleRequestClick(req, folder)}
                                         style={{ marginLeft: 20 }}
-                                        onContextMenu={(e) => handleContextMenu && handleContextMenu(e, 'request', req)}
+                                        onContextMenu={(e) => !readOnly && handleContextMenu && handleContextMenu(e, 'request', req)}
                                     >
                                         {getRequestIcon()}
-                                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {req.name}
-                                        </span>
-                                        {req.dirty && <DirtyMarker>●</DirtyMarker>}
+
+                                        {isReqRenaming ? (
+                                            <input
+                                                type="text"
+                                                value={renameValue}
+                                                onChange={(e) => onRenameChange?.(e.target.value)}
+                                                onBlur={() => onRenameSubmit?.()}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') onRenameSubmit?.();
+                                                    if (e.key === 'Escape') onRenameCancel?.();
+                                                }}
+                                                autoFocus
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
+                                                    background: 'var(--vscode-input-background)',
+                                                    color: 'var(--vscode-input-foreground)',
+                                                    border: '1px solid var(--vscode-input-border)',
+                                                    flex: 1
+                                                }}
+                                            />
+                                        ) : (
+                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {req.name}
+                                            </span>
+                                        )}
+
+                                        {!isReqRenaming && req.dirty && <DirtyMarker>●</DirtyMarker>}
                                         {/* Action Buttons */}
                                         <div style={{ display: 'flex', gap: '4px' }}>
-                                            {req.dirty && onSaveProject && (
+                                            {req.dirty && onSaveProject && !isReqRenaming && !readOnly && (
                                                 <HeaderButton
                                                     onClick={(e) => { e.stopPropagation(); onSaveProject(); }}
                                                     title="Save Project"
@@ -179,7 +243,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                                     <Save size={12} />
                                                 </HeaderButton>
                                             )}
-                                            {selectedRequest?.id === req.id && onDeleteRequest && (
+                                            {selectedRequest?.id === req.id && onDeleteRequest && !isReqRenaming && !readOnly && (
                                                 <HeaderButton
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -226,6 +290,13 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                     setDeleteConfirm={setDeleteConfirm}
                                     onSaveProject={onSaveProject}
                                     handleContextMenu={handleContextMenu}
+
+                                    renameId={renameId}
+                                    renameValue={renameValue}
+                                    onRenameChange={onRenameChange}
+                                    onRenameSubmit={onRenameSubmit}
+                                    onRenameCancel={onRenameCancel}
+                                    readOnly={readOnly}
                                 />
                             )
                         }

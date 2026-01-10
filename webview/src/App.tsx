@@ -89,6 +89,11 @@ function App() {
         setSelectedPerformanceSuiteId
     } = useSelection();
 
+    // Notify VSCode that the Webview is ready to receive messages (e.g. initial projects)
+    useEffect(() => {
+        bridge.sendMessage({ command: 'webviewReady' });
+    }, []);
+
 
 
     // ==========================================================================
@@ -194,6 +199,18 @@ function App() {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
     const [wsdlUseProxy, setWsdlUseProxy] = useState<boolean>(false);
+
+    // Performance Suite Expansion State
+    const [expandedPerformanceSuiteIds, setExpandedPerformanceSuiteIds] = useState<string[]>([]);
+    const handleTogglePerformanceSuiteExpand = useCallback((suiteId: string) => {
+        setExpandedPerformanceSuiteIds(prev =>
+            prev.includes(suiteId)
+                ? prev.filter(id => id !== suiteId)
+                : [...prev, suiteId]
+        );
+    }, []);
+
+
 
 
     // ==========================================================================
@@ -327,6 +344,11 @@ function App() {
     // NOTE: Watcher/Proxy state now comes from useWatcherProxy hook
 
     // NOTE: startTimeRef now comes from useRequestExecution hook
+
+    const handleUpdateProject = useCallback((oldProject: import('@shared/models').SoapUIProject, newProject: import('@shared/models').SoapUIProject) => {
+        setProjects(prev => prev.map(p => p === oldProject ? newProject : p));
+        saveProject(newProject);
+    }, [setProjects, saveProject]);
 
     // ==========================================================================
     // CONTEXT MENU - from useContextMenu hook
@@ -502,6 +524,7 @@ function App() {
         handleAddTestCase,
         handleDeleteTestCase: _handleDeleteTestCase,
         handleRenameTestCase,
+        handleRenameTestStep,
         handleStartWatcher,
         handleStopWatcher,
         handleClearWatcher,
@@ -590,6 +613,10 @@ function App() {
     const handleUpdatePerformanceSuite = (suite: PerformanceSuite) => bridge.sendMessage({ command: 'updatePerformanceSuite', suiteId: suite.id, updates: suite });
 
     const handleAddPerformanceRequest = (suiteId: string) => {
+        // Auto-expand the suite
+        setExpandedPerformanceSuiteIds(prev =>
+            prev.includes(suiteId) ? prev : [...prev, suiteId]
+        );
         bridge.sendMessage({ command: 'pickOperationForPerformance', suiteId });
     };
 
@@ -1254,6 +1281,7 @@ function App() {
                     savedProjects,
                     loadProject: () => loadProject(),
                     saveProject,
+                    onUpdateProject: handleUpdateProject,
                     closeProject: handleCloseProject,
                     onAddProject: addProject,
                     toggleProjectExpand,
@@ -1343,9 +1371,25 @@ function App() {
                     onSelectTestCase: handleSelectTestCase,
                     onToggleSuiteExpand: handleToggleSuiteExpand,
                     onToggleCaseExpand: handleToggleCaseExpand,
+                    onSelectTestStep: (caseId, stepId) => {
+                        const project = projects.find(p => p.testSuites?.some(s => s.testCases?.some(tc => tc.id === caseId)));
+                        const suite = project?.testSuites?.find(s => s.testCases?.some(tc => tc.id === caseId));
+                        const testCase = suite?.testCases?.find(tc => tc.id === caseId);
+                        const step = testCase?.steps?.find(s => s.id === stepId);
+                        if (step) handleSelectStep(step);
+                    },
+                    onRenameTestStep: handleRenameTestStep,
                     deleteConfirm
                 }}
-                performanceProps={sidebarPerformanceProps}
+                performanceProps={{
+                    ...sidebarPerformanceProps,
+                    onAddRequest: handleAddPerformanceRequest,
+                    onDeleteRequest: handleDeletePerformanceRequest,
+                    onSelectRequest: handleSelectPerformanceRequest,
+                    onUpdateRequest: handleUpdatePerformanceRequest,
+                    onToggleSuiteExpand: handleTogglePerformanceSuiteExpand,
+                    expandedSuiteIds: expandedPerformanceSuiteIds
+                }}
                 historyProps={{
                     history: requestHistory,
                     onReplay: handleReplayRequest,

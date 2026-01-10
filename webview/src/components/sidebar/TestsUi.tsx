@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Play, Plus, Trash2, ChevronDown, ChevronRight, FlaskConical, FolderOpen, ListChecks, Edit2 } from 'lucide-react';
+import { Play, Plus, Trash2, ChevronDown, ChevronRight, FlaskConical, FolderOpen, ListChecks, Edit2, Clock, FileCode, ArrowRight, FileText } from 'lucide-react';
 import { SoapUIProject, SoapTestSuite } from '@shared/models';
 import { HeaderButton, OperationItem, RequestItem } from './shared/SidebarStyles';
+
+const StepItem = styled(RequestItem)`
+    padding-left: 52px !important;
+    font-size: 0.9em;
+    opacity: 0.9;
+    
+    &:hover {
+        opacity: 1;
+    }
+`;
 
 export interface TestsUiProps {
     projects: SoapUIProject[];
@@ -17,6 +27,8 @@ export interface TestsUiProps {
     onSelectTestCase: (caseId: string) => void;
     onToggleSuiteExpand: (suiteId: string) => void;
     onToggleCaseExpand: (caseId: string) => void;
+    onSelectTestStep?: (caseId: string, stepId: string) => void;
+    onRenameTestStep?: (caseId: string, stepId: string, newName: string) => void;
     deleteConfirm: string | null;
 }
 
@@ -75,22 +87,27 @@ export const TestsUi: React.FC<TestsUiProps> = ({
     onSelectSuite,
     onSelectTestCase,
     onToggleSuiteExpand,
-    onToggleCaseExpand: _onToggleCaseExpand,
+    onToggleCaseExpand,
+    onSelectTestStep,
+    onRenameTestStep,
     deleteConfirm
 }) => {
     const [showAddSuiteMenu, setShowAddSuiteMenu] = useState(false);
     const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
     const [selectedSuiteId, setSelectedSuiteId] = useState<string | null>(null);
+    const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
     const [renameId, setRenameId] = useState<string | null>(null);
+    const [renameType, setRenameType] = useState<'case' | 'step' | 'suite' | null>(null);
+    const [renameParentId, setRenameParentId] = useState<string | null>(null);
     const [renameName, setRenameName] = useState<string>('');
 
     // Context menu state
-    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; caseId: string; caseName: string } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; caseId: string; stepId?: string; name: string; type: 'case' | 'step' } | null>(null);
 
-    const handleContextMenu = (caseId: string, caseName: string, e: React.MouseEvent) => {
+    const handleContextMenu = (e: React.MouseEvent, caseId: string, name: string, type: 'case' | 'step', stepId?: string) => {
         e.preventDefault();
         e.stopPropagation();
-        setContextMenu({ x: e.clientX, y: e.clientY, caseId, caseName });
+        setContextMenu({ x: e.clientX, y: e.clientY, caseId, name, type, stepId });
     };
 
     const closeContextMenu = () => {
@@ -99,24 +116,35 @@ export const TestsUi: React.FC<TestsUiProps> = ({
 
     const handleRenameFromMenu = () => {
         if (contextMenu) {
-            setRenameId(contextMenu.caseId);
-            setRenameName(contextMenu.caseName);
+            setRenameId(contextMenu.stepId || contextMenu.caseId);
+            setRenameType(contextMenu.type);
+            setRenameParentId(contextMenu.caseId); // For steps, caseId is parent. For cases, it's just caseId (unused as parent)
+            setRenameName(contextMenu.name);
             closeContextMenu();
         }
     };
 
     const submitRename = () => {
-        console.log('[TestsUi] submitRename called:', { renameId, renameName, hasCallback: !!onRenameTestCase });
-        if (renameId && renameName.trim() && onRenameTestCase) {
-            console.log('[TestsUi] Calling onRenameTestCase');
-            onRenameTestCase(renameId, renameName.trim());
+        console.log('[TestsUi] submitRename called:', { renameId, renameName, renameType, renameParentId });
+        if (renameId && renameName.trim()) {
+            if (renameType === 'step' && renameParentId && onRenameTestStep) {
+                console.log('[TestsUi] Calling onRenameTestStep');
+                onRenameTestStep(renameParentId, renameId, renameName.trim());
+            } else if (renameType === 'case' && onRenameTestCase) {
+                console.log('[TestsUi] Calling onRenameTestCase');
+                onRenameTestCase(renameId, renameName.trim());
+            }
         }
         setRenameId(null);
+        setRenameType(null);
+        setRenameParentId(null);
         setRenameName('');
     };
 
     const cancelRename = () => {
         setRenameId(null);
+        setRenameType(null);
+        setRenameParentId(null);
         setRenameName('');
     };
 
@@ -259,65 +287,131 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                 {suite.expanded !== false && (suite.testCases || []).map(tc => {
                                     const isSelected = selectedCaseId === tc.id;
                                     return (
-                                        <RequestItem
-                                            key={tc.id}
-                                            active={isSelected}
-                                            onClick={() => {
-                                                // Select case and notify parent
-                                                if (isSelected) {
-                                                    setSelectedCaseId(null);
-                                                } else {
-                                                    setSelectedCaseId(tc.id);
-                                                    setSelectedSuiteId(null); // Clear suite selection
-                                                    onSelectTestCase(tc.id); // Notify parent
-                                                }
-                                            }}
-                                            onContextMenu={(e) => handleContextMenu(tc.id, tc.name, e)}
-                                            style={{ paddingLeft: 35 }}
-                                        >
-                                            {renameId === tc.id ? (
-                                                <input
-                                                    type="text"
-                                                    value={renameName}
-                                                    onChange={(e) => setRenameName(e.target.value)}
-                                                    onBlur={submitRename}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') submitRename();
-                                                        if (e.key === 'Escape') cancelRename();
+                                        <React.Fragment key={tc.id}>
+                                            <RequestItem
+                                                active={isSelected}
+                                                onClick={() => {
+                                                    // Select case and notify parent
+                                                    if (isSelected) {
+                                                        setSelectedCaseId(null);
+                                                    } else {
+                                                        setSelectedCaseId(tc.id);
+                                                        setSelectedSuiteId(null); // Clear suite selection
+                                                        onSelectTestCase(tc.id); // Notify parent
+                                                    }
+                                                }}
+                                                onContextMenu={(e) => handleContextMenu(e, tc.id, tc.name, 'case')}
+                                                style={{ paddingLeft: 35 }}
+                                            >
+                                                <span
+                                                    onClick={(e) => { e.stopPropagation(); onToggleCaseExpand(tc.id); }}
+                                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', marginRight: 4, width: 14 }}
+                                                >
+                                                    {tc.expanded !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                </span>
+                                                {renameId === tc.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={renameName}
+                                                        onChange={(e) => setRenameName(e.target.value)}
+                                                        onBlur={submitRename}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') submitRename();
+                                                            if (e.key === 'Escape') cancelRename();
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        autoFocus
+                                                        style={{
+                                                            background: 'var(--vscode-input-background)',
+                                                            border: '1px solid var(--vscode-input-border)',
+                                                            color: 'var(--vscode-input-foreground)',
+                                                            padding: '2px 4px',
+                                                            flex: 1,
+                                                            fontSize: '12px',
+                                                            outline: 'none'
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span style={{ flex: 1 }} title="Right-click to rename">{tc.name}</span>
+                                                )}
+                                                <span style={{ fontSize: '0.75em', opacity: 0.6, marginRight: 6 }}>
+                                                    {tc.steps?.length || 0}
+                                                </span>
+                                                {isSelected && (
+                                                    <>
+                                                        <HeaderButton onClick={(e) => { e.stopPropagation(); onRunCase(tc.id); }} title="Run Test Case" style={{ padding: 2 }}>
+                                                            <Play size={12} />
+                                                        </HeaderButton>
+                                                        <HeaderButton
+                                                            onClick={(e) => { e.stopPropagation(); onDeleteTestCase(tc.id); }}
+                                                            title={deleteConfirm === tc.id ? 'Click again to confirm' : 'Delete Case'}
+                                                            style={{ padding: 2, color: deleteConfirm === tc.id ? 'var(--vscode-testing-iconFailed)' : undefined }}
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </HeaderButton>
+                                                    </>
+                                                )}
+                                            </RequestItem>
+
+                                            {/* Test Steps */}
+                                            {tc.expanded !== false && (tc.steps || []).map(step => (
+                                                <StepItem
+                                                    key={step.id}
+                                                    active={selectedStepId === step.id}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedStepId(step.id);
+                                                        // Also select the parent case if we want context, but usually explicit step selection is enough
+                                                        // if (selectedCaseId !== tc.id) setSelectedCaseId(tc.id);
+                                                        if (onSelectTestStep) onSelectTestStep(tc.id, step.id);
                                                     }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    autoFocus
-                                                    style={{
-                                                        background: 'var(--vscode-input-background)',
-                                                        border: '1px solid var(--vscode-input-border)',
-                                                        color: 'var(--vscode-input-foreground)',
-                                                        padding: '2px 4px',
-                                                        flex: 1,
-                                                        fontSize: '12px',
-                                                        outline: 'none'
-                                                    }}
-                                                />
-                                            ) : (
-                                                <span style={{ flex: 1 }} title="Right-click to rename">{tc.name}</span>
-                                            )}
-                                            <span style={{ fontSize: '0.75em', opacity: 0.6, marginRight: 6 }}>
-                                                {tc.steps?.length || 0} steps
-                                            </span>
-                                            {isSelected && (
-                                                <>
-                                                    <HeaderButton onClick={(e) => { e.stopPropagation(); onRunCase(tc.id); }} title="Run Test Case" style={{ padding: 2 }}>
-                                                        <Play size={12} />
-                                                    </HeaderButton>
-                                                    <HeaderButton
-                                                        onClick={(e) => { e.stopPropagation(); onDeleteTestCase(tc.id); }}
-                                                        title={deleteConfirm === tc.id ? 'Click again to confirm' : 'Delete Case'}
-                                                        style={{ padding: 2, color: deleteConfirm === tc.id ? 'var(--vscode-testing-iconFailed)' : undefined }}
-                                                    >
-                                                        <Trash2 size={12} />
-                                                    </HeaderButton>
-                                                </>
-                                            )}
-                                        </RequestItem>
+                                                    onContextMenu={(e) => handleContextMenu(e, tc.id, step.name, 'step', step.id)}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {renameId === step.id ? (
+                                                        <input
+                                                            type="text"
+                                                            value={renameName}
+                                                            onChange={(e) => setRenameName(e.target.value)}
+                                                            onBlur={submitRename}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') submitRename();
+                                                                if (e.key === 'Escape') cancelRename();
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            autoFocus
+                                                            style={{
+                                                                background: 'var(--vscode-input-background)',
+                                                                border: '1px solid var(--vscode-input-border)',
+                                                                color: 'var(--vscode-input-foreground)',
+                                                                padding: '1px 3px',
+                                                                flex: 1,
+                                                                fontSize: '0.9em',
+                                                                outline: 'none',
+                                                                marginLeft: 4
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <>
+                                                            <span style={{ display: 'flex', alignItems: 'center', marginRight: 6, opacity: 0.7 }}>
+                                                                {(() => {
+                                                                    switch (step.type) {
+                                                                        case 'delay': return <Clock size={12} />;
+                                                                        case 'transfer': return <ArrowRight size={12} />;
+                                                                        case 'script': return <FileCode size={12} />;
+                                                                        case 'request':
+                                                                        default: return <FileText size={12} />;
+                                                                    }
+                                                                })()}
+                                                            </span>
+                                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title="Right-click to rename">
+                                                                {step.name}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </StepItem>
+                                            ))}
+                                        </React.Fragment>
                                     );
                                 })}
                             </div>

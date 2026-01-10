@@ -187,6 +187,7 @@ export class SoapPanel {
 
         // Initial Settings Send
         this._controller.sendSettingsToWebview();
+        this._controller.loadSamples();
 
         // Autosave check
         this.checkAutosave();

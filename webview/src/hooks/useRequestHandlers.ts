@@ -141,6 +141,11 @@ export function useRequestHandlers({
     }, [setLoading]);
 
     const handleRequestUpdate = useCallback((updated: SoapUIRequest) => {
+        if (selectedRequest?.readOnly) {
+            console.log('[useRequestHandlers] Blocked update on read-only request:', updated.id);
+            return;
+        }
+
         const dirtyUpdated = { ...updated, dirty: true };
         setWorkspaceDirty(true);
 

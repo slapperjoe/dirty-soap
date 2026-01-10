@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { Play, Square, Trash2, Plus, ChevronRight } from 'lucide-react';
+import { Play, Square, Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { SidebarPerformanceProps } from '../../types/props';
+import { ContextMenu, ContextMenuItem } from '../../styles/App.styles';
 
 // Shake animation for delete confirmation
 const shakeAnimation = keyframes`
@@ -116,6 +117,19 @@ const Input = styled.input`
     }
 `;
 
+const RequestItem = styled.div<{ active: boolean }>`
+    display: flex;
+    align-items: center;
+    padding: 4px 8px 4px 28px;
+    cursor: pointer;
+    background-color: ${props => props.active ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    color: ${props => props.active ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-list-inactiveSelectionForeground)'};
+
+    &:hover {
+        background-color: ${props => props.active ? 'var(--vscode-list-activeSelectionBackground)' : 'var(--vscode-list-hoverBackground)'};
+    }
+`;
+
 export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
     suites,
     onAddSuite,
@@ -126,10 +140,27 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
     isRunning,
     selectedSuiteId,
     deleteConfirm,
-    setDeleteConfirm
+    setDeleteConfirm,
+    onAddRequest,
+    onDeleteRequest,
+    onSelectRequest,
+    onUpdateRequest,
+    onToggleSuiteExpand,
+    expandedSuiteIds = []
 }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [newSuiteName, setNewSuiteName] = useState('');
+
+    // Rename state
+    const [renameId, setRenameId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+    const [renameType, setRenameType] = useState<'suite' | 'request' | null>(null);
+    const [renameParentId, setRenameParentId] = useState<string | null>(null);
+
+    // Context Menu
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'suite' | 'request', id: string, parentId?: string, name: string } | null>(null);
+
+    const checkExpanded = (id: string) => expandedSuiteIds.includes(id);
 
     const handleCreateSuite = () => {
         setIsAdding(true);
@@ -150,6 +181,40 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
         if (e.key === 'Enter') submitCreateSuite();
         if (e.key === 'Escape') setIsAdding(false);
     };
+
+    // Rename handlers
+    const startRename = (id: string, name: string, type: 'suite' | 'request', parentId?: string) => {
+        setRenameId(id);
+        setRenameValue(name);
+        setRenameType(type);
+        setRenameParentId(parentId || null);
+        setContextMenu(null);
+    };
+
+    const submitRename = () => {
+        if (renameId && renameValue.trim()) {
+            if (renameType === 'request' && onUpdateRequest && renameParentId) {
+                onUpdateRequest(renameParentId, renameId, { name: renameValue });
+            }
+            // Add suite rename logic here if needed (not in original scope but good to have)
+        }
+        setRenameId(null);
+        setRenameValue('');
+        setRenameType(null);
+    };
+
+    const handleContextMenu = (e: React.MouseEvent, type: 'suite' | 'request', id: string, name: string, parentId?: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY, type, id, name, parentId });
+    };
+
+    // Close menu on click elsewhere
+    React.useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
 
     return (
         <Container>
@@ -179,42 +244,81 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                     </div>
                 )}
 
-                {suites.map(suite => (
-                    <SuiteItem
-                        key={suite.id}
-                        active={selectedSuiteId === suite.id}
-                        onClick={() => onSelectSuite(suite.id)}
-                    >
-                        <SuiteIcon>
-                            <ChevronRight size={14} />
-                        </SuiteIcon>
-                        <SuiteLabel>{suite.name}</SuiteLabel>
-                        <Actions>
-                            <IconButton
-                                onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }}
-                                title="Run Suite"
-                                style={{ color: 'var(--vscode-charts-green)' }}
+                {suites.map(suite => {
+                    const expanded = checkExpanded(suite.id);
+                    return (
+                        <React.Fragment key={suite.id}>
+                            <SuiteItem
+                                active={selectedSuiteId === suite.id}
+                                onClick={() => onSelectSuite(suite.id)}
                             >
-                                <Play size={14} fill="currentColor" />
-                            </IconButton>
-                            <DeleteButton
-                                shake={deleteConfirm === suite.id}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (deleteConfirm === suite.id) {
-                                        onDeleteSuite(suite.id);
-                                        setDeleteConfirm(null);
-                                    } else {
-                                        setDeleteConfirm(suite.id);
-                                    }
-                                }}
-                                title={deleteConfirm === suite.id ? "Click again to delete" : "Delete Suite"}
-                            >
-                                <Trash2 size={14} />
-                            </DeleteButton>
-                        </Actions>
-                    </SuiteItem>
-                ))}
+                                <SuiteIcon onClick={(e) => { e.stopPropagation(); onToggleSuiteExpand?.(suite.id); }}>
+                                    {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                </SuiteIcon>
+                                <SuiteLabel>{suite.name}</SuiteLabel>
+                                <Actions>
+                                    <IconButton
+                                        onClick={(e) => { e.stopPropagation(); onAddRequest?.(suite.id); }}
+                                        title="Add Request"
+                                    >
+                                        <Plus size={14} />
+                                    </IconButton>
+                                    <IconButton
+                                        onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }}
+                                        title="Run Suite"
+                                        style={{ color: 'var(--vscode-charts-green)' }}
+                                    >
+                                        <Play size={14} fill="currentColor" />
+                                    </IconButton>
+                                    <DeleteButton
+                                        shake={deleteConfirm === suite.id}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (deleteConfirm === suite.id) {
+                                                onDeleteSuite(suite.id);
+                                                setDeleteConfirm(null);
+                                            } else {
+                                                setDeleteConfirm(suite.id);
+                                            }
+                                        }}
+                                        title={deleteConfirm === suite.id ? "Click again to delete" : "Delete Suite"}
+                                    >
+                                        <Trash2 size={14} />
+                                    </DeleteButton>
+                                </Actions>
+                            </SuiteItem>
+
+                            {/* Render Requests */}
+                            {expanded && suite.requests?.map(req => (
+                                <RequestItem
+                                    key={req.id}
+                                    active={false} // Currently we don't track selected request ID in sidebar explicitly? Or reuse selection context? using standard 'active' styling might be misleading if not synced
+                                    onClick={() => onSelectRequest?.(req)}
+                                    onContextMenu={(e) => handleContextMenu(e, 'request', req.id, req.name, suite.id)}
+                                >
+                                    <div style={{ width: 14 }}></div> {/* Indent for no icon */}
+                                    {renameId === req.id ? (
+                                        <Input
+                                            value={renameValue}
+                                            onChange={(e) => setRenameValue(e.target.value)}
+                                            onBlur={submitRename}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') submitRename();
+                                                if (e.key === 'Escape') setRenameId(null);
+                                                e.stopPropagation();
+                                            }}
+                                            autoFocus
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ margin: 0, padding: '2px 4px' }}
+                                        />
+                                    ) : (
+                                        <SuiteLabel style={{ fontSize: 12 }}>{req.name}</SuiteLabel>
+                                    )}
+                                </RequestItem>
+                            ))}
+                        </React.Fragment>
+                    );
+                })}
 
                 {suites.length === 0 && !isAdding && (
                     <div style={{ padding: 20, textAlign: 'center', color: 'var(--vscode-descriptionForeground)', fontSize: 13 }}>
@@ -223,6 +327,25 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                     </div>
                 )}
             </List>
+
+            {contextMenu && (
+                <ContextMenu top={contextMenu.y} left={contextMenu.x} onClick={(e: any) => e.stopPropagation()}>
+                    <ContextMenuItem onClick={() => startRename(contextMenu.id, contextMenu.name, contextMenu.type, contextMenu.parentId)}>
+                        Rename
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => {
+                        if (contextMenu.type === 'request' && onDeleteRequest && contextMenu.parentId) {
+                            onDeleteRequest(contextMenu.parentId, contextMenu.id);
+                        }
+                        if (contextMenu.type === 'suite') {
+                            onDeleteSuite(contextMenu.id);
+                        }
+                        setContextMenu(null);
+                    }}>
+                        Delete
+                    </ContextMenuItem>
+                </ContextMenu>
+            )}
         </Container>
     );
 };

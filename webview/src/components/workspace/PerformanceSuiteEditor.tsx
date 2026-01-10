@@ -9,6 +9,7 @@ import {
     ToolbarButton,
     IconButton
 } from '../../styles/WorkspaceLayout.styles';
+import { ContextMenu, ContextMenuItem } from '../../styles/App.styles';
 
 const EditorContainer = styled.div`
     padding: 20px;
@@ -275,6 +276,7 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
     isRunning,
     onAddRequest,
     onDeleteRequest,
+    onUpdateRequest,
     onSelectRequest,
     onImportFromWorkspace,
     schedules = [],
@@ -294,6 +296,44 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
     const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
     const [coordPort, setCoordPort] = useState(8765);
     const [coordExpected, setCoordExpected] = useState(1);
+
+    // Rename state
+    const [renameId, setRenameId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+
+    // Context Menu state
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; reqId: string; currentName: string } | null>(null);
+
+    const handleContextMenu = (e: React.MouseEvent, reqId: string, currentName: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY, reqId, currentName });
+    };
+
+    const closeContextMenu = () => setContextMenu(null);
+
+    const startRename = () => {
+        if (contextMenu) {
+            setRenameId(contextMenu.reqId);
+            setRenameValue(contextMenu.currentName);
+            closeContextMenu();
+        }
+    };
+
+    // Handle global click to close menu
+    React.useEffect(() => {
+        const handleClick = () => closeContextMenu();
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+
+    const submitRename = () => {
+        if (renameId && onUpdateRequest) {
+            onUpdateRequest(suite.id, renameId, { name: renameValue });
+        }
+        setRenameId(null);
+        setRenameValue('');
+    };
 
     // Helper to check if section is collapsed
     const isCollapsed = (sectionId: string) => {
@@ -581,6 +621,7 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                     onDrop={(e) => handleDrop(e, req.id)}
                                     onDragEnd={handleDragEnd}
                                     onClick={() => onSelectRequest?.(req)}
+                                    onContextMenu={(e) => handleContextMenu(e, req.id, req.name)}
                                     style={{ cursor: 'pointer' }}
                                 >
                                     <DragHandle onClick={(e) => e.stopPropagation()}>
@@ -590,7 +631,23 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                             <MethodBadge>{req.method}</MethodBadge>
-                                            <span style={{ fontWeight: 500 }}>{req.name}</span>
+                                            {renameId === req.id ? (
+                                                <Input
+                                                    value={renameValue}
+                                                    onChange={(e) => setRenameValue(e.target.value)}
+                                                    onBlur={submitRename}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') submitRename();
+                                                        if (e.key === 'Escape') setRenameId(null);
+                                                        e.stopPropagation();
+                                                    }}
+                                                    autoFocus
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{ padding: '2px 4px', width: 200 }}
+                                                />
+                                            ) : (
+                                                <span style={{ fontWeight: 500 }}>{req.name}</span>
+                                            )}
                                         </div>
                                         <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 4 }}>
                                             {req.endpoint}
@@ -607,6 +664,7 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                         )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                        {/* Inline edit removed in favor of context menu */}
                                         {onDeleteRequest && (
                                             <IconButton onClick={(e) => { e.stopPropagation(); onDeleteRequest(suite.id, req.id); }} title="Remove Request">
                                                 <Trash2 size={14} />
@@ -615,6 +673,20 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                     </div>
                                 </RequestItem>
                             ))}
+                            {/* Local Context Menu */}
+                            {contextMenu && (
+                                <ContextMenu top={contextMenu.y} left={contextMenu.x} onClick={(e: any) => e.stopPropagation()}>
+                                    <ContextMenuItem onClick={() => startRename()}>
+                                        Rename
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => {
+                                        if (onDeleteRequest) onDeleteRequest(suite.id, contextMenu.reqId);
+                                        closeContextMenu();
+                                    }}>
+                                        Delete
+                                    </ContextMenuItem>
+                                </ContextMenu>
+                            )}
                             {sortedRequests.length === 0 && (
                                 <div style={{ padding: 20, textAlign: 'center', opacity: 0.6, fontStyle: 'italic' }}>
                                     No requests in suite. Add a request to begin.

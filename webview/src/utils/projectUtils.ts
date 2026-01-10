@@ -61,11 +61,21 @@ export const renameInFolders = (
 export const updateProjectWithRename = (
     projects: SoapUIProject[],
     targetId: string, // ID or Name depending on what's available context
-    targetType: 'folder' | 'request',
+    targetType: 'folder' | 'request' | 'project',
     newName: string,
     targetData?: any // Fallback if we need to match by reference
 ): SoapUIProject[] => {
     return projects.map(p => {
+        // 0. Handle Project Rename
+        if (targetType === 'project') {
+            // Match by ID if available, or name. Note: Project ID might be missing in legacy, so fallback to name.
+            const isMatch = (p.id && p.id === targetId) || (!p.id && p.name === targetId);
+            if (isMatch) {
+                return { ...p, name: newName, dirty: true };
+            }
+            return p;
+        }
+
         let projectDirty = false;
         let newInterfaces = p.interfaces;
         let newFolders = p.folders;
@@ -92,7 +102,10 @@ export const updateProjectWithRename = (
 
         // 2. Handle Folders and Requests in Folders
         if (p.folders && p.folders.length > 0) {
-            const folderResult = renameInFolders(p.folders, targetId, targetType, newName);
+            // targetType here is guaranteed to be 'folder' | 'request' due to early return above (if flow analysis works)
+            // or we just cast it to be sure.
+            const nextType = targetType as 'folder' | 'request';
+            const folderResult = renameInFolders(p.folders, targetId, nextType, newName);
             if (folderResult.updated) {
                 newFolders = folderResult.folders;
                 projectDirty = true;
