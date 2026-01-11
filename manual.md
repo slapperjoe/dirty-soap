@@ -1,7 +1,7 @@
-# Dirty SOAP Manual
+# APInox Manual
 
 ## Overview
-Dirty SOAP is a VS Code extension for interacting with SOAP web services properly. It allows you to load WSDLs, explore operations, structure requests, and manage environments with ease.
+APInox is a VS Code extension for interacting with SOAP web services properly. It allows you to load WSDLs, explore operations, structure requests, and manage environments with ease.
 
 ## Features
 
@@ -59,7 +59,7 @@ Example `config.jsonc`:
 ```
 
 ### 5. Settings
-- **Autosave**: Your workspace state is automatically saved to `~/.dirty-soap/autosave.xml` to prevent data loss.
+- **Autosave**: Your workspace state is automatically saved to `~/.apinox/autosave.xml` to prevent data loss.
 - **Layout**: 
     - Switch between Vertical and Horizontal layouts.
     - **Auto-Expand**: The Request panel automatically fills the screen if there is no Response visible.
@@ -67,5 +67,5 @@ Example `config.jsonc`:
 - **Proxy**: Configure network proxy settings in `config.jsonc`.
 
 ## Troubleshooting
-- Check the **Output Panel** (select "Dirty SOAP" in the dropdown) for detailed logs of requests and errors.
+- Check the **Output Panel** (select "APInox" in the dropdown) for detailed logs of requests and errors.
 - If requests fail, verify your proxy settings and WSDL reachability.

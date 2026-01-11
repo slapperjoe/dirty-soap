@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Trash2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Trash2, CheckCircle2, XCircle, Clock, Play } from 'lucide-react';
 import { SoapUIAssertion } from '@shared/models';
 import { StatusCodePicker } from './StatusCodePicker';
 import Editor from '@monaco-editor/react';
+import { ScriptPlaygroundModal } from './modals/ScriptPlaygroundModal';
 
 const Container = styled.div`
     display: flex;
@@ -106,6 +107,7 @@ interface AssertionsPanelProps {
 }
 
 export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, onChange, lastResult }) => {
+    const [playgroundScript, setPlaygroundScript] = React.useState<string | null>(null);
 
     const handleAdd = (type: SoapUIAssertion['type']) => {
         const newAssertion: SoapUIAssertion = {
@@ -258,9 +260,14 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
                                     )}
                                     {a.type === 'Script' && (
                                         <div style={{ marginTop: 5, width: '100%' }}>
-                                            <div style={{ marginBottom: 4, fontSize: 11, opacity: 0.7 }}>
-                                                Return <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>true</code> to pass, <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>false</code> to fail.
-                                                Available: <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>response</code>, <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>statusCode</code>
+                                            <div style={{ marginBottom: 4, fontSize: 11, opacity: 0.7, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>
+                                                    Return <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>true</code> to pass, <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>false</code> to fail.
+                                                    Available: <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>response</code>, <code style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 2 }}>statusCode</code>
+                                                </span>
+                                                <Button onClick={() => setPlaygroundScript(a.configuration?.script || '')} title="Test in Playground" style={{ fontSize: '11px', padding: '2px 6px', height: '20px' }}>
+                                                    <Play size={10} /> Test Script
+                                                </Button>
                                             </div>
                                             <div style={{ border: '1px solid var(--vscode-input-border)', borderRadius: 4, overflow: 'hidden' }}>
                                                 <Editor
@@ -306,6 +313,14 @@ export const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ assertions, on
                     );
                 })}
             </AssertionList>
+
+            {playgroundScript !== null && (
+                <ScriptPlaygroundModal
+                    scriptType="assertion"
+                    initialScript={playgroundScript}
+                    onClose={() => setPlaygroundScript(null)}
+                />
+            )}
         </Container>
     );
 };

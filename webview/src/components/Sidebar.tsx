@@ -124,6 +124,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
     );
 
+    const hideContent = activeView === SidebarView.HOME; // When on Welcome/Home, hide sidebar content but keep rail
+
     return (
         <div style={{ display: 'flex', height: '100%', flexDirection: 'row', minWidth: 300, flexShrink: 0 }}>
             {/* Left Rail */}
@@ -307,7 +309,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Content Area */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: 'var(--vscode-sideBar-background)' }}>
+            <div
+                style={{
+                    flex: hideContent ? 0 : 1,
+                    display: hideContent ? 'none' : 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    backgroundColor: 'var(--vscode-sideBar-background)'
+                }}
+            >
 
                 {activeView === SidebarView.SERVER && serverProps && (
                     <ServerUi

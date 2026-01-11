@@ -1,4 +1,4 @@
-# Dirty SOAP - Agent Context
+# APInox - Agent Context
 
 ## Project Overview
 This is a **VS Code Extension** for exploring SOAP Web Services (WSDL). It mimics the UI/UX of tools like Bruno or Postman but for SOAP.
@@ -59,7 +59,7 @@ The Dirty Proxy intercepts HTTP/HTTPS traffic for debugging and testing.
 
 ### Replace Rules
 
-Rules are stored in `~/.dirty-soap/config.jsonc` under `replaceRules`:
+Rules are stored in `~/.apinox/config.jsonc` under `replaceRules`:
 
 ```jsonc
 {
@@ -94,7 +94,7 @@ The Mock Server returns predefined responses without hitting the real backend.
 
 ### Mock Rules
 
-Rules are stored in `~/.dirty-soap/mock-rules.jsonc`:
+Rules are stored in `~/.apinox/mock-rules.jsonc`:
 
 ```jsonc
 [
@@ -144,7 +144,7 @@ If you are an agent or developer setting this up from scratch:
     -   Or run `code .` in the root and use the "Run and Debug" side panel.
 
 4.  **Verification**:
-    -   In the Extension Host window, run command `Dirty SOAP: Open Interface`.
+    -   In the Extension Host window, run command `APInox: Open Interface`.
     -   Load a WSDL (e.g. `http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL`).
     -   Select an operation and click **Run**.
 

@@ -105,7 +105,7 @@ const SECTIONS = [
     content: `
 # Workspace & Projects
 
-Dirty Soap retrieves order from chaos by organizing your work into a structured hierarchy.
+APInox retrieves order from chaos by organizing your work into a structured hierarchy.
 
 ![Workspace Hierarchy](help/workspace_hierarchy.png)
 
@@ -132,7 +132,7 @@ Right-click on items in the Explorer to access context actions:
     content: `
 # WSDL Request Editor
 
-The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore SOAP services, construct requests, and analyze responses directly within VS Code.
+The core of APInox is the interactive WSDL Editor. It allows you to explore SOAP services, construct requests, and analyze responses directly within VS Code.
 
 ![WSDL Editor Screenshot](help/wsdl_editor_screenshot.png)
 
@@ -157,7 +157,7 @@ The core of Dirty SOAP is the interactive WSDL Editor. It allows you to explore 
 - Switch environments using the dropdown in the editor toolbar.
 
 ### 4. User JS Wildcards
-- Use \`{{js:MyScript}}\` to execute custom JavaScript located in \`.dirty-soap/scripts/MyScript.js\`.
+- Use \`{{js:MyScript}}\` to execute custom JavaScript located in \`.apinox/scripts/MyScript.js\`.
 - The script should export a function returning a string.
 
 ## Toolbar Actions
@@ -222,13 +222,13 @@ When **Proxy** or **Both** is selected:
 `
   },
   {
-    id: 'dirty-proxy',
-    label: 'Dirty Proxy',
+    id: 'proxy',
+    label: 'APInox Proxy',
     icon: MonitorPlay,
     content: `
-# Dirty Proxy
+# APInox Proxy
 
-The Dirty Proxy intercepts and monitors HTTP/S traffic between your application and backend SOAP services.
+The APInox Proxy intercepts and monitors HTTP/S traffic between your application and backend SOAP services.
 
 ## Getting Started
 
@@ -261,12 +261,12 @@ The proxy automatically generates certificates for HTTPS traffic.
   },
   {
     id: 'mock-server',
-    label: 'Dirty Moxy',
+    label: 'APInox Mock',
     icon: Radio,
     content: `
-# Dirty Moxy
+# APInox Mock
 
-The Dirty Moxy server returns predefined responses without hitting the real backend. Ideal for:
+The APInox Mock server returns predefined responses without hitting the real backend. Ideal for:
 - Offline development
 - Testing error scenarios
 - Simulating slow responses
@@ -278,7 +278,7 @@ The Dirty Moxy server returns predefined responses without hitting the real back
 3. Start the server
 4. Point your application to the mock server
 
-## Dirty Moxy Rules
+## APInox Mock Rules
 
 Each rule defines when and what to respond:
 
@@ -304,7 +304,7 @@ Enable to auto-capture real responses as mock rules:
 ### Passthrough
 Unmatched requests can be forwarded to the real backend:
 - Enable "Forward unmatched requests" in settings
-- Optionally route passthrough through Dirty Proxy
+- Optionally route passthrough through APInox Proxy
 `
   },
   {
@@ -320,11 +320,11 @@ The File Watcher monitors external processes that write SOAP requests/responses 
 
 ## Setup
 
-1.  Create a folder named \`.dirty-soap/watch\` in your workspace
+1.  Create a folder named \`.apinox/watch\` in your workspace
 2.  Configure your external application to write:
     -   Outgoing XML to \`requestXML.xml\`
     -   Incoming XML to \`responseXML.xml\`
-3.  Click **Start Watcher** in the Dirty SOAP sidebar
+3.  Click **Start Watcher** in the APInox sidebar
 
 ## Functionality
 
@@ -341,7 +341,7 @@ The File Watcher monitors external processes that write SOAP requests/responses 
     content: `
 # Tests & Assertions
 
-Dirty Soap includes a powerful testing framework that allows you to automate and validate your SOAP services.
+APInox includes a powerful testing framework that allows you to automate and validate your SOAP services.
 
 ![Tests Interface](help/tests_interface_screenshot.png)
 
@@ -418,7 +418,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
     <ModalOverlay onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <ModalContent>
         <ModalHeader>
-          <div style={{ fontWeight: 'bold' }}>Dirty Soap Help</div>
+          <div style={{ fontWeight: 'bold' }}>APInox Help</div>
           <CloseButton onClick={onClose}>
             <X size={20} />
           </CloseButton>

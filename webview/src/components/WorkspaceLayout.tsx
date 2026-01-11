@@ -99,7 +99,7 @@ const EmptyWsdlExplorer: React.FC = () => (
 
 const EmptyServer: React.FC = () => (
     <EmptyState
-        title="Dirty SOAP Server"
+        title="APInox Server"
         message="Configure a local proxy server to inspect traffic or mock responses."
         image={emptyServerImg}
     />
@@ -527,7 +527,9 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const { config, defaultEndpoint, changelog, isReadOnly: isHistoryMode } = configState;
 
     // Derived read-only state
-    const isContentLocked = (selectedRequest?.readOnly === true) || (selectedProject?.readOnly === true);
+    const isStructureLocked = (activeView === SidebarView.PERFORMANCE);
+    const isContentLocked = (selectedRequest?.readOnly === true) ||
+        (!isStructureLocked && selectedProject?.readOnly === true);
     const preventEditing = isHistoryMode || isContentLocked;
     const isReadOnly = preventEditing; // Defaults to preventing editing, specific overrides used below
     const {
@@ -808,7 +810,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
                         {/* Request Type / Method / Content-Type - Unified Selector */}
                         {/* Request Type / Method / Content-Type - Unified Selector */}
-                        {preventEditing ? (
+                        {preventEditing || isStructureLocked ? (
                             <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 10, overflow: 'hidden' }}>
                                 <InfoBarMethod>{selectedRequest.method || 'POST'}</InfoBarMethod>
                                 <InfoBarUrl title={selectedRequest.endpoint} style={{ marginLeft: 10, fontSize: '1em' }}>{selectedRequest.endpoint}</InfoBarUrl>
@@ -834,6 +836,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         value={selectedRequest.endpoint || defaultEndpoint || ''}
                                         onChange={(val) => onUpdateRequest({ ...selectedRequest, endpoint: val })}
                                         placeholder="Endpoint URL"
+                                        readOnly={isReadOnly || isStructureLocked}
                                         onFocus={() => lastFocusedRef.current = urlEditorRef.current}
                                     />
                                 </div>
@@ -1222,8 +1225,8 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         )}
                         {activeTab === 'headers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                                <div style={{ flex: 1, overflow: 'hidden', padding: isReadOnly ? '10px' : '0' }}>
-                                    {!isReadOnly ? (
+                                <div style={{ flex: 1, overflow: 'hidden', padding: (isReadOnly || isStructureLocked) ? '10px' : '0' }}>
+                                    {!isReadOnly && !isStructureLocked ? (
                                         <HeadersPanel
                                             headers={selectedRequest.headers || {}}
                                             onChange={(newHeaders) => onUpdateRequest({ ...selectedRequest, headers: newHeaders })}
@@ -1274,6 +1277,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         restConfig: { ...selectedRequest.restConfig, queryParams: newParams }
                                     })}
                                     title="Query Parameters"
+                                    readOnly={isReadOnly || isStructureLocked}
                                 />
                             </div>
                         )}
@@ -1317,6 +1321,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         ...selectedRequest,
                                         restConfig: { ...selectedRequest.restConfig, auth: newAuth }
                                     })}
+                                    readOnly={isReadOnly || isStructureLocked}
                                 />
                             ) : (
                                 <SecurityPanel

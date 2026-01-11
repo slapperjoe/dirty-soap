@@ -52,17 +52,20 @@ interface QueryParamsPanelProps {
     onChange: (params: Record<string, string>) => void;
     title?: string;
     paramLabel?: string;
+    readOnly?: boolean;
 }
 
 export const QueryParamsPanel: React.FC<QueryParamsPanelProps> = ({
     params,
     onChange,
     title = 'Query Parameters',
-    paramLabel = 'Param'
+    paramLabel = 'Param',
+    readOnly = false
 }) => {
     const entries = Object.entries(params || {});
 
     const updateParam = (oldKey: string, newKey: string, newValue: string) => {
+        if (readOnly) return;
         const newParams = { ...params };
         if (oldKey !== newKey) {
             delete newParams[oldKey];
@@ -72,12 +75,14 @@ export const QueryParamsPanel: React.FC<QueryParamsPanelProps> = ({
     };
 
     const removeParam = (key: string) => {
+        if (readOnly) return;
         const newParams = { ...params };
         delete newParams[key];
         onChange(newParams);
     };
 
     const addParam = () => {
+        if (readOnly) return;
         const newParams = { ...params };
         let count = 1;
         while (newParams[`${paramLabel.toLowerCase()}${count}`]) count++;
@@ -89,21 +94,23 @@ export const QueryParamsPanel: React.FC<QueryParamsPanelProps> = ({
         <Container>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                 <h3 style={{ margin: 0 }}>{title}</h3>
-                <IconButton onClick={addParam} title={`Add ${paramLabel}`}>
-                    <Plus size={16} /> Add
-                </IconButton>
+                {!readOnly && (
+                    <IconButton onClick={addParam} title={`Add ${paramLabel}`}>
+                        <Plus size={16} /> Add
+                    </IconButton>
+                )}
             </div>
 
             {/* Column Headers */}
             <ParamRow style={{ opacity: 0.7 }}>
                 <div style={{ flex: 1 }}><Label>Key</Label></div>
                 <div style={{ flex: 1 }}><Label>Value</Label></div>
-                <div style={{ width: 30 }}></div>
+                {!readOnly && <div style={{ width: 30 }}></div>}
             </ParamRow>
 
             {entries.length === 0 && (
                 <div style={{ opacity: 0.6, fontStyle: 'italic', padding: 10, textAlign: 'center' }}>
-                    No {title.toLowerCase()} defined. Click "Add" to create one.
+                    {readOnly ? `No ${title.toLowerCase()} defined.` : `No ${title.toLowerCase()} defined. Click "Add" to create one.`}
                 </div>
             )}
 
@@ -114,6 +121,7 @@ export const QueryParamsPanel: React.FC<QueryParamsPanelProps> = ({
                             value={key}
                             onChange={(newKey: string) => updateParam(key, newKey, value)}
                             placeholder="parameter_name"
+                            readOnly={readOnly}
                         />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -121,11 +129,14 @@ export const QueryParamsPanel: React.FC<QueryParamsPanelProps> = ({
                             value={value}
                             onChange={(newValue: string) => updateParam(key, key, newValue)}
                             placeholder="value"
+                            readOnly={readOnly}
                         />
                     </div>
-                    <IconButton onClick={() => removeParam(key)} title={`Delete ${paramLabel}`}>
-                        <Trash2 size={14} />
-                    </IconButton>
+                    {!readOnly && (
+                        <IconButton onClick={() => removeParam(key)} title={`Delete ${paramLabel}`}>
+                            <Trash2 size={14} />
+                        </IconButton>
+                    )}
                 </ParamRow>
             ))}
 

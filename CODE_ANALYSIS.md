@@ -1,6 +1,6 @@
 # Code Analysis & Simplification Recommendations
 
-This document outlines observations and actionable recommendations for simplifying and improving the Dirty SOAP codebase.
+This document outlines observations and actionable recommendations for simplifying and improving the APInox codebase.
 
 **Last Updated**: 2026-01-01
 

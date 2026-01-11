@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Dirty SOAP CLI
+ * APInox CLI
  * 
  * Standalone command-line interface for:
  * - Running performance suites locally
@@ -19,7 +19,7 @@ import { sendRequestCommand } from './commands/send-request';
 const program = new Command();
 
 program
-    .name('dirty-soap')
+    .name('apinox')
     .description('SOAP API testing and performance analysis CLI')
     .version('0.8.1');
 

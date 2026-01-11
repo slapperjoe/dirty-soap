@@ -2,7 +2,7 @@ import React from 'react';
 import { Bug, Play } from 'lucide-react';
 import { MonacoRequestEditor } from '../MonacoRequestEditor';
 import { Content, ToolbarButton } from '../../styles/WorkspaceLayout.styles';
-import { DirtySoapConfig } from '@shared/models';
+import { ApinoxConfig } from '@shared/models';
 
 export interface BreakpointData {
     breakpointName: string;
@@ -17,7 +17,7 @@ export interface BreakpointOverlayProps {
     onContentChange: (content: string) => void;
     timeRemaining: number;
     onResolve: (content: string, cancelled?: boolean) => void;
-    config?: DirtySoapConfig;
+    config?: ApinoxConfig;
 }
 
 /**

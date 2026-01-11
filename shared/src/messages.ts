@@ -104,6 +104,9 @@ export enum FrontendCommand {
 
     // Attachments
     SelectAttachment = 'selectAttachment',
+
+    // Script Playground
+    ExecutePlaygroundScript = 'executePlaygroundScript',
 }
 
 export enum BackendCommand {
@@ -162,4 +165,7 @@ export enum BackendCommand {
 
     // Attachments
     AttachmentSelected = 'attachmentSelected',
+
+    // Script Playground
+    PlaygroundScriptResult = 'playgroundScriptResult',
 }

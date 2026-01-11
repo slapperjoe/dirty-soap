@@ -472,7 +472,7 @@ export interface ProxyRule {
     enabled: boolean;
 }
 
-export interface DirtySoapConfig {
+export interface ApinoxConfig {
     version: number;
     network?: {
         defaultTimeout?: number;

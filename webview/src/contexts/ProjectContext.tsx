@@ -1,7 +1,7 @@
 /**
  * ProjectContext.tsx
  * 
- * Centralizes project state management for the Dirty SOAP application.
+ * Centralizes project state management for the APInox application.
  * This context provides a single source of truth for:
  * - Projects list and their state
  * - Selected project tracking

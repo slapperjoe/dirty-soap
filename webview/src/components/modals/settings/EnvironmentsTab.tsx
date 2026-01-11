@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Check, Download, Upload } from 'lucide-react';
 import styled, { keyframes, css } from 'styled-components';
 import {
-    DirtySoapConfig,
+    ApinoxConfig,
     EnvList,
     EnvItem,
     EnvDetail,
@@ -37,7 +37,7 @@ const DeleteButton = styled(IconButton) <{ confirming?: boolean }>`
 `;
 
 interface EnvironmentsTabProps {
-    config: DirtySoapConfig;
+    config: ApinoxConfig;
     selectedEnvKey: string | null;
     setSelectedEnvKey: (key: string | null) => void;
     onAddEnv: () => void;

@@ -1,4 +1,4 @@
-# Dirty SOAP
+# APInox
 
 A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
 
@@ -41,7 +41,7 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
 
 ## Usage
 
-1. **Open Dirty SOAP**: Click the **"🧪 Dirty SOAP"** button in the status bar (bottom), or run command `Dirty SOAP: Open Interface`.
+1. **Open APInox**: Click the **"🧪 APInox"** button in the status bar (bottom), or run command `APInox: Open Interface`.
 2. **Load a WSDL**:
     - Use the **WSDL Explorer** section.
     - Select "URL" or "File" input mode.
@@ -64,7 +64,7 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
 
 ## Roadmap & Planned Features
 
-We are constantly working to improve Dirty SOAP for C# developers. Here is what we are planning next:
+We are constantly working to improve APInox for C# developers. Here is what we are planning next:
 
 - **Git Integration**: Shared workspaces and team synchronization.
 - **Azure DevOps**: Link operations to Work Items and attach artifacts directly.

@@ -1,6 +1,6 @@
 # Feature Backlog
 
-This document tracks planned features for Dirty SOAP, ordered by priority.
+This document tracks planned features for APInox, ordered by priority.
 
 ---
 

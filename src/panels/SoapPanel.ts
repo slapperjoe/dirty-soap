@@ -17,7 +17,7 @@ import { RequestHistoryService } from '../services/RequestHistoryService';
 
 export class SoapPanel {
     public static currentPanel: SoapPanel | undefined;
-    public static readonly viewType = 'dirtySoap';
+    public static readonly viewType = 'apinox';
     private static _extensionContext: vscode.ExtensionContext;
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
@@ -55,7 +55,7 @@ export class SoapPanel {
 
         const panel = vscode.window.createWebviewPanel(
             SoapPanel.viewType,
-            'Dirty SOAP',
+            'APInox',
             column || vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -72,7 +72,7 @@ export class SoapPanel {
         this._panel = panel;
         this._extensionUri = extensionUri;
 
-        this._outputChannel = vscode.window.createOutputChannel('Dirty SOAP');
+        this._outputChannel = vscode.window.createOutputChannel('APInox');
         this._diagnosticService = DiagnosticService.getInstance();
         this._diagnosticService.log('BACKEND', 'SoapPanel Initialized');
 
@@ -275,7 +275,7 @@ export class SoapPanel {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="${baseUri}">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-randomNonce' ${webview.cspSource} 'unsafe-eval'; worker-src blob:; font-src ${webview.cspSource} data:; img-src ${webview.cspSource} data:;">
-    <title>Dirty SOAP</title>
+    <title>APInox</title>
     <link rel="stylesheet" type="text/css" href="${styleUri}">
 </head>
 <body>

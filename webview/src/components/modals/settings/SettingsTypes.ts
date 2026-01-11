@@ -5,9 +5,9 @@
  */
 
 import styled from 'styled-components';
-import { DirtySoapConfig, ReplaceRule } from '@shared/models';
+import { ApinoxConfig, ReplaceRule } from '@shared/models';
 
-export type { DirtySoapConfig };
+export type { ApinoxConfig };
 export type ReplaceRuleSettings = ReplaceRule;
 
 // =============================================================================

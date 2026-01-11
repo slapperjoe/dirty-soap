@@ -10,8 +10,8 @@ interface WelcomePanelProps {
 export const WelcomePanel: React.FC<WelcomePanelProps> = ({ changelog }) => {
     return (
         <div style={{ padding: 20, flex: 1, overflow: 'auto', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)', position: 'relative' }}>
-            <Mascot src={mascotImg} alt="Dirty Soap Mascot" />
-            <h1>Welcome to Dirty SOAP</h1>
+            <Mascot src={mascotImg} alt="APInox Mascot" />
+            <h1>Welcome to APInox</h1>
             <p>Load a WSDL to see available operations.</p>
             {changelog && (
                 <MarkdownContainer>

@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink, Check, AlertCircle, Loader2 } from 'lucide-react';
 import styled, { keyframes } from 'styled-components';
 import {
-    DirtySoapConfig,
+    ApinoxConfig,
     ScrollableForm,
     FormGroup,
     Label,
@@ -55,7 +55,7 @@ interface AzureDevOpsProject {
 }
 
 interface IntegrationsTabProps {
-    config: DirtySoapConfig;
+    config: ApinoxConfig;
     onConfigChange: (field: string, value: any) => void;
     // Message sender for backend communication
     sendMessage: (message: any) => void;

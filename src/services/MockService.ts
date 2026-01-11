@@ -187,8 +187,8 @@ export class MockService extends EventEmitter {
         this.logDebug('[MockService] ensureCert called');
 
         const tempDir = os.tmpdir();
-        this.certPath = path.join(tempDir, 'dirty-soap-mock.cer');
-        this.keyPath = path.join(tempDir, 'dirty-soap-mock.key');
+        this.certPath = path.join(tempDir, 'apinox-mock.cer');
+        this.keyPath = path.join(tempDir, 'apinox-mock.key');
 
         if (fs.existsSync(this.certPath) && fs.existsSync(this.keyPath)) {
             try {

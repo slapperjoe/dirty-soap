@@ -1,4 +1,4 @@
-# Dirty SOAP Frontend Architecture
+# APInox Frontend Architecture
 
 The frontend is a React application built with Vite, designed to run inside a VS Code Webview.
 

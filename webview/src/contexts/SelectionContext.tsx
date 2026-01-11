@@ -1,7 +1,7 @@
 /**
  * SelectionContext.tsx
  * 
- * Centralizes UI selection state for the Dirty SOAP application.
+ * Centralizes UI selection state for the APInox application.
  * This context tracks what the user has currently selected in the UI:
  * - Selected interface, operation, request
  * - Selected test case and step
@@ -133,7 +133,7 @@ export function SelectionProvider({ children }: SelectionProviderProps) {
     const [loading, setLoading] = useState(false);
 
     const getCacheKey = useCallback((req: SoapUIRequest | null) => req?.id || req?.name || null, []);
-    const getStorageKey = useCallback((key: string) => `dirty-soap:lastResponse:${key}`, []);
+    const getStorageKey = useCallback((key: string) => `apinox:lastResponse:${key}`, []);
 
     const restoreResponseForRequest = useCallback((req: SoapUIRequest | null, existingCache?: Record<string, any>) => {
         const key = getCacheKey(req);

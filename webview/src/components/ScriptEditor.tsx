@@ -3,7 +3,9 @@ import Editor, { Monaco } from '@monaco-editor/react';
 import { SoapTestStep } from '@shared/models';
 import { bridge } from '../utils/bridge';
 import { Toolbar, ToolbarButton } from '../styles/WorkspaceLayout.styles';
-import { ChevronLeft, Save } from 'lucide-react';
+import { ChevronLeft, Save, Play } from 'lucide-react';
+import { ScriptPlaygroundModal } from './modals/ScriptPlaygroundModal';
+import { ToolbarSeparator } from '../styles/WorkspaceLayout.styles';
 
 interface ScriptEditorProps {
     step: SoapTestStep;
@@ -17,6 +19,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isRe
     // Initialize local state from prop
     const [scriptContent, setScriptContent] = useState(step.config.scriptContent || '');
     const [isDirty, setIsDirty] = useState(false);
+    const [showPlayground, setShowPlayground] = useState(false);
 
     // Track previous prop value to detect actual remote changes
     const prevStepContent = useRef(step.config.scriptContent);
@@ -121,8 +124,15 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isRe
                     <span style={{ fontWeight: 'bold', marginLeft: 10 }}>Script: {step.name}</span>
                     {isDirty && <span style={{ marginLeft: 5, fontSize: '0.8em', color: 'var(--vscode-descriptionForeground)' }}>(Unsaved)</span>}
                 </div>
+
+                <ToolbarButton onClick={() => setShowPlayground(true)} title="Run in Playground">
+                    <Play size={14} /> Playground
+                </ToolbarButton>
+
+                <ToolbarSeparator />
+
                 {isDirty && (
-                    <ToolbarButton onClick={handleSave} title="Save Script" style={{ marginLeft: 'auto' }}>
+                    <ToolbarButton onClick={handleSave} title="Save Script">
                         <Save size={14} /> Save
                     </ToolbarButton>
                 )}
@@ -151,6 +161,14 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isRe
                     }}
                 />
             </div>
+
+            {showPlayground && (
+                <ScriptPlaygroundModal
+                    scriptType="step"
+                    initialScript={scriptContent}
+                    onClose={() => setShowPlayground(false)}
+                />
+            )}
         </div>
     );
 };

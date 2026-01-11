@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import styled, { keyframes, css } from 'styled-components';
 import {
-    DirtySoapConfig,
+    ApinoxConfig,
     EnvList,
     EnvItem,
     EnvDetail,
@@ -35,7 +35,7 @@ const DeleteButton = styled(IconButton) <{ confirming?: boolean }>`
 `;
 
 interface GlobalsTabProps {
-    config: DirtySoapConfig;
+    config: ApinoxConfig;
     selectedGlobalKey: string | null;
     setSelectedGlobalKey: (key: string | null) => void;
     onAddGlobal: () => void;

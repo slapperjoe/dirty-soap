@@ -23,10 +23,10 @@ export class DiagnosticService {
     private initializeLogStream() {
         try {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const fileName = `dirty-soap-diagnostics-${timestamp}.jsonl`;
+            const fileName = `apinox-diagnostics-${timestamp}.jsonl`;
 
-            // Priority: user requested c:/temp if available, otherwise default to .dirty-soap
-            let logDir = path.join(os.homedir(), '.dirty-soap', 'diagnostics');
+            // Priority: user requested c:/temp if available, otherwise default to .apinox
+            let logDir = path.join(os.homedir(), '.apinox', 'diagnostics');
             const tempPath = 'c:\\temp';
 
             if (fs.existsSync(tempPath)) {
@@ -38,7 +38,7 @@ export class DiagnosticService {
                     fs.mkdirSync(logDir, { recursive: true });
                 } catch (e) {
                     // Fallback to homedir if c:/temp is not writable
-                    logDir = path.join(os.homedir(), '.dirty-soap', 'diagnostics');
+                    logDir = path.join(os.homedir(), '.apinox', 'diagnostics');
                     if (!fs.existsSync(logDir)) {
                         fs.mkdirSync(logDir, { recursive: true });
                     }
@@ -73,7 +73,7 @@ export class DiagnosticService {
 
             const files = fs.readdirSync(logDir);
             for (const file of files) {
-                if (file.startsWith('dirty-soap-diagnostics-') && file.endsWith('.jsonl')) {
+                if (file.startsWith('apinox-diagnostics-') && file.endsWith('.jsonl')) {
                     const filePath = path.join(logDir, file);
                     const stats = fs.statSync(filePath);
                     if (stats.mtimeMs < cleanupCutoff) {

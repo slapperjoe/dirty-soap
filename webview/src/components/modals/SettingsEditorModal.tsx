@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Editor from '@monaco-editor/react';
 import { X, Save, AlertTriangle, Settings, FileJson, Server, Globe, Replace, Cloud, Network } from 'lucide-react';
-import { GeneralTab, EnvironmentsTab, GlobalsTab, ReplaceRulesTab, IntegrationsTab, ServerTab, DirtySoapConfig, ReplaceRuleSettings } from './settings';
+import { GeneralTab, EnvironmentsTab, GlobalsTab, ReplaceRulesTab, IntegrationsTab, ServerTab, ApinoxConfig, ReplaceRuleSettings } from './settings';
 import { bridge } from '../../utils/bridge';
 import { ServerConfig } from '@shared/models';
 
@@ -142,7 +142,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
         (initialTab as SettingsTab) || SettingsTab.GUI
     );
     const [jsonContent, setJsonContent] = useState(rawConfig || '{}');
-    const [guiConfig, setGuiConfig] = useState<DirtySoapConfig>({ version: 1 });
+    const [guiConfig, setGuiConfig] = useState<ApinoxConfig>({ version: 1 });
     const [parseError, setParseError] = useState<string | null>(null);
 
     // Environments State
@@ -198,7 +198,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
         }
     };
 
-    const handleGuiChange = (section: keyof DirtySoapConfig, key: string, value: any) => {
+    const handleGuiChange = (section: keyof ApinoxConfig, key: string, value: any) => {
         setGuiConfig(prev => {
             const updated = { ...prev };
             if (!updated[section]) (updated as any)[section] = {};

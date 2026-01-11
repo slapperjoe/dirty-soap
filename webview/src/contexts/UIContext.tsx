@@ -1,7 +1,7 @@
 /**
  * UIContext.tsx
  * 
- * Centralizes UI configuration and layout state for the Dirty SOAP application.
+ * Centralizes UI configuration and layout state for the APInox application.
  * This context manages:
  * - Active sidebar view (projects, explorer, watcher, proxy)
  * - Layout preferences (vertical/horizontal, line numbers, etc.)
@@ -17,7 +17,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { SidebarView, DirtySoapConfig } from '@shared/models';
+import { SidebarView, ApinoxConfig } from '@shared/models';
 import { bridge } from '../utils/bridge';
 
 // =============================================================================
@@ -97,8 +97,8 @@ export interface UIContextValue {
     // -------------------------------------------------------------------------
 
     /** Application configuration */
-    config: DirtySoapConfig | null;
-    setConfig: React.Dispatch<React.SetStateAction<DirtySoapConfig | null>>;
+    config: ApinoxConfig | null;
+    setConfig: React.Dispatch<React.SetStateAction<ApinoxConfig | null>>;
 
     /** Raw config JSON string (for settings editor) */
     rawConfig: string;
@@ -158,7 +158,7 @@ export function UIProvider({ children }: UIProviderProps) {
     // CONFIGURATION STATE
     // -------------------------------------------------------------------------
 
-    const [config, setConfig] = useState<DirtySoapConfig | null>(null);
+    const [config, setConfig] = useState<ApinoxConfig | null>(null);
     const [rawConfig, setRawConfig] = useState<string>('');
     const [configPath, setConfigPath] = useState<string | null>(null);
 

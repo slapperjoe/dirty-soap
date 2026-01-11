@@ -1,7 +1,7 @@
 # Performance Suite Design & Intent
 
 ## Overview
-The Performance Suite in Dirty Soap is designed to provide lightweight LOAD and PERFORMANCE testing capabilities specifically for SOAP web services. Unlike the functional testing focus of the `Test Case` system, the Performance Suite focuses on executing sequences of requests under varying load conditions (concurrency, repetitions) to measure response times, stability, and SLA compliance.
+The Performance Suite in APInox is designed to provide lightweight LOAD and PERFORMANCE testing capabilities specifically for SOAP web services. Unlike the functional testing focus of the `Test Case` system, the Performance Suite focuses on executing sequences of requests under varying load conditions (concurrency, repetitions) to measure response times, stability, and SLA compliance.
 
 ## Core Intent
 1.  **Isolation**: Performance tests are distinct from functional tests. While functional tests verify logic (assertions, complex flows), performance tests focus on metrics (latency, throughput, error rates).

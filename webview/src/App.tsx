@@ -639,7 +639,7 @@ function App() {
             request: request.requestBody, // Map requestBody to request for visibility
             headers: request.headers,
             extractors: request.extractors,
-            contentType: 'application/soap+xml', // Default content type
+            contentType: request.headers?.['Content-Type'] || request.headers?.['content-type'] || 'application/soap+xml',
             // assertions: ... we might need to map SLA to assertions if we want visual editing, or just keep SLA separate
         };
         setSelectedRequest(soapRequest);

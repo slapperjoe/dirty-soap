@@ -1,11 +1,11 @@
 {
-  "name": "dirty-soap",
+  "name": "apinox",
   "publisher": "dev1",
-  "displayName": "Dirty SOAP",
+  "displayName": "APInox",
   "description": "Visual SOAP client for VS Code",
   "repository": {
     "type": "git",
-    "url": "https://github.com/slapperjoe/dirty-soap.git"
+    "url": "https://github.com/slapperjoe/apinox.git"
   },
   "icon": "images/logo.png",
   "license": "MIT",
@@ -21,26 +21,26 @@
   ],
   "main": "./out/src/extension.js",
   "bin": {
-    "dirty-soap": "./out/src/cli/index.js"
+    "apinox": "./out/src/cli/index.js"
   },
   "contributes": {
     "commands": [
       {
-        "command": "dirty-soap.openInterface",
+        "command": "apinox.openInterface",
         "title": "Open Interface",
-        "category": "Dirty Soap",
+        "category": "APInox",
         "icon": "$(zap)"
       },
       {
-        "command": "dirty-soap.resetConfiguration",
+        "command": "apinox.resetConfiguration",
         "title": "Reset Configuration (Hard Reset)",
-        "category": "Dirty Soap",
+        "category": "APInox",
         "icon": "$(trash)"
       },
       {
-        "command": "dirty-soap.exportDiagnostics",
+        "command": "apinox.exportDiagnostics",
         "title": "Export Diagnostic Logs",
-        "category": "Dirty Soap",
+        "category": "APInox",
         "icon": "$(output)"
       }
     ]

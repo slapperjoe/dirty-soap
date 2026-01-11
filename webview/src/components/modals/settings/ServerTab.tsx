@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { Network, Power, Plus, Edit2, Trash2, FolderOpen, RotateCcw, GripVertical } from 'lucide-react';
 import {
-    DirtySoapConfig,
+    ApinoxConfig,
     ScrollableForm,
     FormGroup,
     Label,
@@ -22,7 +22,7 @@ import { ServerMode, MockRule, ServerConfig } from '@shared/models';
 import { MockRuleModal } from '../MockRuleModal';
 
 interface ServerTabProps {
-    config: DirtySoapConfig;
+    config: ApinoxConfig;
     serverConfig: ServerConfig;
     onServerConfigChange: (updates: Partial<ServerConfig>) => void;
 

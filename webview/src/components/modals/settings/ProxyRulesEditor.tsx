@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Plus, Trash, Check, X } from 'lucide-react';
-import { DirtySoapConfig, ProxyRule } from '@shared/models';
+import { ApinoxConfig, ProxyRule } from '@shared/models';
 
 import { FormGroup, SectionHeader } from './SettingsTypes';
 
@@ -63,8 +63,8 @@ const IconButton = styled.button`
 `;
 
 interface ProxyRulesEditorProps {
-    config: DirtySoapConfig;
-    onChange: (section: keyof DirtySoapConfig, key: string, value: any) => void;
+    config: ApinoxConfig;
+    onChange: (section: keyof ApinoxConfig, key: string, value: any) => void;
 }
 
 export const ProxyRulesEditor: React.FC<ProxyRulesEditorProps> = ({ config, onChange }) => {

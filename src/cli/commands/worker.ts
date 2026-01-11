@@ -17,7 +17,7 @@ interface WorkerOptions {
 export async function workerCommand(options: WorkerOptions): Promise<void> {
     const { connect, name, maxConcurrent } = options;
 
-    console.log(chalk.cyan(`\n🔧 Dirty SOAP Worker: ${name}`));
+    console.log(chalk.cyan(`\n🔧 APInox Worker: ${name}`));
     console.log(chalk.gray(`   Connecting to: ${connect}`));
     console.log(chalk.gray(`   Max concurrent: ${maxConcurrent}`));
 

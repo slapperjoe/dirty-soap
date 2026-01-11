@@ -1,10 +1,10 @@
-# Dirty SOAP 🧼
+# APInox 🧼
 
 **The Interactive SOAP Client for VS Code**
 
-Dirty SOAP handles the messy parts of SOAP web services so you can stay clean and productive. Inspired by tools new and old like SoapUI, Bruno and Yaak but built natively for your favorite editor.
+APInox handles the messy parts of SOAP web services so you can stay clean and productive. Inspired by tools new and old like SoapUI, Bruno and Yaak but built natively for your favorite editor.
 
-![Dirty Soap Logo](logo.png)
+![APInox Logo](logo.png)
 
 ## 🚀 Key Features
 
@@ -50,7 +50,7 @@ Test without a real backend!
 
 ## 📦 Getting Started
 
-1.  **Open the Interface**: Click the **Dirty SOAP** icon in the Activity Bar or run `Dirty SOAP: Open Interface`.
+1.  **Open the Interface**: Click the **APInox** icon in the Activity Bar or run `APInox: Open Interface`.
 2.  **Load a WSDL**: Enter a URL (e.g., `http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL`) or file path.
 3.  **Run**: Select an operation, tweak the XML, and hit **Run**!
 
@@ -63,4 +63,4 @@ Test without a real backend!
 
 ---
 
-**Dirty Soap** — *Keep your code clean, even when the protocol isn't.*
+**APInox** — *Keep your code clean, even when the protocol isn't.*

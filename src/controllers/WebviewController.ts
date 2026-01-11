@@ -79,6 +79,7 @@ import {
     DeleteScheduleCommand,
     ToggleScheduleCommand
 } from '../commands/ScheduleCommands';
+import { ScriptCommands } from '../commands/ScriptCommands';
 import { PerformanceService } from '../services/PerformanceService';
 import { ScheduleService } from '../services/ScheduleService';
 import { RequestHistoryService } from '../services/RequestHistoryService';
@@ -201,6 +202,9 @@ export class WebviewController {
         this._commands.set(FrontendCommand.UpdateSchedule, new UpdateScheduleCommand(this._scheduleService, this._settingsManager));
         this._commands.set(FrontendCommand.DeleteSchedule, new DeleteScheduleCommand(this._scheduleService, this._settingsManager));
         this._commands.set(FrontendCommand.ToggleSchedule, new ToggleScheduleCommand(this._scheduleService, this._settingsManager));
+
+        // Script Playground
+        this._commands.set(FrontendCommand.ExecutePlaygroundScript, new ScriptCommands((msg) => this._soapClient.log(msg), this._panel));
 
         // Setup Update Callback
         this._fileWatcherService.setCallback((history) => {

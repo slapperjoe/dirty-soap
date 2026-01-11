@@ -39,7 +39,7 @@ export async function coordinatorCommand(options: CoordinatorOptions): Promise<v
 
     const suite: PerformanceSuite = JSON.parse(fs.readFileSync(suitePath, 'utf-8'));
 
-    console.log(chalk.cyan(`\n🎯 Dirty SOAP Coordinator`));
+    console.log(chalk.cyan(`\n🎯 APInox Coordinator`));
     console.log(chalk.gray(`   Suite: ${suite.name}`));
     console.log(chalk.gray(`   Iterations: ${suite.iterations}`));
     console.log(chalk.gray(`   Waiting for ${workerCount} workers...`));

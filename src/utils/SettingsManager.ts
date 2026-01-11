@@ -6,7 +6,7 @@ import { ReplaceRule } from './ReplaceRuleApplier';
 import { Breakpoint } from '../services/ProxyService';
 import { MockConfig, MockRule, PerformanceSuite, PerformanceRun, PerformanceSchedule, ProxyRule } from '../../shared/src/models';
 
-export interface DirtySoapConfig {
+export interface ApinoxConfig {
     version: number;
     network?: {
         defaultTimeout?: number;
@@ -47,7 +47,7 @@ export interface DirtySoapConfig {
     performanceSchedules?: PerformanceSchedule[];
 }
 
-const DEFAULT_CONFIG: DirtySoapConfig = {
+const DEFAULT_CONFIG: ApinoxConfig = {
     version: 1,
     network: {
         defaultTimeout: 30,
@@ -89,7 +89,7 @@ export class SettingsManager {
     public scriptsDir: string;
 
     constructor() {
-        this.configDir = path.join(os.homedir(), '.dirty-soap');
+        this.configDir = path.join(os.homedir(), '.apinox');
         this.configPath = path.join(this.configDir, 'config.jsonc');
         this.autosavePath = path.join(this.configDir, 'autosave.xml');
         this.scriptsDir = path.join(this.configDir, 'scripts');
@@ -110,7 +110,7 @@ export class SettingsManager {
         }
     }
 
-    public getConfig(): DirtySoapConfig {
+    public getConfig(): ApinoxConfig {
         if (!fs.existsSync(this.configPath)) {
             this.saveConfig(DEFAULT_CONFIG);
             return DEFAULT_CONFIG;
@@ -154,7 +154,7 @@ export class SettingsManager {
         return content;
     }
 
-    public saveConfig(config: DirtySoapConfig) {
+    public saveConfig(config: ApinoxConfig) {
         // We write strict JSON if we are overwriting everything from an object,
         // but ideally we should preserve comments if we were editing specific fields.
         // For this basic implementation, if we save the whole object, we loose comments unless we use the raw editor.
@@ -183,7 +183,7 @@ export class SettingsManager {
         fs.writeFileSync(this.configPath, content);
     }
 
-    public updateUiState(ui: DirtySoapConfig['ui']) {
+    public updateUiState(ui: ApinoxConfig['ui']) {
         this.updateConfigPath(['ui'], ui);
     }
 
@@ -268,10 +268,10 @@ export class SettingsManager {
         }
     }
 
-    public updateConfigFromObject(config: DirtySoapConfig) {
+    public updateConfigFromObject(config: ApinoxConfig) {
         // Iterate top-level keys and update them individually to best preserve structure/comments
         // We skip 'version' usually, but can update it.
-        const keys = Object.keys(config) as (keyof DirtySoapConfig)[];
+        const keys = Object.keys(config) as (keyof ApinoxConfig)[];
         keys.forEach(key => {
             // If it's a complex object like 'ui' or 'network', we could just replace the whole node
             // jsonc-parser modify should handle replacing the object value while keeping surrounding comments.

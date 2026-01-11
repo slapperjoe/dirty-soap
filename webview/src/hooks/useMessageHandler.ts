@@ -371,7 +371,8 @@ export function useMessageHandler(state: MessageHandlerState) {
                                                 ...sourceReq,
                                                 id: `req-${Date.now()}`, // New ID for the step's copy
                                                 // Ensure assertions init if missing
-                                                assertions: sourceReq.assertions || []
+                                                assertions: sourceReq.assertions || [],
+                                                readOnly: false
                                             }
                                         }
                                     };
@@ -443,7 +444,8 @@ export function useMessageHandler(state: MessageHandlerState) {
                                         requestBody: newRequest.requestBody || (newRequest as any).request || '',
                                         interfaceName: newRequest.interfaceName, // From payload
                                         operationName: newRequest.operationName, // From payload
-                                        order: (suite.requests?.length || 0) + 1
+                                        order: (suite.requests?.length || 0) + 1,
+                                        readOnly: false
                                     };
                                 } else {
                                     // Fallback construction
@@ -466,7 +468,8 @@ ${getInitialXml(perfOp.input)}
                                             headers: {},
                                             extractors: [],
                                             slaThreshold: 200,
-                                            order: (suite.requests?.length || 0) + 1
+                                            order: (suite.requests?.length || 0) + 1,
+                                            readOnly: false
                                         };
                                     }
                                 }

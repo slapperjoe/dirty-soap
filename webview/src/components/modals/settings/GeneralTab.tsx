@@ -6,7 +6,7 @@
 
 import React from 'react';
 import {
-    DirtySoapConfig,
+    ApinoxConfig,
     ScrollableForm,
     FormGroup,
     Label,
@@ -18,8 +18,8 @@ import {
 import { ProxyRulesEditor } from './ProxyRulesEditor';
 
 interface GeneralTabProps {
-    config: DirtySoapConfig;
-    onChange: (section: keyof DirtySoapConfig, key: string, value: any) => void;
+    config: ApinoxConfig;
+    onChange: (section: keyof ApinoxConfig, key: string, value: any) => void;
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {

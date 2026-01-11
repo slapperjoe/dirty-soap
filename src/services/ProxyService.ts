@@ -223,8 +223,8 @@ export class ProxyService extends EventEmitter {
         this.logDebug('[ProxyService] ensureCert called');
 
         const tempDir = os.tmpdir();
-        this.certPath = path.join(tempDir, 'dirty-soap-proxy.cer');
-        this.keyPath = path.join(tempDir, 'dirty-soap-proxy.key');
+        this.certPath = path.join(tempDir, 'apinox-proxy.cer');
+        this.keyPath = path.join(tempDir, 'apinox-proxy.key');
 
         if (fs.existsSync(this.certPath) && fs.existsSync(this.keyPath)) {
             try {
@@ -290,14 +290,14 @@ export class ProxyService extends EventEmitter {
             }
 
             this.server.listen(this.config.port, () => {
-                this.logDebug(`Dirty Proxy listening on port ${this.config.port} (${isHttpsTarget ? 'HTTPS' : 'HTTP'})`);
+                this.logDebug(`APInox Proxy listening on port ${this.config.port} (${isHttpsTarget ? 'HTTPS' : 'HTTP'})`);
                 this.isRunning = true;
                 this.emit('status', true);
             });
 
             this.server.on('error', (err: any) => {
-                console.error('Dirty Proxy Server Error:', err);
-                vscode.window.showErrorMessage(`Dirty Proxy Error: ${err.message}`);
+                console.error('APInox Proxy Server Error:', err);
+                vscode.window.showErrorMessage(`APInox Proxy Error: ${err.message}`);
                 this.stop();
             });
 
@@ -535,7 +535,7 @@ export class ProxyService extends EventEmitter {
                 if (!res.headersSent) {
                     res.writeHead(event.status || 500, { 'Content-Type': 'text/plain' });
                     // Forward backend error if available, else generic
-                    res.end(event.responseBody || `Dirty Proxy Error: ${error.message}`);
+                    res.end(event.responseBody || `APInox Proxy Error: ${error.message}`);
                 }
 
                 this.emit('log', event);
