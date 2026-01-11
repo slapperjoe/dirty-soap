@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Play, Plus, FileCode, Loader2, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { SoapTestCase, SoapTestStep, TestStepType } from '@shared/models';
 import { ToolbarButton, IconButton, EmptyStateImage } from '../../styles/WorkspaceLayout.styles';
+import { ContextHelpButton } from '../ContextHelpButton';
 import emptyTestsImg from '../../assets/empty-tests.png';
 
 // Empty state component
@@ -11,7 +12,10 @@ interface EmptyTestCaseProps {
 }
 
 const EmptyTestCase: React.FC<EmptyTestCaseProps> = ({ onCreateTestSuite, projectName }) => (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)', padding: 20, textAlign: 'center' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)', padding: 20, textAlign: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 10, right: 10 }}>
+            <ContextHelpButton sectionId="test-suite" />
+        </div>
         <EmptyStateImage src={emptyTestsImg} alt="No Test Case Selected" />
         <h2 style={{ marginBottom: 10, color: 'var(--vscode-foreground)' }}>No Test Case Selected</h2>
         <p style={{ marginBottom: 20 }}>Select a test case from the sidebar or create a new test suite.</p>
@@ -63,9 +67,12 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
         <div style={{ padding: 20, flex: 1, overflow: 'auto', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h1>Test Case: {testCase.name}</h1>
-                <ToolbarButton onClick={() => onRunTestCase && onRunTestCase(testCase.id)} style={{ color: 'var(--vscode-testing-iconPassed)' }}>
-                    <Play size={14} /> Run Test Case
-                </ToolbarButton>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <ContextHelpButton sectionId="test-suite" />
+                    <ToolbarButton onClick={() => onRunTestCase && onRunTestCase(testCase.id)} style={{ color: 'var(--vscode-testing-iconPassed)' }}>
+                        <Play size={14} /> Run Test Case
+                    </ToolbarButton>
+                </div>
             </div>
 
             {onAddStep && (

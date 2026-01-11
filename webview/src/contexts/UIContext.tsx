@@ -88,6 +88,13 @@ export interface UIContextValue {
     showHelp: boolean;
     setShowHelp: React.Dispatch<React.SetStateAction<boolean>>;
 
+    /** Specific help section to show */
+    helpSection: string | null;
+    setHelpSection: React.Dispatch<React.SetStateAction<string | null>>;
+
+    /** Helper to open help to a specific section */
+    openHelp: (sectionId?: string) => void;
+
     /** Azure DevOps modal visibility */
     showDevOpsModal: boolean;
     setShowDevOpsModal: React.Dispatch<React.SetStateAction<boolean>>;
@@ -152,6 +159,7 @@ export function UIProvider({ children }: UIProviderProps) {
     const [showSettings, setShowSettings] = useState(false);
     const [initialSettingsTab, setInitialSettingsTab] = useState<string | null>(null);
     const [showHelp, setShowHelp] = useState(false);
+    const [helpSection, setHelpSection] = useState<string | null>(null);
     const [showDevOpsModal, setShowDevOpsModal] = useState(false);
 
     // -------------------------------------------------------------------------
@@ -197,6 +205,14 @@ export function UIProvider({ children }: UIProviderProps) {
         setShowSettings(true);
     }, []);
 
+    /**
+     * Open help modal, optionally to a specific section.
+     */
+    const openHelp = useCallback((sectionId?: string) => {
+        setHelpSection(sectionId || null);
+        setShowHelp(true);
+    }, []);
+
     // -------------------------------------------------------------------------
     // CONTEXT VALUE
     // -------------------------------------------------------------------------
@@ -230,6 +246,9 @@ export function UIProvider({ children }: UIProviderProps) {
         openSettings,
         showHelp,
         setShowHelp,
+        helpSection,
+        setHelpSection,
+        openHelp,
         showDevOpsModal,
         setShowDevOpsModal,
 

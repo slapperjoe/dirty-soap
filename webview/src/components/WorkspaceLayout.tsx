@@ -28,6 +28,7 @@ import { QueryParamsPanel } from './QueryParamsPanel';
 import { RestAuthPanel } from './RestAuthPanel';
 import { GraphQLVariablesPanel } from './GraphQLVariablesPanel';
 import { ScriptEditor } from './ScriptEditor';
+import { ContextHelpButton } from './ContextHelpButton';
 
 // Styled components extracted to styles file
 // unused models removed
@@ -314,7 +315,7 @@ const ProjectSummary: React.FC<{ project: import('@shared/models').SoapUIProject
                     <ProjectName>Project: {project.name}</ProjectName>
                     {project.description && <ProjectDescription>{project.description}</ProjectDescription>}
                 </div>
-                {/* Action buttons could go here - placeholder for now since we need to wire up handlers */}
+                <ContextHelpButton sectionId="workspace" />
             </ProjectHeader>
 
             {/* Statistics Grid */}
@@ -369,7 +370,10 @@ const InterfaceSummary: React.FC<{ interface: import('@shared/models').SoapUIInt
 
     return (
         <InterfaceContainer>
-            <h1>Interface: {iface.name}</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h1>Interface: {iface.name}</h1>
+                <ContextHelpButton sectionId="interface" />
+            </div>
             <InfoCard>
                 <InfoGrid>
                     <div><strong>WSDL:</strong> <LinkText href="#">{iface.definition}</LinkText></div>
@@ -406,7 +410,10 @@ const TestSuiteSummary: React.FC<{ suite: import('@shared/models').SoapTestSuite
 
     return (
         <ProjectContainer>
-            <h1>Test Suite: {suite.name}</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h1>Test Suite: {suite.name}</h1>
+                <ContextHelpButton sectionId="test-suite" />
+            </div>
 
             {/* Statistics Grid */}
             <StatsGridSpaced>
@@ -443,7 +450,10 @@ const TestSuiteSummary: React.FC<{ suite: import('@shared/models').SoapTestSuite
 
 const OperationSummary: React.FC<{ operation: import('@shared/models').SoapUIOperation; onSelectRequest?: (r: import('@shared/models').SoapUIRequest) => void }> = ({ operation, onSelectRequest }) => (
     <OperationContainer>
-        <h1>Operation: {operation.name}</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1>Operation: {operation.name}</h1>
+            <ContextHelpButton sectionId="operation" />
+        </div>
 
         {/* Metadata */}
         <InfoCard>

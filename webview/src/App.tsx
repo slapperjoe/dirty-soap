@@ -156,6 +156,8 @@ function App() {
         openSettings,
         showHelp,
         setShowHelp,
+        helpSection,
+        setHelpSection,
         showDevOpsModal,
         setShowDevOpsModal,
         config,
@@ -1629,7 +1631,11 @@ function App() {
             {
                 showHelp && (
                     <HelpModal
-                        onClose={() => setShowHelp(false)}
+                        initialSectionId={helpSection}
+                        onClose={() => {
+                            setShowHelp(false);
+                            setHelpSection(null);
+                        }}
                     />
                 )
             }
