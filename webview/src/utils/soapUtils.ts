@@ -53,8 +53,40 @@ ${bodyContent}
 </soapenv:Envelope>`;
 };
 
-// Keep getInitialXml for backward compatibility if used elsewhere, or alias it
-export const getInitialXml = (_input: any): string => {
-    // This was the old helper, effectively replaced by the logic above but without Envelope
-    return '';
+/**
+ * Generate XML parameter elements from WSDL operation input schema
+ * Used to populate the body of sample SOAP requests
+ * @param input - The input schema object from the WSDL parser (e.g., { intA: 'xsd:int', intB: 'xsd:int' })
+ * @param indent - Indentation string for proper XML formatting
+ * @returns XML string with parameter elements
+ */
+export const getInitialXml = (input: any, indent: string = '         '): string => {
+    if (!input || typeof input !== 'object') {
+        return '';
+    }
+
+    const lines: string[] = [];
+
+    // Recursively build XML for each parameter
+    const buildXml = (obj: any, currentIndent: string): void => {
+        for (const [key, value] of Object.entries(obj)) {
+            // Skip special properties that start with $
+            if (key.startsWith('$')) {
+                continue;
+            }
+
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // Complex type - create element with nested children
+                lines.push(`${currentIndent}<tem:${key}>`);
+                buildXml(value, currentIndent + '   ');
+                lines.push(`${currentIndent}</tem:${key}>`);
+            } else {
+                // Simple type - create element with placeholder value
+                lines.push(`${currentIndent}<tem:${key}>?</tem:${key}>`);
+            }
+        }
+    };
+
+    buildXml(input, indent);
+    return lines.join('\n');
 };

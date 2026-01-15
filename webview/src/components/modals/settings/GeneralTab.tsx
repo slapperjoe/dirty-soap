@@ -16,6 +16,7 @@ import {
     SectionHeader,
 } from './SettingsTypes';
 import { ProxyRulesEditor } from './ProxyRulesEditor';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface GeneralTabProps {
     config: ApinoxConfig;
@@ -23,12 +24,28 @@ interface GeneralTabProps {
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
+    const { theme, setTheme, isTauriMode } = useTheme();
+
     return (
         <ScrollableForm>
             <div style={{ display: 'flex', gap: '30px' }}>
                 {/* Left Column: User Interface */}
                 <div style={{ flex: 1 }}>
                     <SectionHeader style={{ marginTop: 0 }}>User Interface</SectionHeader>
+
+                    {/* Theme Selector - Only in Tauri Mode */}
+                    {isTauriMode && (
+                        <FormGroup>
+                            <Label>Theme</Label>
+                            <Select value={theme} onChange={e => setTheme(e.target.value as any)}>
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                                <option value="solarized-dark">Solarized Dark</option>
+                                <option value="solarized-light">Solarized Light</option>
+                            </Select>
+                        </FormGroup>
+                    )}
+
                     <FormGroup>
                         <Label>Layout Mode</Label>
                         <Select

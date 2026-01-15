@@ -22,12 +22,12 @@ import {
     WsdlDiff
 } from '@shared/models';
 
-// Debug logger - sends to VS Code output and console
+// Debug logger - console only to prevent message flooding
+// Note: Sending log messages back to the backend on every received message
+// creates a flood that can lock up the UI, especially on first start
 const debugLog = (context: string, data?: any) => {
     const msg = `[useMessageHandler] ${context}`;
     console.log(msg, data || '');
-    // Also send to extension for VS Code output window
-    bridge.sendMessage({ command: FrontendCommand.Log, message: msg, data: JSON.stringify(data || {}) });
 };
 
 export interface MessageHandlerState {
@@ -417,17 +417,25 @@ export function useMessageHandler(state: MessageHandlerState) {
                             ts.testCases?.forEach((tc: any) => {
                                 tc.steps?.forEach((step: any) => {
                                     if (step.type === 'script') {
-                                        bridge.sendMessage({
-                                            command: 'log',
-                                            message: `[useMessageHandler] Received Script Step: ${step.name}. Content Length: ${step.config?.scriptContent?.length || 0}`
-                                        });
+                                        try {
+                                            bridge.sendMessage({
+                                                command: 'log',
+                                                message: `[useMessageHandler] Received Script Step: ${step.name}. Content Length: ${step.config?.scriptContent?.length || 0}`
+                                            });
+                                        } catch (error) {
+                                            console.error('[useMessageHandler] Failed to log script step:', error);
+                                        }
                                     }
                                 });
                             });
                         });
                     }
 
-                    bridge.sendMessage({ command: 'log', message: `[useMessageHandler] ProjectLoaded for: ${message.project?.name}. FileName: ${message.filename}` });
+                    try {
+                        bridge.sendMessage({ command: 'log', message: `[useMessageHandler] ProjectLoaded for: ${message.project?.name}. FileName: ${message.filename}` });
+                    } catch (error) {
+                        console.error('[useMessageHandler] Failed to log project loaded:', error);
+                    }
                     const newProj = message.project;
                     setProjects(prev => {
                         const existingIndex = prev.findIndex(p => (p.id && p.id === newProj.id) || p.name === newProj.name);

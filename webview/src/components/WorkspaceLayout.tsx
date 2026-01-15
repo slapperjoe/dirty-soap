@@ -416,6 +416,16 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
                 {!isHistoryMode && (
                     <Toolbar>
+                        {/* Explorer view back button */}
+                        {activeView === SidebarView.EXPLORER && !selectedTestCase && !selectedPerformanceSuite && navigationActions?.onSelectRequest && (
+                            <>
+                                <ToolbarButton onClick={() => navigationActions.onSelectRequest(null as any)} title="Back to API Explorer">
+                                    <ChevronLeft size={14} /> Back
+                                </ToolbarButton>
+                                <ToolbarSeparator />
+                            </>
+                        )}
+
                         {selectedTestCase && onBackToCase && (
                             <>
                                 <ToolbarButton onClick={onBackToCase} title="Back to Test Case">

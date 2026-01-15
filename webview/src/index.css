@@ -1,5 +1,11 @@
+/* 
+ * Theme Variables
+ * 
+ * In VSCode mode: These fallback variables are used, but VSCode's theme takes precedence
+ * In Tauri mode: ThemeContext dynamically sets all variables based on selected theme
+ */
 :root {
-  /* VS Code Default Dark Theme Polyfill */
+  /* VS Code Default Dark Theme Fallback (for VSCode mode) */
   --vscode-font-family: "Segoe UI", system-ui, sans-serif;
   --vscode-font-size: 13px;
   --vscode-font-weight: 400;
@@ -66,15 +72,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background);
+  background: var(--vscode-scrollbarSlider-background, #79797966);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--vscode-scrollbarSlider-hoverBackground);
+  background: var(--vscode-scrollbarSlider-hoverBackground, #646464b3);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: var(--vscode-scrollbarSlider-activeBackground);
+  background: var(--vscode-scrollbarSlider-activeBackground, #bfbfbf66);
 }
 
 ::-webkit-scrollbar-track {
@@ -83,28 +89,28 @@ body {
 
 /* Wildcard Highlighting */
 .wildcard-tag-decoration {
-  background-color: var(--vscode-editorBracketHighlight-foreground4);
+  background-color: var(--vscode-editorBracketHighlight-foreground4, #4ec9b0);
   /* Fallback/Opacity handled via CSS if needed, but using direct variable is safer for themes */
   opacity: 0.2;
-  border: 1px solid var(--vscode-editorBracketHighlight-foreground4);
+  border: 1px solid var(--vscode-editorBracketHighlight-foreground4, #4ec9b0);
   border-radius: 4px;
 }
 
 .wildcard-tag-text {
   font-weight: bold;
-  color: var(--vscode-editorBracketHighlight-foreground4) !important;
+  color: var(--vscode-editorBracketHighlight-foreground4, #4ec9b0) !important;
   font-style: italic;
 }
 
 .environment-tag-decoration {
-  background-color: var(--vscode-textLink-activeForeground);
+  background-color: var(--vscode-textLink-activeForeground, #3794ff);
   opacity: 0.2;
-  border: 1px solid var(--vscode-focusBorder);
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
   border-radius: 4px;
 }
 
 .environment-tag-text {
   font-weight: bold;
-  color: var(--vscode-textLink-activeForeground) !important;
+  color: var(--vscode-textLink-activeForeground, #3794ff) !important;
   font-style: italic;
 }

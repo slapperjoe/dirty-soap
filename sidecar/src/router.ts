@@ -408,8 +408,46 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
 
         // ===== Webview Ready (initialization) =====
         ['webviewReady']: async () => {
-            console.log('[Sidecar] Webview ready');
-            return { acknowledged: true };
+            console.log('[Sidecar] Webview ready - sending initialization data');
+
+            // Load and send Samples project
+            try {
+                const { SAMPLES_PROJECT } = require('./data/DefaultSamples');
+                if (SAMPLES_PROJECT && SAMPLES_PROJECT.id) {
+                    // Send ProjectLoaded message for Samples
+                    // We can't directly postMessage, so we return it and the caller handles it
+                    // Actually, we need to think about this differently...
+                    // The router doesn't have access to send messages back
+                    // We need to return the data and let the caller send it
+                    console.log('[Sidecar] Samples project ready to send');
+                }
+            } catch (e) {
+                console.error('[Sidecar] Failed to load samples:', e);
+            }
+
+            // Load and send changelog
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                // Changelog is in project root, navigate up from sidecar/dist/sidecar/src
+                const changelogPath = path.join(__dirname, '../../../../CHANGELOG.md');
+                if (fs.existsSync(changelogPath)) {
+                    const changelog = fs.readFileSync(changelogPath, 'utf8');
+                    console.log('[Sidecar] Changelog loaded');
+                    return {
+                        acknowledged: true,
+                        samplesProject: require('./data/DefaultSamples').SAMPLES_PROJECT,
+                        changelog
+                    };
+                }
+            } catch (e) {
+                console.error('[Sidecar] Failed to load changelog:', e);
+            }
+
+            return {
+                acknowledged: true,
+                samplesProject: require('./data/DefaultSamples').SAMPLES_PROJECT
+            };
         },
     };
 

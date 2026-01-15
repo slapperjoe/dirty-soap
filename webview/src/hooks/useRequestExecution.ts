@@ -373,9 +373,20 @@ export function useRequestExecution({
 
     const handleResetRequest = useCallback(() => {
         if (selectedRequest && selectedOperation) {
-            const xml = getInitialXml(selectedOperation.input);
-            const updated = { ...selectedRequest, request: xml };
-            handleRequestUpdate(updated);
+            // Get the original request template from the operation
+            // The first request in the operation contains the original full SOAP envelope
+            const originalTemplate = selectedOperation.requests?.[0]?.request;
+
+            if (originalTemplate) {
+                // Use the original template which has the full SOAP envelope
+                const updated = { ...selectedRequest, request: originalTemplate };
+                handleRequestUpdate(updated);
+            } else {
+                // Fallback to generating from input if no template exists
+                const xml = getInitialXml(selectedOperation.input);
+                const updated = { ...selectedRequest, request: xml };
+                handleRequestUpdate(updated);
+            }
         }
     }, [selectedRequest, selectedOperation, handleRequestUpdate]);
 

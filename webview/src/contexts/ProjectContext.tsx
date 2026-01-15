@@ -280,18 +280,31 @@ export function ProjectProvider({ children, initialProjects = [] }: ProjectProvi
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
             switch (message.command) {
-                // Check if the actual command string is 'projectsLoaded' or 'projectLoaded'
-                // Based on messages.ts, only ProjectLoaded exists.
+                // ProjectLoaded sends a SINGLE project, not an array
                 case BackendCommand.ProjectLoaded:
-                    debugLog('Received ProjectsLoaded', { count: message.projects?.length });
-                    if (message.projects) {
-                        setProjects(message.projects);
-                        // Clear dirty flag as we just loaded fresh state
-                        setWorkspaceDirty(false);
+                    debugLog('Received ProjectLoaded', { name: message.project?.name, isReadOnly: message.isReadOnly });
+                    if (message.project) {
+                        // Add or update the single project in our list
+                        setProjects(prev => {
+                            const existingIndex = prev.findIndex(p =>
+                                (p.id && p.id === message.project.id) || p.name === message.project.name
+                            );
+
+                            if (existingIndex !== -1) {
+                                // Update existing
+                                const updated = [...prev];
+                                updated[existingIndex] = message.project;
+                                return updated;
+                            } else {
+                                // Add new
+                                return [...prev, message.project];
+                            }
+                        });
+                        // Don't clear dirty flag for individual project loads
                     }
                     break;
 
-                // Fallback for potentially unmapped command if 'projectsLoaded' is sent but not in enum
+                // Fallback for potential bulk load (if ever added)
                 case 'projectsLoaded' as any:
                     debugLog('Received ProjectsLoaded (literal)', { count: message.projects?.length });
                     if (message.projects) {

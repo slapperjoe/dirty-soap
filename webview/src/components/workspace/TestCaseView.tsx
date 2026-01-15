@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Play, Plus, FileCode, Loader2, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { TestCase, TestStep, TestStepType } from '@shared/models';
-import { ToolbarButton, IconButton, EmptyStateImage } from '../../styles/WorkspaceLayout.styles';
+import { ToolbarButton, IconButton } from '../../styles/WorkspaceLayout.styles';
 import { ContextHelpButton } from '../ContextHelpButton';
-import logoDark from '../../assets/app-logo-dark.jpg';
-import logoLight from '../../assets/app-logo-light.jpg';
 
 // Empty state component
 interface EmptyTestCaseProps {
@@ -17,8 +15,6 @@ const EmptyTestCase: React.FC<EmptyTestCaseProps> = ({ onCreateTestSuite, projec
         <div style={{ position: 'absolute', top: 10, right: 10 }}>
             <ContextHelpButton sectionId="test-suite" />
         </div>
-        <EmptyStateImage src={logoDark} className="dark-only" alt="No Test Case Selected" />
-        <EmptyStateImage src={logoLight} className="light-only" alt="No Test Case Selected" />
         <h2 style={{ marginBottom: 10, color: 'var(--vscode-foreground)' }}>No Test Case Selected</h2>
         <p style={{ marginBottom: 20 }}>Select a test case from the sidebar or create a new test suite.</p>
         {onCreateTestSuite && projectName && (

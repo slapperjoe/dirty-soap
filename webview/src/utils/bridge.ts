@@ -145,6 +145,7 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
             command: BackendCommand.MockStatus,
             ...data
         }),
+        ['webviewReady']: (data) => data, // Pass through sidecar response with samplesProject and changelog
         // Add more mappings as needed
     };
 

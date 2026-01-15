@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.10.0] - 2026-01-15
+### Auto-Generated Changes
+- feat: Reintroduction of Tauri App
+
 ## [0.9.0] - 2026-01-07
 ### Auto-Generated Changes
 - feat: Implement WSDL parsing and a new webview for managing settings and SOAP operations.

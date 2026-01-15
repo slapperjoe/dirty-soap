@@ -92,9 +92,61 @@ export function MainContent() {
         setSelectedPerformanceSuiteId
     } = useSelection();
 
-    // Notify VSCode that the Webview is ready to receive messages (e.g. initial projects)
+    // Notify backend that the Webview is ready and load initial data (Samples, Changelog)
     useEffect(() => {
-        bridge.sendMessage({ command: 'webviewReady' });
+        const initializeApp = async () => {
+            // Retry logic to wait for sidecar to be ready
+            let retries = 0;
+            const maxRetries = 10;
+            const retryDelay = 500; // ms
+            while (retries < maxRetries) {
+                try {
+                    console.log(`[MainContent] Attempt ${retries + 1}/${maxRetries}: Sending webviewReady...`);
+                    const response = await bridge.sendMessageAsync({ command: 'webviewReady' }) as any;
+                    console.log('[MainContent] webviewReady response:', response);
+
+                    // Validate response - throw error if invalid to trigger retry
+                    if (!response || (!response.samplesProject && !response.changelog && !response.acknowledged)) {
+                        throw new Error('webviewReady response invalid or empty');
+                    }
+
+                    // In Tauri mode, sidecar returns samples and changelog in the response
+                    if (response?.samplesProject) {
+                        console.log('[MainContent] Received samples project:', response.samplesProject.name);
+                        window.postMessage({
+                            command: 'projectLoaded',
+                            project: response.samplesProject,
+                            filename: 'Samples',
+                            isReadOnly: true
+                        }, '*');
+                    }
+
+                    if (response?.changelog) {
+                        console.log('[MainContent] Received changelog, length:', response.changelog.length);
+                        setChangelog(response.changelog);
+                    }
+
+                    console.log('[MainContent] Initialization successful');
+                    break; // Success! Exit retry loop
+                } catch (error: any) {
+                    const shouldRetry = (
+                        error?.message?.includes('Sidecar not ready') ||
+                        error?.message?.includes('invalid or empty')
+                    ) && retries < maxRetries - 1;
+
+                    if (shouldRetry) {
+                        console.log(`[MainContent] Sidecar not ready or invalid response, retrying in ${retryDelay}ms... (attempt ${retries + 1}/${maxRetries})`);
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        retries++;
+                    } else {
+                        console.error('[MainContent] Failed to initialize app:', error);
+                        break;
+                    }
+                }
+            }
+        };
+
+        initializeApp();
     }, []);
 
 
@@ -1155,10 +1207,15 @@ export function MainContent() {
                         setActiveView(SidebarView.PROJECTS);
                     },
                     onSelectRequest: (r) => {
-                        setSelectedRequest({ ...r, contentType: r.contentType || 'application/soap+xml' });
-                        setSelectedPerformanceSuiteId(null); // Clear performance state when selecting workspace request
-                        setSelectedTestCase(null); // Clear test case state when selecting workspace request
-                        setActiveView(SidebarView.PROJECTS);
+                        if (r === null) {
+                            // Clear selection - navigate back to Explorer/Projects list
+                            setSelectedRequest(null);
+                        } else {
+                            setSelectedRequest({ ...r, contentType: r.contentType || 'application/soap+xml' });
+                            setSelectedPerformanceSuiteId(null); // Clear performance state when selecting workspace request
+                            setSelectedTestCase(null); // Clear test case state when selecting workspace request
+                            setActiveView(SidebarView.PROJECTS);
+                        }
                     },
                     onSelectTestCase: (tc) => {
                         handleSelectTestCase(tc.id);

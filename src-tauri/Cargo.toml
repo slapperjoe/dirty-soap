@@ -2,7 +2,7 @@
 name = "apinox"
 version = "0.9.0"
 description = "APInox - API Testing & Development Tool"
-authors = ["APInox Team"]
+authors = ["Dev1"]
 license = "MIT"
 repository = ""
 edition = "2021"
