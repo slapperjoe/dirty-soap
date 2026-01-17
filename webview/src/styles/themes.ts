@@ -382,7 +382,7 @@ export const solarizedDarkTheme: Theme = {
 
         // Scrollbars
         '--vscode-scrollbar-shadow': '#000000',
-        '--vscode-scrollbarSlider-background': '#58 6e7566',
+        '--vscode-scrollbarSlider-background': '#586e7566',
         '--vscode-scrollbarSlider-hoverBackground': '#586e75b3',
         '--vscode-scrollbarSlider-activeBackground': '#93a1a166',
 
