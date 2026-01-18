@@ -1,4 +1,7 @@
 import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { SettingsManager } from '../utils/SettingsManager';
 
 
 export interface WatcherEvent {
@@ -15,8 +18,8 @@ export interface WatcherEvent {
 
 export class FileWatcherService {
     private outputChannel: any;
-    private requestPath = 'C:\\temp\\requestXML.xml';
-    private responsePath = 'C:\\temp\\responseXML.xml';
+    private requestPath: string;
+    private responsePath: string;
     private history: WatcherEvent[] = [];
     private onUpdateCallback: ((history: WatcherEvent[]) => void) | undefined;
     private watchers: fs.FSWatcher[] = [];
@@ -28,8 +31,45 @@ export class FileWatcherService {
     // Correlation tracking
     private pendingRequestId: string | null = null;
 
-    constructor(outputChannel: any) {
+    private settingsManager: SettingsManager;
+
+    constructor(outputChannel: any, settingsManager: SettingsManager) {
         this.outputChannel = outputChannel;
+        this.settingsManager = settingsManager;
+
+        this.requestPath = this.resolvePath('requestPath', 'requestXML.xml');
+        this.responsePath = this.resolvePath('responsePath', 'responseXML.xml');
+    }
+
+    private resolvePath(settingKey: 'requestPath' | 'responsePath', defaultFilename: string): string {
+        const config = this.settingsManager.getConfig();
+        const configuredPath = config.fileWatcher?.[settingKey];
+
+        if (configuredPath && configuredPath.trim().length > 0) {
+            return configuredPath;
+        }
+
+        if (os.platform() === 'win32') {
+            const winTemp = 'c:\\temp';
+            // Ensure c:\temp exists if we are going to use it as default
+            try {
+                if (!fs.existsSync(winTemp)) {
+                    // We don't create c:\temp automatically as it might require permissions, 
+                    // but we default to it as requested. 
+                    // If it doesn't exist, the watcher will log an error/wait.
+                }
+            } catch (e) { /* ignore */ }
+            return path.join(winTemp, defaultFilename);
+        }
+
+        return path.join(os.tmpdir(), defaultFilename);
+    }
+
+    public reloadConfiguration() {
+        this.requestPath = this.resolvePath('requestPath', 'requestXML.xml');
+        this.responsePath = this.resolvePath('responsePath', 'responseXML.xml');
+        this.log(`Configuration reloaded. Watching: Request=${this.requestPath}, Response=${this.responsePath}`);
+        this.start(); // Restart with new paths
     }
 
     private log(message: string) {

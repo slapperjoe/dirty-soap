@@ -25,23 +25,20 @@ export class DiagnosticService {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const fileName = `apinox-diagnostics-${timestamp}.jsonl`;
 
-            // Priority: user requested c:/temp if available, otherwise default to .apinox
-            let logDir = path.join(os.homedir(), '.apinox', 'diagnostics');
-            const tempPath = 'c:\\temp';
+            // Use system temp directory
+            const tempDir = os.tmpdir();
+            let logDir = path.join(tempDir, 'dirty-soap-diagnostics');
 
-            if (fs.existsSync(tempPath)) {
-                logDir = tempPath;
-            }
-
-            if (!fs.existsSync(logDir)) {
-                try {
+            // Fallback to .apinox if temp creation fails
+            try {
+                if (!fs.existsSync(logDir)) {
                     fs.mkdirSync(logDir, { recursive: true });
-                } catch (e) {
-                    // Fallback to homedir if c:/temp is not writable
-                    logDir = path.join(os.homedir(), '.apinox', 'diagnostics');
-                    if (!fs.existsSync(logDir)) {
-                        fs.mkdirSync(logDir, { recursive: true });
-                    }
+                }
+            } catch (e) {
+                console.warn('[DiagnosticService] Failed to create temp dir, falling back to home dir', e);
+                logDir = path.join(os.homedir(), '.apinox', 'diagnostics');
+                if (!fs.existsSync(logDir)) {
+                    fs.mkdirSync(logDir, { recursive: true });
                 }
             }
 

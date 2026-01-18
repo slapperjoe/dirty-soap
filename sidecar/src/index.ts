@@ -6,7 +6,7 @@
  * via localhost HTTP (JSON-RPC style).
  */
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createCommandRouter } from './router';
 import { ServiceContainer } from './services';
@@ -24,12 +24,12 @@ const services = new ServiceContainer();
 const commandRouter = createCommandRouter(services);
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', version: '0.9.0' });
 });
 
 // Main command endpoint
-app.post('/command', async (req, res) => {
+app.post('/command', async (req: Request, res: Response) => {
     const { command, payload } = req.body;
 
     if (!command) {

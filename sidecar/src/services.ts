@@ -59,7 +59,7 @@ export class ServiceContainer {
         this.settingsManager = new SettingsManager();
         this.soapClient = new SoapClient(this.settingsManager, outputChannel, this.configService);
         this.folderStorage = new FolderProjectStorage(outputChannel);
-        this.fileWatcherService = new FileWatcherService(outputChannel);
+        this.fileWatcherService = new FileWatcherService(outputChannel, this.settingsManager);
 
         this.proxyService = new ProxyService(
             { port: 9000, targetUrl: 'http://localhost:8080', systemProxyEnabled: true },

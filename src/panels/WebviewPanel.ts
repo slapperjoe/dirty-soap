@@ -92,7 +92,7 @@ export class WebviewPanel {
         this._soapUiExporter = new SoapUIExporter(this._outputChannel);
         this._folderStorage = new FolderProjectStorage(this._outputChannel);
 
-        this._fileWatcherService = new FileWatcherService(this._outputChannel);
+        this._fileWatcherService = new FileWatcherService(this._outputChannel, this._settingsManager);
         this._proxyService = new ProxyService(
             { port: 9000, targetUrl: 'http://localhost:8080', systemProxyEnabled: true },
             this._platformServices.notifications,

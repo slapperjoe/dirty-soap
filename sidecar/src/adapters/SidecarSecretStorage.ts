@@ -61,11 +61,11 @@ export class SidecarSecretStorage implements ISecretStorage {
                 const authTag = encrypted.subarray(16, 32);
                 const data = encrypted.subarray(32);
 
-                const decipher = crypto.createDecipheriv(ALGORITHM, this.encryptionKey, iv);
-                decipher.setAuthTag(authTag);
+                const decipher = crypto.createDecipheriv(ALGORITHM, this.encryptionKey, iv as any);
+                decipher.setAuthTag(authTag as any);
 
                 const decrypted = Buffer.concat([
-                    decipher.update(data),
+                    decipher.update(data as any),
                     decipher.final()
                 ]);
 
@@ -80,7 +80,7 @@ export class SidecarSecretStorage implements ISecretStorage {
     private saveSecrets(): void {
         try {
             const iv = crypto.randomBytes(16);
-            const cipher = crypto.createCipheriv(ALGORITHM, this.encryptionKey, iv);
+            const cipher = crypto.createCipheriv(ALGORITHM, this.encryptionKey, iv as any);
 
             const data = JSON.stringify(this.secrets);
             const encrypted = Buffer.concat([
@@ -91,7 +91,7 @@ export class SidecarSecretStorage implements ISecretStorage {
 
             fs.writeFileSync(
                 this.secretsPath,
-                Buffer.concat([iv, authTag, encrypted]),
+                Buffer.concat([iv, authTag, encrypted] as any[]),
                 { mode: 0o600 }
             );
         } catch (error) {

@@ -23,15 +23,7 @@ export const Mascot = styled.img`
     z-index: 0;
     mix-blend-mode: color-burn;
     
-    &.dark-only { display: none; }
-    &.light-only { display: block; }
-
-    body.vscode-dark &, body.vscode-high-contrast & {
-        mix-blend-mode: screen;
-        opacity: 0.08;
-        &.dark-only { display: block; }
-        &.light-only { display: none; }
-    }
+    display: none !important; /* DEBUGGING: Forced hidden */
 `;
 
 export const EmptyStateImage = styled.img`
@@ -47,15 +39,7 @@ export const EmptyStateImage = styled.img`
     z-index: 0;
     mix-blend-mode: color-burn;
 
-    &.dark-only { display: none; }
-    &.light-only { display: block; }
-
-    body.vscode-dark &, body.vscode-high-contrast & {
-        mix-blend-mode: screen;
-        opacity: 0.06;
-        &.dark-only { display: block; }
-        &.light-only { display: none; }
-    }
+    display: none !important; /* DEBUGGING: Forced hidden */
 `;
 
 export const Content = styled.div`

@@ -507,6 +507,10 @@ export interface ApinoxConfig {
         strictSSL?: boolean;
         proxyRules?: ProxyRule[];
     };
+    fileWatcher?: {
+        requestPath?: string;
+        responsePath?: string;
+    };
     ui?: {
         layoutMode?: 'vertical' | 'horizontal';
         showLineNumbers?: boolean;

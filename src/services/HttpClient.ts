@@ -8,6 +8,8 @@ import axios, {
   AxiosResponse,
   CancelTokenSource,
 } from "axios";
+import * as os from 'os';
+import * as path from 'path';
 import {
   ApiRequest,
   BodyType,
@@ -164,8 +166,9 @@ export class HttpClient {
 
     const fs = require("fs");
     try {
+      const debugPath = path.join(os.tmpdir(), 'dirty_debug.txt');
       fs.appendFileSync(
-        "c:\\temp\\dirty_debug.txt",
+        debugPath,
         `\n[${new Date().toISOString()}] Sending POST to ${endpoint}\nBody: ${typeof request.request === "string" ? request.request : JSON.stringify(request.request)}\nHeaders: ${JSON.stringify(headers)}\n`,
       );
     } catch (e) {

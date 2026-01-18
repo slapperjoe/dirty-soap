@@ -15,6 +15,10 @@ export interface ApinoxConfig {
         strictSSL?: boolean;
         proxyRules?: ProxyRule[];
     };
+    fileWatcher?: {
+        requestPath?: string;
+        responsePath?: string;
+    };
     ui?: {
         layoutMode?: 'vertical' | 'horizontal';
         showLineNumbers?: boolean;
@@ -231,6 +235,10 @@ export class SettingsManager {
 
     public updatePerformanceSchedules(schedules: import('../../shared/src/models').PerformanceSchedule[]) {
         this.updateConfigPath(['performanceSchedules'], schedules);
+    }
+
+    public updateFileWatcherConfig(config: { requestPath?: string; responsePath?: string }) {
+        this.updateConfigPath(['fileWatcher'], config);
     }
 
     public saveRawConfig(content: string) {
