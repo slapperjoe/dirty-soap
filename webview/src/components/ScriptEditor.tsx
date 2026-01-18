@@ -6,6 +6,7 @@ import { Toolbar, ToolbarButton } from '../styles/WorkspaceLayout.styles';
 import { ChevronLeft, Play } from 'lucide-react';
 import { ScriptPlaygroundModal } from './modals/ScriptPlaygroundModal';
 import { ToolbarSeparator } from '../styles/WorkspaceLayout.styles';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ScriptEditorProps {
     step: TestStep;
@@ -16,9 +17,12 @@ interface ScriptEditorProps {
 
 export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isReadOnly, onBack }) => {
     const editorRef = useRef<any>(null);
+    const monacoRef = useRef<Monaco | null>(null);
     // Initialize local state from prop
     const [scriptContent, setScriptContent] = useState(step.config.scriptContent || '');
     const [showPlayground, setShowPlayground] = useState(false);
+    const { theme } = useTheme();
+    const [editorTheme, setEditorTheme] = useState<string>('vs-dark');
 
     // Track previous prop value to detect actual remote changes
     const prevStepContent = useRef(step.config.scriptContent);
@@ -82,8 +86,40 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isRe
         };
     }, [scriptContent]); // Trigger on every keystroke (for debounce reset)
 
+    const applyEditorTheme = (monacoInstance: Monaco) => {
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) => {
+            const value = getComputedStyle(root).getPropertyValue(name).trim();
+            return value || fallback;
+        };
+
+        const isLight = theme.includes('light');
+        const themeId = `apinox-${theme}`;
+
+        monacoInstance.editor.defineTheme(themeId, {
+            base: isLight ? 'vs' : 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+                'editor.background': getVar('--vscode-editor-background', isLight ? '#ffffff' : '#1e1e1e'),
+                'editor.foreground': getVar('--vscode-editor-foreground', isLight ? '#000000' : '#d4d4d4'),
+                'editor.selectionBackground': getVar('--vscode-editor-selectionBackground', isLight ? '#add6ff' : '#264f78'),
+                'editor.lineHighlightBackground': getVar('--vscode-editor-lineHighlightBackground', 'transparent'),
+                'editorCursor.foreground': getVar('--vscode-editorCursor-foreground', isLight ? '#000000' : '#ffffff'),
+                'editorLineNumber.foreground': getVar('--vscode-editorLineNumber-foreground', isLight ? '#999999' : '#858585'),
+                'editorLineNumber.activeForeground': getVar('--vscode-editorLineNumber-activeForeground', isLight ? '#000000' : '#c6c6c6'),
+                'editorWhitespace.foreground': getVar('--vscode-editorWhitespace-foreground', isLight ? '#d3d3d3' : '#404040')
+            }
+        });
+
+        monacoInstance.editor.setTheme(themeId);
+        setEditorTheme(themeId);
+    };
+
     const handleEditorDidMount = (editor: any, monaco: Monaco) => {
         editorRef.current = editor;
+        monacoRef.current = monaco;
+        applyEditorTheme(monaco);
 
         // Configure JavaScript defaults for the Sandbox API
         monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
@@ -124,6 +160,12 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isRe
             declare const context: Record<string, any>;
         `, libUri);
     };
+
+    useEffect(() => {
+        if (monacoRef.current) {
+            applyEditorTheme(monacoRef.current);
+        }
+    }, [theme]);
 
     const handleChange = (value: string | undefined) => {
         if (value !== undefined) {
@@ -167,7 +209,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({ step, onUpdate, isRe
                 <Editor
                     height="100%"
                     defaultLanguage="javascript"
-                    theme="vs-dark" // We should ideally inherit from VS Code theme
+                    theme={editorTheme}
                     value={scriptContent}
                     onChange={handleChange}
                     onMount={handleEditorDidMount}

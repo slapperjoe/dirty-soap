@@ -160,7 +160,7 @@ const StepName = styled.span`
     white-space: nowrap;
 `;
 
-export interface TestsUiProps {
+interface TestsUiProps {
     projects: ApinoxProject[];
     onAddSuite: (projectName: string) => void;
     onDeleteSuite: (suiteId: string) => void;

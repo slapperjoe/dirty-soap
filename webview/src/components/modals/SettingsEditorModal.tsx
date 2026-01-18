@@ -123,7 +123,7 @@ const PrimaryButton = styled.button`
 // Types imported from ./settings/SettingsTypes.ts
 
 /** Enum for settings modal tab names */
-export enum SettingsTab {
+enum SettingsTab {
     GUI = 'gui',
     ENVIRONMENTS = 'environments',
     GLOBALS = 'globals',

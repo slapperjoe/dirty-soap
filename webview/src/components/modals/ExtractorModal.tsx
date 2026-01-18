@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from './Modal';
 
-export interface ExtractorData {
+interface ExtractorData {
     xpath: string;
     value: string;
     source: 'body' | 'header';

@@ -30,7 +30,7 @@ const debugLog = (context: string, data?: any) => {
     console.log(msg, data || '');
 };
 
-export interface MessageHandlerState {
+interface MessageHandlerState {
     // Setters for state that the handler modifies
     setProjects: React.Dispatch<React.SetStateAction<ApinoxProject[]>>;
     setExploredInterfaces: React.Dispatch<React.SetStateAction<ApiInterface[]>>;

@@ -29,7 +29,7 @@ import { bridge } from '../utils/bridge';
  * Shape of the ProjectContext value.
  * Contains both state and actions for project management.
  */
-export interface ProjectContextValue {
+interface ProjectContextValue {
     // -------------------------------------------------------------------------
     // STATE
     // -------------------------------------------------------------------------

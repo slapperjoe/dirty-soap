@@ -24,7 +24,7 @@ const InputContainer = styled.div`
   }
 `;
 
-export interface MonacoSingleLineInputProps {
+interface MonacoSingleLineInputProps {
     value: string;
     onChange: (value: string) => void;
     placeholder?: string; // Monaco doesn't support placeholder natively easily, but we can fake it or ignore

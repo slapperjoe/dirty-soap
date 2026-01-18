@@ -26,7 +26,7 @@ import { ApiInterface, ApiOperation, ApiRequest, TestCase, TestStep, TestSuite }
  * Shape of the SelectionContext value.
  * Contains selection state, setters, and utility actions.
  */
-export interface SelectionContextValue {
+interface SelectionContextValue {
     // -------------------------------------------------------------------------
     // SELECTION STATE
     // -------------------------------------------------------------------------

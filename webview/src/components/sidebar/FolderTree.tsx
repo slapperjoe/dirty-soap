@@ -79,7 +79,7 @@ const GraphqlIcon = styled(Zap)`
     color: #9f7aea;
 `;
 
-export interface FolderTreeProps {
+interface FolderTreeProps {
     folders: ApinoxFolder[];
     projectName: string;
     level?: number;

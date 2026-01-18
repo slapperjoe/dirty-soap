@@ -9,7 +9,7 @@ import { Plus, ChevronDown, ChevronRight, Folder, FolderOpen, Trash2, FileJson }
 import { RestCollection, RestFolder, ApiRequest } from '@shared/models';
 import { HeaderButton, OperationItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle, shake } from './shared/SidebarStyles';
 
-export interface CollectionListProps {
+interface CollectionListProps {
     collections: RestCollection[];
 
     // Selection

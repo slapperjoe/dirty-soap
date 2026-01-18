@@ -19,7 +19,7 @@ function escapeCsvValue(value: any): string {
 /**
  * Convert an array of objects to CSV string
  */
-export function toCSV<T extends Record<string, any>>(
+function toCSV<T extends Record<string, any>>(
     data: T[],
     columns: { key: keyof T; header: string }[]
 ): string {
@@ -39,7 +39,7 @@ export function toCSV<T extends Record<string, any>>(
 /**
  * Download a CSV string as a file
  */
-export function downloadCSV(csvContent: string, filename: string): void {
+function downloadCSV(csvContent: string, filename: string): void {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -85,29 +85,3 @@ export function exportWatcherEvents(events: Array<{
 /**
  * Export proxy history events to CSV  
  */
-export function exportProxyHistory(events: Array<{
-    id: string;
-    timestamp: number;
-    method: string;
-    url: string;
-    statusCode?: number;
-    responseTime?: number;
-    contentType?: string;
-}>, filename = 'proxy_history'): void {
-    const columns = [
-        { key: 'timestamp' as const, header: 'Timestamp' },
-        { key: 'method' as const, header: 'Method' },
-        { key: 'url' as const, header: 'URL' },
-        { key: 'statusCode' as const, header: 'Status' },
-        { key: 'responseTime' as const, header: 'Response Time (ms)' },
-        { key: 'contentType' as const, header: 'Content-Type' }
-    ];
-
-    const formattedData = events.map(e => ({
-        ...e,
-        timestamp: new Date(e.timestamp).toISOString()
-    }));
-
-    const csv = toCSV(formattedData, columns);
-    downloadCSV(csv, `${filename}_${Date.now()}`);
-}

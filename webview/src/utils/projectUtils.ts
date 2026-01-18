@@ -4,7 +4,7 @@ import { ApinoxFolder, ApinoxProject } from '@shared/models';
 /**
  * Recursively updates a folder name or a request name within a folder structure.
  */
-export const renameInFolders = (
+const renameInFolders = (
     folders: ApinoxFolder[],
     targetId: string,
     targetType: 'folder' | 'request',

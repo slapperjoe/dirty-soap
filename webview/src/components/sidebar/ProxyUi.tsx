@@ -6,7 +6,7 @@ import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHea
 import { formatXml } from '@shared/utils/xmlFormatter';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 
-export interface ProxyUiProps {
+interface ProxyUiProps {
     isRunning: boolean;
     config: { port: number, target: string, systemProxyEnabled?: boolean };
     history: WatcherEvent[];

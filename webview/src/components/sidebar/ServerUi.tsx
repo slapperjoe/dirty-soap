@@ -14,7 +14,7 @@ import { MockRuleModal } from '../modals/MockRuleModal';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 import { createMockRuleFromSource } from '../../utils/mockUtils';
 
-export interface ServerUiProps {
+interface ServerUiProps {
     // Server state
     serverConfig: ServerConfig;
     isRunning: boolean;

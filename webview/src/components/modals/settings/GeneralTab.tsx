@@ -87,6 +87,16 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
                         </CheckboxLabel>
                     </FormGroup>
                     <FormGroup>
+                        <CheckboxLabel>
+                            <input
+                                type="checkbox"
+                                checked={config.ui?.showDebugIndicator ?? false}
+                                onChange={e => onChange('ui', 'showDebugIndicator', e.target.checked)}
+                            />
+                            Show Debug Indicator
+                        </CheckboxLabel>
+                    </FormGroup>
+                    <FormGroup>
                         <Label>Auto-Fold XML Elements</Label>
                         <div style={{ fontSize: '0.85em', color: 'var(--vscode-descriptionForeground)', marginBottom: 8 }}>
                             Enter element names to automatically collapse in editors (e.g., Security, Header)

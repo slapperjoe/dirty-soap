@@ -5,7 +5,7 @@ import { WatcherEvent } from '@shared/models';
 import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { exportWatcherEvents } from '../../utils/csvExport';
 
-export interface WatcherPanelProps {
+interface WatcherPanelProps {
     history: WatcherEvent[];
     isRunning: boolean;
     onStart: () => void;

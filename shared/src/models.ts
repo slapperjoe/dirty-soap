@@ -516,6 +516,7 @@ export interface ApinoxConfig {
         showLineNumbers?: boolean;
         alignAttributes?: boolean;
         inlineElementValues?: boolean;
+        showDebugIndicator?: boolean;
         splitRatio?: number;
         autoFoldElements?: string[];
     };

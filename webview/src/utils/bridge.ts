@@ -73,7 +73,7 @@ if (isTauri()) {
 
 import { FrontendCommand, BackendCommand } from '@shared/messages';
 
-export interface BridgeMessage {
+interface BridgeMessage {
     command: FrontendCommand | string;
     [key: string]: any;
 }

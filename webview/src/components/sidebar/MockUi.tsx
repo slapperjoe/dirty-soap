@@ -5,7 +5,7 @@ import { MockConfig, MockRule, MockEvent } from '@shared/models';
 import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
 
-export interface MockUiProps {
+interface MockUiProps {
     isRunning: boolean;
     config: MockConfig;
     history: MockEvent[];

@@ -1,6 +1,6 @@
 import { MockRule } from '@shared/models';
 
-export interface MockSourceData {
+interface MockSourceData {
     url: string;
     statusCode: number;
     responseBody: string;

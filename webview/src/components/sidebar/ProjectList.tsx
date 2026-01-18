@@ -8,7 +8,7 @@ import { FolderTree } from './FolderTree';
 import { ContextMenu, ContextMenuItem } from '../../styles/App.styles';
 import { updateProjectWithRename } from '../../utils/projectUtils';
 
-export interface ProjectListProps {
+interface ProjectListProps {
     projects: ApinoxProject[];
     savedProjects: Set<string>;
     workspaceDirty?: boolean;

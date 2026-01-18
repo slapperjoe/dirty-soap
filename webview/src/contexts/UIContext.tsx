@@ -28,7 +28,7 @@ import { bridge } from '../utils/bridge';
  * Shape of the UIContext value.
  * Contains UI configuration, layout state, and view management.
  */
-export interface UIContextValue {
+interface UIContextValue {
     // -------------------------------------------------------------------------
     // VIEW STATE - Moved to NavigationContext
     // -------------------------------------------------------------------------

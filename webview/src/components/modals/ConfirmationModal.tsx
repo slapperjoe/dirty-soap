@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Button } from './Modal';
 
-export interface ConfirmationModalProps {
+interface ConfirmationModalProps {
     isOpen: boolean;
     title: string;
     message: string;

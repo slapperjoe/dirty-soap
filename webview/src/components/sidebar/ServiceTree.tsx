@@ -3,7 +3,7 @@ import { ChevronRight, ChevronDown, Plus, Trash2, Code, Globe, Zap } from 'lucid
 import { ApiInterface, ApiOperation, ApiRequest, ApinoxProject } from '@shared/models';
 import { HeaderButton, OperationItem, RequestItem } from './shared/SidebarStyles';
 
-export interface ServiceTreeProps {
+interface ServiceTreeProps {
     interfaces: ApiInterface[];
     projects?: ApinoxProject[]; // For lookup when in project view
     isExplorer: boolean;

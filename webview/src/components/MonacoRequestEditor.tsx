@@ -16,7 +16,7 @@ const EditorContainer = styled.div`
   overflow: hidden;
 `;
 
-export interface MonacoRequestEditorProps {
+interface MonacoRequestEditorProps {
     value: string;
     onChange: (value: string) => void;
     language?: string;
@@ -29,7 +29,7 @@ export interface MonacoRequestEditorProps {
     logId?: string; // Debugging ID
 }
 
-export interface MonacoRequestEditorHandle {
+interface MonacoRequestEditorHandle {
     insertText: (text: string) => void;
     getValue: () => string;
 }

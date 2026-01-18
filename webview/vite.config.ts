@@ -6,6 +6,13 @@ import path from 'path'
 export default defineConfig({
     plugins: [react()],
     base: './',
+    optimizeDeps: {
+        exclude: [
+            'monaco-editor',
+            '@monaco-editor/react',
+            'monaco-editor/esm/vs/language/json/json.worker'
+        ]
+    },
     resolve: {
         alias: {
             '@shared': path.resolve(__dirname, '../shared/src')
