@@ -25,7 +25,7 @@ const Section = styled.div<{ $collapsed?: boolean }>`
     margin-bottom: 25px;
     background: var(--vscode-editor-inactiveSelectionBackground);
     border-radius: 6px;
-    padding: ${props => props.$collapsed ? '0' : '15px'};
+    padding: 0;
     border: 1px solid var(--vscode-widget-border);
     overflow: hidden;
 `;
@@ -944,8 +944,8 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                                 <RunDetails>
                                                     {/* SLA Statistics */}
                                                     <StatsGrid>
-                                                        <StatCard $variant={stats.successRate >= 95 ? 'success' : stats.successRate >= 80 ? 'warning' : 'error'}>
-                                                            <StatValue>{stats.successRate.toFixed(1)}%</StatValue>
+                                                        <StatCard $variant={stats.successRate >= 0.95 ? 'success' : stats.successRate >= 0.80 ? 'warning' : 'error'}>
+                                                            <StatValue>{(stats.successRate === 1 ? '100' : (stats.successRate * 100).toFixed(1))}%</StatValue>
                                                             <StatLabel>Success Rate</StatLabel>
                                                         </StatCard>
                                                         <StatCard>

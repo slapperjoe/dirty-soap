@@ -102,7 +102,8 @@ export const PerformanceProvider = ({ children }: { children: ReactNode }) => {
         };
 
         setConfig(prev => {
-            const prevSuites = prev?.performanceSuites || [];
+            if (!prev) return prev;
+            const prevSuites = prev.performanceSuites || [];
             if (prevSuites.some((s: PerformanceSuite) => s.id === newId)) return prev;
             return { ...prev, performanceSuites: [...prevSuites, suite] };
         });
@@ -158,7 +159,8 @@ export const PerformanceProvider = ({ children }: { children: ReactNode }) => {
                                     bridge.emit({ command: BackendCommand.PerformanceRunComplete, run: update.run, runId: update.run?.id });
                                     if (update.run) {
                                         setConfig(prev => {
-                                            const prevHistory = prev?.performanceHistory || [];
+                                            if (!prev) return prev;
+                                            const prevHistory = prev.performanceHistory || [];
                                             const nextHistory = [...prevHistory, update.run];
                                             return { ...prev, performanceHistory: nextHistory };
                                         });

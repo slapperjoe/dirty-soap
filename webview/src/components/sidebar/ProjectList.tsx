@@ -396,6 +396,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                                 folders={proj.folders}
                                                 projectName={proj.name}
                                                 selectedFolderId={selectedFolderId}
+                                                setSelectedFolderId={setSelectedFolderId}
                                                 selectedRequest={selectedRequest}
                                                 setSelectedRequest={setSelectedRequest}
                                                 setSelectedProjectName={setSelectedProjectName}

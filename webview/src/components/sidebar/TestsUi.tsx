@@ -160,7 +160,7 @@ const StepName = styled.span`
     white-space: nowrap;
 `;
 
-interface TestsUiProps {
+export interface TestsUiProps {
     projects: ApinoxProject[];
     onAddSuite: (projectName: string) => void;
     onDeleteSuite: (suiteId: string) => void;
@@ -204,6 +204,19 @@ const ContextMenuDropdown = styled.div<{ x: number; y: number }>`
     z-index: 2000;
     min-width: 150px;
     padding: 4px 0;
+`;
+
+const ContextMenuItem = styled.div`
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &:hover {
+        background-color: var(--vscode-menu-selectionBackground);
+        color: var(--vscode-menu-selectionForeground);
+    }
 `;
 
 export const TestsUi: React.FC<TestsUiProps> = ({

@@ -2,12 +2,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ScriptEditor } from '../ScriptEditor';
 import { TestStep } from '@shared/models';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 
 // Mock the bridge
 vi.mock('../../utils/bridge', () => ({
     bridge: {
         sendMessage: vi.fn()
-    }
+    },
+    isVsCode: () => true
 }));
 
 describe('ScriptEditor', () => {
@@ -27,8 +29,12 @@ describe('ScriptEditor', () => {
         vi.clearAllMocks();
     });
 
+    const renderWithTheme = (ui: React.ReactElement) => render(
+        <ThemeProvider>{ui}</ThemeProvider>
+    );
+
     it('should display the script content from props', () => {
-        render(
+        renderWithTheme(
             <ScriptEditor
                 step={mockStep}
                 onUpdate={mockOnUpdate}
@@ -41,7 +47,7 @@ describe('ScriptEditor', () => {
     });
 
     it('should show save button only when content is dirty', async () => {
-        render(
+        renderWithTheme(
             <ScriptEditor
                 step={mockStep}
                 onUpdate={mockOnUpdate}
@@ -58,7 +64,7 @@ describe('ScriptEditor', () => {
     });
 
     it('should call onUpdate with updated content when save is clicked', async () => {
-        render(
+        renderWithTheme(
             <ScriptEditor
                 step={mockStep}
                 onUpdate={mockOnUpdate}
@@ -72,7 +78,7 @@ describe('ScriptEditor', () => {
     });
 
     it('should not overwrite local edits when step prop updates with same content', () => {
-        const { rerender } = render(
+        const { rerender } = renderWithTheme(
             <ScriptEditor
                 step={mockStep}
                 onUpdate={mockOnUpdate}
@@ -82,11 +88,13 @@ describe('ScriptEditor', () => {
 
         // Rerender with same step
         rerender(
-            <ScriptEditor
-                step={mockStep}
-                onUpdate={mockOnUpdate}
-                onBack={mockOnBack}
-            />
+            <ThemeProvider>
+                <ScriptEditor
+                    step={mockStep}
+                    onUpdate={mockOnUpdate}
+                    onBack={mockOnBack}
+                />
+            </ThemeProvider>
         );
 
         // Should not cause any issues
@@ -94,7 +102,7 @@ describe('ScriptEditor', () => {
     });
 
     it('should update content when step prop changes with different scriptContent', () => {
-        const { rerender } = render(
+        const { rerender } = renderWithTheme(
             <ScriptEditor
                 step={mockStep}
                 onUpdate={mockOnUpdate}
@@ -110,11 +118,13 @@ describe('ScriptEditor', () => {
         };
 
         rerender(
-            <ScriptEditor
-                step={updatedStep}
-                onUpdate={mockOnUpdate}
-                onBack={mockOnBack}
-            />
+            <ThemeProvider>
+                <ScriptEditor
+                    step={updatedStep}
+                    onUpdate={mockOnUpdate}
+                    onBack={mockOnBack}
+                />
+            </ThemeProvider>
         );
 
         // Content should be updated
@@ -122,9 +132,9 @@ describe('ScriptEditor', () => {
     });
 
     it('should auto-save when clicking back button if dirty', () => {
-        render(
+        renderWithTheme(
             <ScriptEditor
-                step={mockStep}
+                step={{ ...mockStep, config: { ...mockStep.config, scriptContent: '// Default content\nlog("test");' } }}
                 onUpdate={mockOnUpdate}
                 onBack={mockOnBack}
             />

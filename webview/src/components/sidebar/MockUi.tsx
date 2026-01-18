@@ -112,8 +112,8 @@ export const MockUi: React.FC<MockUiProps> = ({
                                     onClick={() => onUpdateConfig({ port: (config.port || 9001) + 1 })}
                                     style={{ padding: '4px 8px', cursor: 'pointer', borderLeft: '1px solid var(--vscode-input-border)', userSelect: 'none' }}
                                 >+</div>
-                            </Content>
-                        </SidebarContainer>
+                            </div>
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingBottom: 1 }}>
                             {!isRunning ? (
                                 <HeaderButton onClick={onStart} style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Start Dirty Moxy"><Play size={14} /></HeaderButton>
@@ -332,7 +332,7 @@ export const MockUi: React.FC<MockUiProps> = ({
                         ))
                     )}
                 </div>
-            </div>
+            </Content>
 
             {/* Mock Rule Modal */}
             <MockRuleModal
@@ -341,6 +341,6 @@ export const MockUi: React.FC<MockUiProps> = ({
                 onClose={() => setRuleModal({ open: false })}
                 onSave={handleSaveRule}
             />
-        </div>
+        </SidebarContainer>
     );
 };

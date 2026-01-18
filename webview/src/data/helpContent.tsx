@@ -1,387 +1,605 @@
-import { MonitorPlay, Eye, FileJson, Network, Radio, Layout, FlaskConical } from 'lucide-react';
+import { MonitorPlay, Eye, FileJson, Network, Radio, Layout, FlaskConical, Activity, Compass, FolderOpen, Settings, Cloud, Clock, ListChecks } from 'lucide-react';
 
-export const HELP_SECTIONS = [
+const normalizeContent = (text: string) => {
+    const trimmed = text.replace(/^\n/, '').replace(/\n\s*$/, '');
+    const lines = trimmed.split('\n');
+    const indents = lines
+        .filter(line => line.trim().length > 0)
+        .map(line => (line.match(/^\s*/) || [''])[0].length);
+    const minIndent = indents.length > 0 ? Math.min(...indents) : 0;
+    return lines.map(line => line.slice(minIndent)).join('\n');
+};
+
+const HELP_SECTIONS_RAW = [
     {
-        id: 'workspace',
-        label: 'Workspace',
+        id: 'core',
+        label: 'Core',
         icon: Layout,
+        order: 1,
         content: `
-# Workspace & Projects
+    # Core
 
-APInox retrieves order from chaos by organizing your work into a structured hierarchy.
+    Start by loading a WSDL or OpenAPI file, add items to a project, then build and run requests in the editor.
+    `,
+        children: [
+            {
+                id: 'wsdl-editor',
+                label: 'Request Editor',
+                icon: FileJson,
+                order: 1,
+                content: `
+    # Request Editor
 
-![Workspace Hierarchy](help/workspace_hierarchy.png)
+    The Request Editor is where you build SOAP requests and inspect responses.
 
-## Structure
+    ## Editing
 
-- **Project**: A collection of related interfaces (e.g., "Billing Service"). Saved as \`.soap\` files.
-- **Interface**: Represents a Port Type or Service definition from a WSDL.
-- **Operation**: A specific soap action (e.g., \`GetCustomer\`).
-- **Request**: An instance of an operation call. You can have multiple requests per operation (e.g., "Success Case", "Error Case").
+    - **Default XML** is generated from the WSDL and is fully editable.
+    - **Headers**: Use the Headers tab to view/edit request headers and view response headers.
+    - **Assertions**: Use the Assertions tab to add checks for a request.
 
-## Context Actions
+    ## Toolbar Actions
 
-Right-click on items in the Explorer to access context actions:
-- **Clone Request**: Duplicate a request.
-- **Delete**: Remove an item.
-- **Rename**: Rename a request for better organization.
-- **Add to Project**: (On WSDL Explorer items) Import operations into your active project.
-`
+    - **Run / Cancel**: Execute or stop the current request.
+    - **Reset**: Restore the default XML template.
+    - **Format XML**: Reformat the current XML.
+    - **Toggle Attribute Alignment**: Align attributes vertically.
+    - **Toggle Inline Values**: Compact simple element values onto one line.
+    - **Hide Debugger Causality Data**: Remove VS debugger markers from the XML (when available).
+    - **Code**: Generate a code snippet for the request.
+
+    ## Variables & Environments
+
+    - Use \`{{variable}}\` syntax in XML or headers.
+    - Environments are managed in **Settings → Environments** and switched from the sidebar ENV selector.
+
+    ## User Scripts
+
+    Place custom scripts in \`~/.apinox/scripts\` and export functions. Use them as \`{{functionName}}\`.
+    `
+            },
+            {
+                id: 'workspace',
+                label: 'Workspace',
+                icon: Layout,
+                order: 2,
+                content: `
+    # Workspace & Projects
+
+    APInox organizes your work into a structured hierarchy so you can save and reuse requests.
+
+    ## Structure
+
+    - **Project**: Top-level container stored in your workspace (folder-based format).
+    - **Interface**: A WSDL service/port definition.
+    - **Operation**: A single SOAP action.
+    - **Request**: A saved request instance for an operation.
+
+    ## Context Actions
+
+    Use right-click menus in the Explorer to clone, rename, or delete items.
+    `
+            },
+            {
+                id: 'interface',
+                label: 'Interfaces',
+                icon: Layout,
+                order: 3,
+                content: `
+    # Interfaces
+
+    An **Interface** represents a WSDL service/port definition and groups related operations.
+
+    ## Summary
+
+    The Interface summary shows key details when available:
+
+    - **WSDL URL/File**
+    - **SOAP Version**
+    - **Binding**
+    - **Endpoint**
+
+    ## Navigation
+
+    Expand/collapse the interface in the sidebar to see operations. Re-import the WSDL when the definition changes.
+    `
+            },
+            {
+                id: 'operation',
+                label: 'Operations',
+                icon: Layout,
+                order: 4,
+                content: `
+    # Operations
+
+    An **Operation** is a single SOAP action defined in the WSDL.
+
+    ## Requests
+
+    Each operation can have multiple saved requests. Use context actions in the sidebar to clone, rename, or delete a request.
+    `
+            }
+        ]
     },
     {
-        id: 'interface',
-        label: 'Interfaces',
-        icon: Layout,
+        id: 'explorer',
+        label: 'Explorer',
+        icon: Compass,
+        order: 2,
         content: `
-# Interfaces
+    # Explorer
 
-An **Interface** in APInox corresponds to a WSDL Port Type or Service definition. It is the container for a set of related operations.
+    Use the Explorer to load WSDL/OpenAPI definitions and inspect operations before saving them into projects.
+    `,
+        children: [
+            {
+                id: 'wsdl-explorer',
+                label: 'WSDL / OpenAPI',
+                icon: Compass,
+                order: 1,
+                content: `
+    # WSDL / OpenAPI Explorer
 
-## Key Information
+    Load a WSDL or OpenAPI (JSON/YAML) from URL or file, then browse interfaces and operations.
 
-The Interface Summary view provides critical details about the service definition:
+    ## Actions
 
-- **WSDL URL/File**: The source location of the service definition.
-- **SOAP Version**: Indicates whether the service uses SOAP 1.1 or 1.2.
-- **Binding**: The specific binding used by this interface (e.g., HTTP transport).
-- **Endpoint**: The default target URL for requests in this interface.
+    - **Load API** to fetch a definition.
+    - Use **Add to Project** to import selected items.
+    - **Add All** imports everything currently loaded.
+    - **Clear Explorer** removes the loaded definitions.
+    `
+            },
+            {
+                id: 'collections',
+                label: 'Collections (REST/GraphQL)',
+                icon: FolderOpen,
+                order: 2,
+                content: `
+    # Collections
 
-## Managing Interfaces
+    Collections organize REST and GraphQL requests.
 
-- **Expand/Collapse**: Click the interface name in the sidebar to toggle its operations.
-- **Update WSDL**: To update the definition (e.g., if the backend changed), you generally need to re-import the WSDL or right-click the project to "Update Definition" (if supported).
-`
+    ## Actions
+
+    - Create collections from the Collections sidebar.
+    - Add requests and folders to organize APIs.
+    - Select a request to edit it in the Request Editor.
+    - Use delete/rename actions from the collection list.
+    `
+            }
+        ]
     },
     {
-        id: 'operation',
-        label: 'Operations',
-        icon: Layout,
-        content: `
-# Operations
-
-An **Operation** represents a single SOAP action (RPC call) defined in the WSDL.
-
-## Overview
-
-- **Action Name**: The specific \`SOAPAction\` header value required by the server.
-- **Request Count**: Shows how many saved request templates you have for this operation.
-
-## Request Management
-
-You can create multiple "Requests" for each operation to cover different scenarios:
-
-1.  **Default Request**: Created automatically when you import the WSDL.
-2.  **Clone**: Right-click an existing request in the sidebar and select **Clone Request** to create a variation (e.g., "Invalid ID Case").
-3.  **Rename**: Right-click to rename requests for clarity (e.g., "Get User - Success").
-
-Each request maintains its own independent body, headers, and endpoint settings.
-`
-    },
-    {
-        id: 'test-suite',
-        label: 'Test Suites',
+        id: 'testing',
+        label: 'Testing',
         icon: FlaskConical,
+        order: 3,
         content: `
-# Test Suites
+    # Testing
 
-A **Test Suite** is the top-level container for organizing your automated tests. It usually corresponds to a specific module or feature set of your application (e.g., "Payment Processing Tests").
+    Build automated tests with suites, cases, assertions, and performance runs.
+    `,
+        children: [
+            {
+                id: 'test-suite',
+                label: 'Test Suites',
+                icon: FlaskConical,
+                order: 1,
+                content: `
+    # Test Suites
 
-## Suite Management
+    A **Test Suite** groups automated tests for a service or feature.
 
-- **Create**: Click the **+** (Plus Square) icon in the **Tests** sidebar header to create a new suite.
-- **Run All**: Click the **Play** icon next to the suite name to execute all Test Cases within it sequentially.
-- **Delete**: Click the trash icon to remove the suite and all its contents.
+    ## Suite Actions
 
-## Test Cases
+    - **Create**: Click the **+** icon in the Tests sidebar header.
+    - **Run**: Click the **Play** icon on a suite row to run all cases.
+    - **Delete**: Click the trash icon to remove a suite.
 
-Suites contain **Test Cases**, which represent individual scenarios.
+    ## Test Cases
 
-- **Add Case**: Click the **+** icon on the Suite card in the summary view.
-- **Order**: Test cases run in the order they sort (top to bottom).
-- **Isolation**: Each test case runs independently, but they can share data via Global Properties if configured.
-`
+    Suites contain **Test Cases** with ordered steps. Add cases from the suite row, then add steps inside each case.
+    `
+            },
+            {
+                id: 'tests-assertions',
+                label: 'Assertions',
+                icon: ListChecks,
+                order: 2,
+                content: `
+    # Tests & Assertions
+
+    APInox includes a test runner for automated SOAP validation.
+
+    ## Hierarchy
+
+    - **Test Suite**: Container for related test cases.
+    - **Test Case**: A scenario composed of ordered steps.
+    - **Test Step**: Typically a request step, but can include other step types.
+
+    ## Creating Tests
+
+    1. Create a suite from the Tests sidebar.
+    2. Add cases to the suite.
+    3. Add steps by dragging operations from the Explorer or using the add button inside a case.
+
+    ## Assertions
+
+    Assertions validate response content and status.
+
+    ### Adding Assertions
+
+    1. Run a request step.
+    2. Open the **Assertions** tab.
+    3. Use the **Add Assertion** dropdown to select a type.
+
+    ### Assertion Types
+
+    - **Simple Contains** / **Simple Not Contains**
+    - **Response SLA**
+    - **XPath Match**
+    - **SOAP Fault**
+    - **HTTP Status**
+    - **Script (JavaScript)**
+
+    ### Smart Assertions
+
+    Select text in the Response viewer, then use **Match** or **Exists** in the response toolbar to create assertions.
+
+    ## Variables & Extractors
+
+    Select text in the Response viewer and click **Extract** to save it as a variable. Use \`{{variableName}}\` in XML or headers.
+    `
+            },
+            {
+                id: 'performance-suite',
+                label: 'Performance',
+                icon: Activity,
+                order: 3,
+                content: `
+    # Performance Suites
+
+    Performance suites run a sequence of requests repeatedly to measure latency and reliability.
+
+    ## Create & Run
+
+    1. Add a suite from the Performance sidebar.
+    2. Add requests to the suite (use **Add Request**).
+    3. Click **Run Suite** to execute.
+
+    ## Configuration
+
+    - **Delay (ms)**: Pause between requests in sequence.
+    - **Iterations**: How many times to run the full request list.
+    - **Concurrency**: Parallelism (1 = sequential).
+    - **Warmup Runs**: Runs excluded from stats.
+
+    ## Requests
+
+    - Drag to reorder.
+    - Use the context menu to rename or delete.
+
+    ## Scheduling
+
+    Add cron-based schedules to run suites automatically.
+
+    ## Distributed Workers
+
+    Optionally start a coordinator and connect workers for distributed execution.
+
+    ## Results
+
+    - Summary stats (avg, p50/p95/p99, success rate).
+    - Run history with per-run details.
+    - Export results to CSV.
+    `
+            }
+        ]
     },
     {
-        id: 'wsdl-editor',
-        label: 'WSDL Editor',
-        icon: FileJson,
-        content: `
-# WSDL Request Editor
-
-The core of APInox is the interactive WSDL Editor. It allows you to explore SOAP services, construct requests, and analyze responses directly within VS Code.
-
-![WSDL Editor Screenshot](help/wsdl_editor_screenshot.png)
-
-## Key Features
-
-### 1. Request Construction
-- **Auto-Generation**: Requests are automatically generated from the WSDL schema with placeholder "wildcards" (e.g., \`?\`).
-- **Inline Formatting**: Toggle between "Block" and "Inline" value formatting using the **Align Left** (|≡) icon in the editor toolbar.
-- **Causality Data Stripping**: Hide annoying VS Debugger causality data (comments and elements) using the **Bug** icon.
-- **Attribute Alignment**: Toggle whether attributes are aligned vertically using the **Wrap Text** icon.
-- **Prettify**: Manually re-format the XML at any time using the **Braces** ({ }) icon.
-
-### 2. Response Analysis
-- **Syntax Highlighting**: Responses are formatted and highlighted as XML.
-- **Headers Tab**: View both Request headers (editable) and Response headers (read-only).
-- **Assertions**: Define XPath or Regex assertions to validate responses automatically (Green/Red indicators in the sidebar).
-- **Extractors**: Right-click response content or select text to create extractors that save values into variables for later use.
-
-### 3. Environment Variables
-- Use \`{{variable}}\` syntax in your requests or headers.
-- Define environments in the **Settings** (Gear Icon).
-- Switch environments using the dropdown in the editor toolbar.
-
-### 4. User JS Wildcards
-- Use \`{{js:MyScript}}\` to execute custom JavaScript located in \`.apinox/scripts/MyScript.js\`.
-- The script should export a function returning a string.
-
-## Toolbar Actions
-
-- **Run (Play Icon)**: Execute the current request.
-- **Stop (Square Icon)**: Cancel a running request.
-- **Environment Dropdown**: Select the active environment for variable substitution.
-- **Align Left**: Toggle Inline vs Block formatting for element values.
-- **Wrap Text**: Toggle vertical alignment of XML attributes.
-- **Bug**: Remove VS Debugger causality data from the request body.
-- **Braces**: Re-format (prettify) the XML in the editor.
-- **Revert (Rotate Icon)**: Reset the request body to the original WSDL-generated template (loses changes!).
-`
-    },
-    {
-        id: 'server',
-        label: 'Server (Unified)',
+        id: 'server-group',
+        label: 'Server',
         icon: Network,
+        order: 4,
         content: `
-# Unified Server
+    # Server
 
-The **Server** tab provides a unified interface for both Proxy and Mock server functionality. Choose from four modes:
+    The unified Server tab combines proxy and mock features in one view.
+    `,
+        children: [
+            {
+                id: 'server',
+                label: 'Unified Server',
+                icon: Network,
+                order: 1,
+                content: `
+    # Unified Server
 
-![Proxy Flow](help/proxy_flow_diagram.png)
+    The **Server** tab combines Proxy and Mock in one place.
 
-## Server Modes
+    ## Modes
 
-| Mode | Description |
-|------|-------------|
-| **Off** | Server stopped |
-| **Moxy** | Return canned responses matching your rules |
-| **Proxy** | Traffic logging with breakpoints and replace rules |
-| **Both** | Moxy + Proxy combined |
+    | Mode | Description |
+    |------|-------------|
+    | **Off** | Server stopped |
+    | **Moxy** | Mock responses from rules (sidebar label) |
+    | **Proxy** | Traffic logging with breakpoints + replace rules |
+    | **Both** | Mock + Proxy combined |
 
-## Using the Server Tab
+    ## Using the Server Tab
 
-1. **Select Mode**: Click the mode button (Mock, Proxy, or Both)
-2. **Start Server**: Click the Play button to start
-3. **Monitor Traffic**: View combined traffic history below
+    1. Choose a mode.
+    2. Click **Play** to start or **Square** to stop.
+    3. Traffic history shows combined Proxy + Mock events.
 
-## Mode-Specific Features
+    ## Mode-Specific Sections
 
-When **Moxy** or **Both** is selected:
-- **Dirty Moxy Rules** section appears for managing mock responses
-- Add, edit, toggle, and delete rules directly from the sidebar
+    - **Moxy/Both**: Mock Rules section (add, edit, toggle, delete).
+    - **Proxy/Both**: Breakpoints section (add, edit, toggle, delete).
 
-![Dirty Moxy Rules](help/mock_rules_diagram.png)
+    ## Controls
 
-When **Proxy** or **Both** is selected:
-- **Breakpoints** section appears for request/response interception
-- Pause and modify traffic in real-time
+    - **Gear** opens Server settings.
+    - **Trash** clears traffic history.
+    - **Plus** adds a rule or breakpoint in the active section.
+    - **Record Mode** is configured in Server settings.
+    `
+            },
+            {
+                id: 'proxy',
+                label: 'APInox Proxy',
+                icon: MonitorPlay,
+                order: 2,
+                content: `
+    # APInox Proxy
 
-## Settings & Controls
+    The proxy intercepts HTTP/S traffic for inspection and modification.
 
-- **Start/Stop (Play/Square)**: Control the unified server.
-- **Gear Icon**: Open settings (Port, Target URL, Replace Rules).
-- **Trash Icon**: Clear the traffic history.
-- **Plus (+)**: Add a new Mock Rule or Breakpoint.
-- **Toggle Switch**: Enable or disable specific rules/breakpoints.
-- **Edit Icon**: Modify an existing rule or breakpoint.
-- **Record Mode**: (In settings) Automatically save proxy traffic as mock rules.
-`
+    ## Getting Started
+
+    1. Configure **Port** and **Target URL** in **Settings → Server**.
+    2. Select **Proxy** or **Both** and click **Play**.
+    3. Point your client at the proxy URL (e.g., \`http://localhost:9000\`).
+    4. Inspect events in **Traffic**.
+
+    ## Breakpoints
+
+    Breakpoints pause requests/responses so you can edit them:
+
+    - **Match On**: URL, body, or header (regex optional).
+    - **Target**: request, response, or both.
+    - **Timeout**: Auto-resumes after 45s.
+
+    ## Replace Rules
+
+    Replace Rules apply automatic replacements in-flight:
+
+    - Configure in **Settings → Replace Rules**.
+    - XPath-scoped and can target request, response, or both.
+
+    ## HTTPS Support
+
+    The proxy generates a local certificate for HTTPS traffic. Trust it in your client if needed.
+    `
+            },
+            {
+                id: 'mock-server',
+                label: 'APInox Mock',
+                icon: Radio,
+                order: 3,
+                content: `
+    # APInox Mock
+
+    The mock server returns predefined responses without hitting a real backend.
+
+    ## Getting Started
+
+    1. Select **Moxy** or **Both** mode in the Server tab.
+    2. Add mock rules.
+    3. Start the server.
+
+    ## Mock Rules
+
+    Rules match requests and return canned responses. Supported match conditions include:
+
+    - **URL Path**
+    - **SOAPAction**
+    - **Operation Name**
+    - **Body Contains**
+    - **XPath**
+    - **Header**
+
+    Response configuration includes status code, body, headers, and optional delay.
+
+    ## Record Mode & Passthrough
+
+    - **Record Mode** (Settings → Server) captures real responses as rules.
+    - **Forward unmatched requests** sends misses to the target server.
+    `
+            }
+        ]
     },
     {
-        id: 'proxy',
-        label: 'APInox Proxy',
-        icon: MonitorPlay,
+        id: 'tools',
+        label: 'Tools & Logs',
+        icon: Clock,
+        order: 5,
         content: `
-# APInox Proxy
+    # Tools & Logs
 
-The APInox Proxy intercepts and monitors HTTP/S traffic between your application and backend SOAP services.
+    Utility views for monitoring traffic and reviewing request history.
+    `,
+        children: [
+            {
+                id: 'file-watcher',
+                label: 'File Watcher',
+                icon: Eye,
+                order: 1,
+                content: `
+    # File Watcher
 
-## Getting Started
+    The File Watcher monitors request/response files written by external tools.
 
-1.  **Configure**: Set the **Port** (e.g., 9000) and **Target URL** in Settings → Server tab
-2.  **Start**: Select **Proxy** or **Both** mode in the Server tab, then click Start
-3.  **Route Traffic**: Point your application to \`http://localhost:9000\` instead of the real URL
-4.  **Monitor**: Requests appear in the Traffic history
+    ## Setup
 
-## Breakpoints
+    1. Configure file paths in **Settings → JSON (Advanced)** under \`fileWatcher.requestPath\` and \`fileWatcher.responsePath\`.
+    2. Defaults are OS temp paths with \`requestXML.xml\` and \`responseXML.xml\` (Windows defaults to \`C:\\temp\`).
+    3. Click **Start Watcher** in the sidebar.
 
-Breakpoints let you pause and modify requests/responses in real-time:
+    ## Functionality
 
-- **Add Breakpoint**: Click + in the Breakpoints section
-- **Pattern Matching**: Match by URL, operation name, or custom regex
-- **Target**: Choose to break on Request, Response, or Both
-- **Timeout**: Set auto-resume timeout (default 30s)
+    - **Real-time Updates**: New file changes appear in the history list.
+    - **Smart Naming**: Events are labeled from the SOAP body root when possible.
+    - **Read-Only View**: Watcher items can be inspected but not edited.
+    - **Export**: Export history to CSV from the watcher header.
+    `
+            },
+            {
+                id: 'history',
+                label: 'History',
+                icon: Clock,
+                order: 2,
+                content: `
+    # Request History
 
-## Replace Rules
+    History stores recent manual executions so you can replay or inspect them.
 
-Replace Rules automatically modify content in-flight:
-- Configure in **Settings → Replace Rules** tab
-- XPath-scoped replacement for surgical edits
-- Apply to requests, responses, or both
+    ## Actions
 
-## HTTPS Support
-
-The proxy automatically generates certificates for HTTPS traffic.
-- Trust the certificate or ignore SSL errors in your client
-`
+    - **Search** to filter entries.
+    - **Star** important requests.
+    - **Replay** to load a request/response into the editor.
+    - **Delete** to remove entries.
+    `
+            }
+        ]
     },
     {
-        id: 'mock-server',
-        label: 'APInox Mock',
-        icon: Radio,
+        id: 'settings',
+        label: 'Settings',
+        icon: Settings,
+        order: 6,
         content: `
-# APInox Mock
+    # Settings
 
-The APInox Mock server returns predefined responses without hitting the real backend. Ideal for:
-- Offline development
-- Testing error scenarios
-- Simulating slow responses
+    The Settings modal provides UI preferences, environments, replace rules, and integrations.
+    `,
+        children: [
+            {
+                id: 'settings-general',
+                label: 'General',
+                icon: Settings,
+                order: 1,
+                content: `
+    # Settings → General
 
-## Getting Started
+    Control UI behavior such as layout mode, line numbers, attribute alignment, and auto-folding.
+    `
+            },
+            {
+                id: 'settings-environments',
+                label: 'Environments',
+                icon: Compass,
+                order: 2,
+                content: `
+    # Settings → Environments
 
-1. Select **Mock** or **Both** mode in the Server tab
-2. Add mock rules to define responses
-3. Start the server
-4. Point your application to the mock server
+    Manage environment profiles used in \`{{variable}}\` substitution.
 
-## APInox Mock Rules
+    - Set **Endpoint URL**, **Short Code**, and **Color**.
+    - Mark a profile as **Active**.
+    - Import/export environments as JSON.
+    `
+            },
+            {
+                id: 'settings-globals',
+                label: 'Globals',
+                icon: Cloud,
+                order: 3,
+                content: `
+    # Settings → Globals
 
-Each rule defines when and what to respond:
+    Define global variables available to all requests via \`{{variable}}\`.
+    `
+            },
+            {
+                id: 'settings-replace-rules',
+                label: 'Replace Rules',
+                icon: ListChecks,
+                order: 4,
+                content: `
+    # Settings → Replace Rules
 
-### Matching Conditions
-- **URL Path**: Match specific endpoints
-- **XPath**: Match XML content within requests
-- **Regex**: Advanced pattern matching
+    Configure automatic replacements in proxy traffic.
 
-### Response Configuration
-- **Status Code**: HTTP status (200, 500, etc.)
-- **Response Body**: The XML/JSON to return
-- **Headers**: Custom response headers
-- **Delay**: Simulate network latency
+    - Target request, response, or both.
+    - XPath-scoped replacements for specific elements.
+    - Regex or plain-text matching.
+    `
+            },
+            {
+                id: 'settings-server',
+                label: 'Server',
+                icon: Network,
+                order: 5,
+                content: `
+    # Settings → Server
 
-## Special Features
+    Configure server port, target URL, and mock options like passthrough and record mode.
+    `
+            },
+            {
+                id: 'settings-json',
+                label: 'JSON (Advanced)',
+                icon: FileJson,
+                order: 6,
+                content: `
+    # Settings → JSON (Advanced)
 
-### Record Mode
-Enable to auto-capture real responses as mock rules:
-1. Turn on "Record Mode" in settings
-2. Send requests through the mock server
-3. Real responses are saved as new rules
-
-### Passthrough
-Unmatched requests can be forwarded to the real backend:
-- Enable "Forward unmatched requests" in settings
-- Optionally route passthrough through APInox Proxy
-`
+    Edit the raw JSONC config directly. Useful for advanced tweaks and file watcher paths.
+    `
+            }
+        ]
     },
     {
-        id: 'file-watcher',
-        label: 'File Watcher',
-        icon: Eye,
+        id: 'integrations',
+        label: 'Integrations',
+        icon: Cloud,
+        order: 7,
         content: `
-# File Watcher
+    # Integrations
 
-The File Watcher monitors external processes that write SOAP requests/responses to disk.
+    Connect external services such as Azure DevOps.
+    `,
+        children: [
+            {
+                id: 'integrations-azure-devops',
+                label: 'Azure DevOps',
+                icon: Cloud,
+                order: 1,
+                content: `
+    # Azure DevOps
 
-![Watcher Flow](help/watcher_flow_graphic.png)
+    Configure org URL, store a PAT, and select a project in **Settings → Integrations**.
 
-## Setup
-
-1.  Create a folder named \`.apinox/watch\` in your workspace
-2.  Configure your external application to write:
-    -   Outgoing XML to \`requestXML.xml\`
-    -   Incoming XML to \`responseXML.xml\`
-3.  Click **Start Watcher** in the APInox sidebar
-
-## Functionality
-
-- **Real-time Updates**: The sidebar updates when files change
-- **Smart Naming**: Events are named based on the first child of \`soap:Body\`
-- **Read-Only View**: Watcher items can be inspected but not edited
-- **Debouncing**: Rapid file writes are batched to prevent UI flooding
-`
-    },
-    {
-        id: 'tests-assertions',
-        label: 'Tests & Assertions',
-        icon: FlaskConical,
-        content: `
-# Tests & Assertions
-
-APInox includes a powerful testing framework that allows you to automate and validate your SOAP services.
-
-![Tests Interface](help/tests_interface_screenshot.png)
-
-## Hierarchy
-
-The testing structure is organized as follows:
-
-- **Test Suite**: A logical container for related test cases (e.g., "User Management Tests").
-- **Test Case**: A specific scenario being tested (e.g., "Create User Successfully").
-- **Test Step**: An individual action within a case (e.g., "Login Request", "Create User Request").
-
-## Creating Tests
-
-1.  **From Project**: Click the **+** icon in the Tests sidebar to create a new Test Suite.
-2.  **Add Case**: Add Test Cases to your suite.
-3.  **Add Steps**:
-    -   **Drag & Drop**: Drag operations from the **WSDL Explorer** directly into a Test Case.
-    -   **Manual**: Use the **+** button on a Test Case to add a new Request Step.
-
-## Assertions
-
-Assertions validate that the response matches your expectations. If an assertion fails, the test step fails.
-
-### Adding Assertions
-
-1.  Run a Request Step.
-2.  Switch to the **Assertions** tab in the bottom panel.
-3.  Click **+** to add an assertion.
-
-### Assertion Types
-
--   **XPath Match**: Validates that a specific XML element matches an expected value.
-    -   *Example XPath*: \`//ns1:GetUserResult/ns1:Email\`
-    -   *Example Expectation*: \`test@example.com\`
--   **Contains**: Checks if the response body contains a specific string.
--   **Not Contains**: Checks if the response body does *not* contain a specific string.
--   **Status Code**: Validates the HTTP status code (e.g., 200).
-
-### Smart Assertions
-
-Right-click on any value in the Response Viewer and select **Add Assertion** to automatically generate an XPath assertion for that specific element.
-
-## Variables & Extractors
-
-Variables allow you to pass data between test steps (e.g., capture a Session ID from Step 1 and use it in Step 2).
-
-### Extractors
-Extractors capture data from a response and store it in a variable.
-
-1.  **Create**: In the Response Viewer, select the text you want to capture.
-2.  **Save**: Right-click and choose **Extract to Variable**.
-3.  **Configure**: Give the variable a name (e.g., \`sessionId\`).
-
-### Using Variables
-Use the \`{{variableName}}\` syntax in any Request XML or Header.
-
-*Example*:
-\`\`\`xml
-<soap:Header>
-    <SessionId>{{sessionId}}</SessionId>
-</soap:Header>
-\`\`\`
-
-When the test runs, \`{{sessionId}}\` will be replaced with the value captured by the extractor.
-`
+    When configured, use the **Add to Azure DevOps** action in the request toolbar to post request/response data to a work item.
+    `
+            }
+        ]
     }
 ];
+
+const normalizeSection = (section: any) => ({
+    ...section,
+    content: normalizeContent(section.content),
+    children: section.children
+        ? [...section.children]
+            .sort((a: any, b: any) => (a.order ?? 999) - (b.order ?? 999))
+            .map(normalizeSection)
+        : undefined
+});
+
+export const HELP_SECTIONS = [...HELP_SECTIONS_RAW]
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+    .map(normalizeSection);

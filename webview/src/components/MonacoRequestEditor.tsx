@@ -29,7 +29,7 @@ interface MonacoRequestEditorProps {
     logId?: string; // Debugging ID
 }
 
-interface MonacoRequestEditorHandle {
+export interface MonacoRequestEditorHandle {
     insertText: (text: string) => void;
     getValue: () => string;
 }

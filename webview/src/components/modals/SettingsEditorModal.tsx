@@ -528,7 +528,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                                     formatOnPaste: true,
                                     formatOnType: true
                                 }}
-                                onMount={(editor, monaco) => {
+                                onMount={(_editor, monaco) => {
                                     monacoRef.current = monaco;
                                     applyEditorTheme(monaco);
                                 }}

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { MonacoRequestEditor, MonacoRequestEditorHandle } from '../MonacoRequestEditor';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 
 // Mock monaco-editor
 vi.mock('@monaco-editor/react', () => {
@@ -45,8 +46,18 @@ vi.mock('@monaco-editor/react', () => {
                 revealLine: vi.fn(),
             };
 
+            const mockMonaco = {
+                KeyCode: { Enter: 13 },
+                KeyMod: { CtrlCmd: 2048, KeyC: 33, KeyV: 50, KeyX: 52 },
+                editor: {
+                    defineTheme: vi.fn(),
+                    setTheme: vi.fn(),
+                    setModelLanguage: vi.fn(),
+                }
+            };
+
             if (onMount) {
-                onMount(mockEditor, { KeyCode: {}, KeyMod: {} });
+                onMount(mockEditor, mockMonaco);
             }
         }, [onMount]); // Only run on mount to properly simulate Monaco instance creation
 
@@ -76,10 +87,11 @@ vi.mock('monaco-editor', () => ({
     KeyCode: { Enter: 13 },
     KeyMod: { CtrlCmd: 2048, KeyC: 33, KeyV: 50, KeyX: 52 }
 }));
-vi.mock('../utils/bridge', () => ({
+vi.mock('../../utils/bridge', () => ({
     bridge: {
         sendMessage: vi.fn()
-    }
+    },
+    isVsCode: () => true
 }));
 
 // Mock useWildcardDecorations hook
@@ -98,14 +110,18 @@ describe('MonacoRequestEditor', () => {
         vi.clearAllMocks();
     });
 
+    const renderWithTheme = (ui: React.ReactElement) => render(
+        <ThemeProvider>{ui}</ThemeProvider>
+    );
+
     it('should render correctly', () => {
-        render(<MonacoRequestEditor {...defaultProps} />);
+        renderWithTheme(<MonacoRequestEditor {...defaultProps} />);
         expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
         expect(screen.getByTestId('monaco-editor')).toHaveValue(defaultProps.value);
     });
 
     it('should call onChange when content changes', () => {
-        render(<MonacoRequestEditor {...defaultProps} />);
+        renderWithTheme(<MonacoRequestEditor {...defaultProps} />);
 
         const editor = screen.getByTestId('monaco-editor');
         const newValue = '<request>updated</request>';
@@ -118,7 +134,7 @@ describe('MonacoRequestEditor', () => {
 
     it('should expose insertText method via ref', () => {
         const ref = React.createRef<MonacoRequestEditorHandle>();
-        render(<MonacoRequestEditor {...defaultProps} ref={ref} />);
+        renderWithTheme(<MonacoRequestEditor {...defaultProps} ref={ref} />);
 
         expect(ref.current).not.toBeNull();
         expect(ref.current).toHaveProperty('insertText');
@@ -131,10 +147,14 @@ describe('MonacoRequestEditor', () => {
 
     it('should handle value updates from props', () => {
         // Test that updating props updates the mock editor value
-        const { rerender } = render(<MonacoRequestEditor {...defaultProps} />);
+        const { rerender } = renderWithTheme(<MonacoRequestEditor {...defaultProps} />);
 
         const newValue = '<new>value</new>';
-        rerender(<MonacoRequestEditor {...defaultProps} value={newValue} requestId="new-id" />);
+        rerender(
+            <ThemeProvider>
+                <MonacoRequestEditor {...defaultProps} value={newValue} requestId="new-id" />
+            </ThemeProvider>
+        );
 
         expect(screen.getByTestId('monaco-editor')).toHaveValue(newValue);
     });

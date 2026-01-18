@@ -68,6 +68,19 @@ const Tab = styled.button<{ active: boolean }>`
     }
 `;
 
+  const ChildTab = styled(Tab)`
+    padding-left: 30px;
+    font-size: 12px;
+  `;
+
+  const GroupLabel = styled.div`
+    padding: 10px 15px 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--vscode-descriptionForeground);
+    letter-spacing: 0.5px;
+  `;
+
 const ContentArea = styled.div`
     flex: 1;
     padding: 20px 30px;
@@ -93,10 +106,6 @@ const CloseButton = styled.button`
     &:hover { color: var(--vscode-errorForeground); }
 `;
 
-interface HelpModalProps {
-  onClose: () => void;
-}
-
 import { HELP_SECTIONS } from '../data/helpContent';
 
 interface HelpModalProps {
@@ -105,6 +114,10 @@ interface HelpModalProps {
 }
 
 export const HelpModal: React.FC<HelpModalProps> = ({ onClose, initialSectionId }) => {
+  const allSections = React.useMemo(
+    () => HELP_SECTIONS.flatMap(section => [section, ...(section.children ?? [])]),
+    []
+  );
   const [activeTabId, setActiveTabId] = useState(initialSectionId || HELP_SECTIONS[0].id);
 
   // If initialSectionId changes while modal is open (rare but possible), update tab
@@ -114,7 +127,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose, initialSectionId 
     }
   }, [initialSectionId]);
 
-  const activeSection = HELP_SECTIONS.find(s => s.id === activeTabId) || HELP_SECTIONS[0];
+  const activeSection = allSections.find(s => s.id === activeTabId) || HELP_SECTIONS[0];
 
   return (
     <ModalOverlay onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -128,14 +141,26 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose, initialSectionId 
         <ModalBody>
           <Sidebar>
             {HELP_SECTIONS.map(section => (
-              <Tab
-                key={section.id}
-                active={activeTabId === section.id}
-                onClick={() => setActiveTabId(section.id)}
-              >
-                <section.icon size={16} />
-                {section.label}
-              </Tab>
+              <React.Fragment key={section.id}>
+                <GroupLabel>{section.label}</GroupLabel>
+                <Tab
+                  active={activeTabId === section.id}
+                  onClick={() => setActiveTabId(section.id)}
+                >
+                  <section.icon size={16} />
+                  {section.label}
+                </Tab>
+                {(section.children ?? []).map(child => (
+                  <ChildTab
+                    key={child.id}
+                    active={activeTabId === child.id}
+                    onClick={() => setActiveTabId(child.id)}
+                  >
+                    <child.icon size={14} />
+                    {child.label}
+                  </ChildTab>
+                ))}
+              </React.Fragment>
             ))}
           </Sidebar>
           <ContentArea>

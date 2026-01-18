@@ -6,7 +6,7 @@ import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHea
 import { formatXml } from '@shared/utils/xmlFormatter';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 
-interface ProxyUiProps {
+export interface ProxyUiProps {
     isRunning: boolean;
     config: { port: number, target: string, systemProxyEnabled?: boolean };
     history: WatcherEvent[];
@@ -147,8 +147,8 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                                     onClick={() => onUpdateConfig({ ...config, port: (config.port || 9000) + 1 })}
                                     style={{ padding: '4px 8px', cursor: 'pointer', borderLeft: '1px solid var(--vscode-input-border)', userSelect: 'none' }}
                                 >+</div>
-                            </Content>
-                        </SidebarContainer>
+                            </div>
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingBottom: 1 }}>
                             {!isRunning ? (
                                 <HeaderButton onClick={onStart} style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Start Proxy"><Play size={14} /></HeaderButton>
@@ -353,7 +353,7 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                         ))
                     )}
                 </div>
-            </div>
+            </Content>
 
             {/* Breakpoint Modal */}
             {onUpdateBreakpoints && (
@@ -375,6 +375,6 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                     }}
                 />
             )}
-        </div>
+        </SidebarContainer>
     );
 };
