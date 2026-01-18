@@ -67,6 +67,7 @@ export enum FrontendCommand {
     // Test Runner
     RunTestSuite = 'runTestSuite',
     RunTestCase = 'runTestCase',
+    GetTestRunUpdates = 'getTestRunUpdates',
     PickOperationForTestCase = 'pickOperationForTestCase',
     UpdateTestStep = 'updateTestStep',
 
@@ -82,6 +83,7 @@ export enum FrontendCommand {
     RunPerformanceSuite = 'runPerformanceSuite',
     AbortPerformanceSuite = 'abortPerformanceSuite',
     GetPerformanceHistory = 'getPerformanceHistory',
+        GetPerformanceRunUpdates = 'getPerformanceRunUpdates',
     ImportTestSuiteToPerformance = 'importTestSuiteToPerformance',
     ExportPerformanceResults = 'exportPerformanceResults',
 

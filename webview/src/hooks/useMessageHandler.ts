@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { bridge } from '../utils/bridge';
+import { bridge, isTauri } from '../utils/bridge';
 import { getInitialXml } from '../utils/soapUtils';
 import { BackendCommand, FrontendCommand } from '@shared/messages';
 import {
@@ -320,6 +320,17 @@ export function useMessageHandler(state: MessageHandlerState) {
                 case BackendCommand.Error:
                     debugLog('error', { message: message.message });
                     setLoading(false);
+                    if (
+                        message.originalCommand === FrontendCommand.SaveProject ||
+                        message.originalCommand === FrontendCommand.SyncProjects ||
+                        message.originalCommand === FrontendCommand.SaveOpenProjects ||
+                        message.originalCommand === FrontendCommand.AutoSaveWorkspace ||
+                        message.originalCommand === FrontendCommand.SaveWorkspace
+                    ) {
+                        // Ignore backend save errors for response panel updates
+                        // (prevents wiping response when autosave fails)
+                        break;
+                    }
                     setResponse({ error: message.message });
                     break;
 
@@ -652,10 +663,24 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 // Request History handlers
-                case BackendCommand.HistoryLoaded:
-                    debugLog('historyLoaded', { count: message.entries?.length || 0 });
-                    setRequestHistory(message.entries || []);
+                case BackendCommand.HistoryLoaded: {
+                    const entries = message.entries || [];
+                    debugLog('historyLoaded', { count: entries.length });
+                    if (entries.length === 0 && isTauri()) {
+                        try {
+                            const cached = localStorage.getItem('apinox_history_cache');
+                            const cachedEntries = cached ? JSON.parse(cached) : null;
+                            if (Array.isArray(cachedEntries) && cachedEntries.length > 0) {
+                                setRequestHistory(cachedEntries);
+                                break;
+                            }
+                        } catch (e) {
+                            console.warn('[History] Failed to read cache:', e);
+                        }
+                    }
+                    setRequestHistory(entries);
                     break;
+                }
 
                 case BackendCommand.HistoryUpdate:
                     debugLog('historyUpdate', { entryId: message.entry?.id });

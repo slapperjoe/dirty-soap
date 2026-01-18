@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { Play, Square, Shield, Trash2, FolderOpen, Network, FileCode, FileDown, Bug, Plus, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { WatcherEvent } from '@shared/models';
-import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
+import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { formatXml } from '@shared/utils/xmlFormatter';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 
@@ -27,6 +28,10 @@ export interface ProxyUiProps {
     breakpoints?: Breakpoint[];
     onUpdateBreakpoints?: (breakpoints: Breakpoint[]) => void;
 }
+
+const Content = styled(SidebarContent)`
+    color: var(--vscode-descriptionForeground);
+`;
 
 export const ProxyUi: React.FC<ProxyUiProps> = ({
     isRunning,
@@ -106,12 +111,12 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)', padding: '5px 10px', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: 'bold' }}>Dirty Proxy</div>
-            </div>
+        <SidebarContainer>
+            <SidebarHeader>
+                <SidebarHeaderTitle>Dirty Proxy</SidebarHeaderTitle>
+            </SidebarHeader>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: 10, color: 'var(--vscode-descriptionForeground)' }}>
+            <Content>
                 {/* compact controls */}
                 <div style={{ marginBottom: 15, padding: 10, backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)', borderRadius: 5 }}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 5 }}>
@@ -142,8 +147,8 @@ export const ProxyUi: React.FC<ProxyUiProps> = ({
                                     onClick={() => onUpdateConfig({ ...config, port: (config.port || 9000) + 1 })}
                                     style={{ padding: '4px 8px', cursor: 'pointer', borderLeft: '1px solid var(--vscode-input-border)', userSelect: 'none' }}
                                 >+</div>
-                            </div>
-                        </div>
+                            </Content>
+                        </SidebarContainer>
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingBottom: 1 }}>
                             {!isRunning ? (
                                 <HeaderButton onClick={onStart} style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '5px 8px', height: '28px' }} title="Start Proxy"><Play size={14} /></HeaderButton>

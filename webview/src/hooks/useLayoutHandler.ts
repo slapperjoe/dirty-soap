@@ -4,19 +4,15 @@ import { SidebarView } from '@shared/models';
 interface UseLayoutHandlerProps {
     config: any;
     setConfig: (config: any) => void;
+    layoutMode: 'vertical' | 'horizontal';
     activeView: SidebarView;
     setActiveView: (view: SidebarView) => void;
+    sidebarExpanded: boolean;
+    setSidebarExpanded: (expanded: boolean) => void;
     selectedRequest: any;
-    selectedOperation: any;
-    selectedInterface: any;
-    projects: any[];
-    selectedProjectName: string | null;
-    setSelectedProjectName: (name: string | null) => void;
     setSelectedInterface: (iface: any) => void;
     setSelectedOperation: (op: any) => void;
     setSelectedRequest: (req: any) => void;
-    selectedStep: any;
-    selectedTestCase: any;
     setSelectedTestCase: (tc: any) => void;
     selectedPerformanceSuiteId: string | null;
     setSelectedPerformanceSuiteId: (id: string | null) => void;
@@ -26,31 +22,30 @@ export const useLayoutHandler = ({
     config,
 
     setConfig,
+    layoutMode,
+    activeView,
     setActiveView,
+    sidebarExpanded,
+    setSidebarExpanded,
     selectedRequest,
-    selectedOperation,
-    selectedInterface,
-    projects,
-    selectedProjectName,
-    setSelectedProjectName,
     setSelectedInterface,
     setSelectedOperation,
     setSelectedRequest,
-    selectedStep,
-    selectedTestCase,
     setSelectedTestCase,
     selectedPerformanceSuiteId,
     setSelectedPerformanceSuiteId
 }: UseLayoutHandlerProps) => {
     const [isResizing, setIsResizing] = useState(false);
 
-    // Split Ratio (default 20%)
-    const [splitRatio, setSplitRatioState] = useState(20);
+    // Split Ratio (default 50%)
+    const [splitRatio, setSplitRatioState] = useState(0.5);
 
     // Sync split ratio with config
     useEffect(() => {
-        if (config?.ui?.sidebarWidth) {
-            setSplitRatioState(config.ui.sidebarWidth);
+        if (config?.ui?.splitRatio !== undefined) {
+            const rawRatio = config.ui.splitRatio;
+            const normalized = rawRatio > 1 ? rawRatio / 100 : rawRatio;
+            setSplitRatioState(Math.min(0.8, Math.max(0.2, normalized)));
         }
     }, [config]);
 
@@ -64,7 +59,7 @@ export const useLayoutHandler = ({
     const stopResizing = useCallback(() => {
         setIsResizing(false);
         if (config) {
-            const newConfig = { ...config, ui: { ...config?.ui, sidebarWidth: splitRatio } };
+            const newConfig = { ...config, ui: { ...config?.ui, splitRatio } };
             setConfig(newConfig);
         }
     }, [config, splitRatio, setConfig]);
@@ -72,90 +67,75 @@ export const useLayoutHandler = ({
     const resize = useCallback(
         (e: MouseEvent) => {
             if (isResizing) {
-                const newWidth = (e.clientX / window.innerWidth) * 100;
-                if (newWidth > 10 && newWidth < 50) {
-                    setSplitRatio(newWidth);
-                }
+                const base = layoutMode === 'horizontal' ? window.innerWidth : window.innerHeight;
+                const position = layoutMode === 'horizontal' ? e.clientX : e.clientY;
+                const ratio = base > 0 ? position / base : 0.5;
+                const clamped = Math.min(0.8, Math.max(0.2, ratio));
+                setSplitRatio(clamped);
             }
         },
-        [isResizing, setSplitRatio]
+        [isResizing, layoutMode, setSplitRatio]
     );
 
     useEffect(() => {
         if (isResizing) {
             window.addEventListener('mousemove', resize);
             window.addEventListener('mouseup', stopResizing);
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = layoutMode === 'horizontal' ? 'col-resize' : 'row-resize';
         }
         return () => {
             window.removeEventListener('mousemove', resize);
             window.removeEventListener('mouseup', stopResizing);
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
         };
-    }, [isResizing, resize, stopResizing]);
-
-    // Layout Mode (Sidebar/Top)
-    const layoutMode = config?.ui?.layoutMode || 'sidebar';
+    }, [isResizing, layoutMode, resize, stopResizing]);
 
     // Auto-select logic when switching views
     const handleSetActiveViewWrapper = useCallback((view: SidebarView) => {
+        if (view === activeView) {
+            setSidebarExpanded(!sidebarExpanded);
+            return;
+        }
+
         setActiveView(view);
+        setSidebarExpanded(true);
+
+        // Always clear request to avoid leaking request editor across tabs
+        if (selectedRequest) {
+            setSelectedRequest(null);
+        }
+
+        if (view === SidebarView.HOME) {
+            setSelectedOperation(null);
+            setSelectedInterface(null);
+            setSelectedTestCase(null);
+            setSelectedPerformanceSuiteId(null);
+            return;
+        }
 
         if (view === SidebarView.PROJECTS || view === SidebarView.EXPLORER) {
-            // If nothing selected, select the first available item deep-first
-            if (!selectedRequest && !selectedOperation && !selectedInterface && projects.length > 0) {
-                const p = projects[0];
-                // Always ensure project is selected if none
-                if (!selectedProjectName) setSelectedProjectName(p.name);
+            setSelectedTestCase(null);
+            setSelectedPerformanceSuiteId(null);
+            return;
+        }
 
-                // If nothing else is selected, drill down
-                if (!selectedInterface && !selectedOperation && !selectedRequest) {
-                    if (p.interfaces?.length > 0) {
-                        const i = p.interfaces[0];
-                        setSelectedInterface(i);
-                        if (i.operations?.length > 0) {
-                            const o = i.operations[0];
-                            setSelectedOperation(o);
-                            if (o.requests?.length > 0) {
-                                setSelectedRequest(o.requests[0]);
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (view === SidebarView.TESTS) {
-            // Clear workspace request to prevent bleed-through
-            setSelectedRequest(null);
+        if (view === SidebarView.TESTS) {
+            setSelectedPerformanceSuiteId(null);
+            return;
+        }
 
-            if (!selectedTestCase && !selectedStep) {
-                for (const p of projects) {
-                    if (p.testSuites?.length) {
-                        const suite = p.testSuites[0];
-                        if (suite.testCases?.length) {
-                            setSelectedTestCase(suite.testCases[0]);
-                            break;
-                        }
-                    }
-                }
-            }
-        } else if (view === SidebarView.PERFORMANCE) {
-            // Clear workspace request to prevent bleed-through
-            setSelectedRequest(null);
-
-            if (!selectedPerformanceSuiteId && config?.performanceSuites?.length) {
-                setSelectedPerformanceSuiteId(config.performanceSuites[0].id);
-            }
+        if (view === SidebarView.PERFORMANCE) {
+            setSelectedTestCase(null);
         }
     }, [
+        activeView,
+        sidebarExpanded,
         setActiveView,
         selectedRequest,
-        selectedOperation,
-        selectedInterface,
-        projects,
-        selectedProjectName,
-        selectedTestCase,
-        selectedStep,
         selectedPerformanceSuiteId,
-        config?.performanceSuites,
-        setSelectedProjectName,
+        setSidebarExpanded,
         setSelectedInterface,
         setSelectedOperation,
         setSelectedRequest,
@@ -166,7 +146,6 @@ export const useLayoutHandler = ({
     return {
         isResizing,
         splitRatio,
-        layoutMode,
         startResizing,
         stopResizing,
         resize,

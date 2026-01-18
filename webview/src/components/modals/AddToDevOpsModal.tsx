@@ -56,7 +56,7 @@ const CloseButton = styled.button`
     background: transparent;
     border: none;
     cursor: pointer;
-    color: var(--vscode-foreground);
+    color: var(--vscode-icon-foreground);
     display: flex;
     padding: 4px;
     &:hover {

@@ -92,6 +92,21 @@ export const Button = styled.button`
   }
 `;
 
+const IconButton = styled.button`
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--vscode-icon-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  &:hover {
+    background: var(--vscode-toolbar-hoverBackground);
+  }
+`;
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -111,7 +126,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       <ModalContent width={width}>
         <ModalHeader>
           <ModalTitle>{title}</ModalTitle>
-          <Button onClick={onClose} style={{ background: 'transparent' }}><X size={16} /></Button>
+          <IconButton onClick={onClose} title="Close"><X size={16} /></IconButton>
         </ModalHeader>
         <ModalBody>
           {children}

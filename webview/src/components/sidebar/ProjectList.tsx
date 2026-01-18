@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { Plus, FolderPlus, ChevronDown, ChevronRight, Trash2, Lock, Save } from 'lucide-react';
 import { ApinoxProject, ApiInterface, ApiOperation, ApiRequest } from '@shared/models';
-import { HeaderButton, OperationItem } from './shared/SidebarStyles';
+import { HeaderButton, OperationItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { ServiceTree } from './ServiceTree';
 import { FolderTree } from './FolderTree';
 import { ContextMenu, ContextMenuItem } from '../../styles/App.styles';
@@ -49,6 +50,56 @@ export interface ProjectListProps {
     setDeleteConfirm: (id: string | null) => void;
     onRefreshInterface?: (projectName: string, interfaceName: string) => void;
 }
+
+const ProjectContainer = styled(SidebarContainer)`
+    overflow: hidden;
+`;
+
+const ProjectContent = styled(SidebarContent)`
+    overflow-y: auto;
+`;
+
+const ProjectRow = styled(OperationItem)`
+    font-weight: bold;
+    padding-left: 5px;
+`;
+
+const ProjectToggle = styled.span`
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+`;
+
+const RenameInput = styled.input`
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    margin-left: 5px;
+    flex: 1;
+`;
+
+const ProjectName = styled.span`
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-left: 5px;
+`;
+
+const SaveButton = styled(HeaderButton)`
+    color: var(--vscode-charts-orange);
+`;
+
+const ReadOnlyIcon = styled(Lock)`
+    opacity: 0.5;
+    margin-left: 5px;
+`;
+
+const MenuSeparator = styled.div`
+    height: 1px;
+    background-color: var(--vscode-menu-separatorBackground);
+    margin: 4px 0;
+`;
 
 export const ProjectList: React.FC<ProjectListProps> = ({
     projects,
@@ -170,26 +221,16 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'hidden' }} onClick={closeLocalContextMenu}>
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)',
-                padding: '5px 10px',
-                flexShrink: 0
-            }}>
-                <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1 }}>
-                    Workspace
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+        <ProjectContainer onClick={closeLocalContextMenu}>
+            <SidebarHeader>
+                <SidebarHeaderTitle>Workspace</SidebarHeaderTitle>
+                <SidebarHeaderActions>
                     <HeaderButton onClick={onAddProject} title="New Project"><Plus size={16} /></HeaderButton>
-                    <div style={{ width: 10 }}></div>
                     <HeaderButton onClick={loadProject} title="Add Project"><FolderPlus size={16} /></HeaderButton>
-                </div>
-            </div>
+                </SidebarHeaderActions>
+            </SidebarHeader>
 
-            <div style={{ padding: 10, flex: 1, overflowY: 'auto' }}>
+            <ProjectContent>
                 {(() => {
                     const sortedProjects = [...projects].sort((a, b) => {
                         if (a.readOnly && !b.readOnly) return 1;
@@ -206,7 +247,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
                         return (
                             <div key={proj.id || pIdx}>
-                                <OperationItem
+                                <ProjectRow
                                     $active={isProjectActive}
                                     onClick={() => {
                                         // Select project, clear interface/operation/request
@@ -216,17 +257,15 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                         setSelectedRequest(null);
                                     }}
                                     onContextMenu={(e) => handleLocalContextMenu(e, 'project', proj)}
-                                    style={{ fontWeight: 'bold', paddingLeft: 5 }}
                                 >
-                                    <span
+                                    <ProjectToggle
                                         onClick={(e) => { e.stopPropagation(); toggleProjectExpand(proj.name); }}
-                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                     >
                                         {(proj as any).expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                    </span>
+                                    </ProjectToggle>
 
                                     {isRenaming ? (
-                                        <input
+                                        <RenameInput
                                             type="text"
                                             value={renameName}
                                             onChange={(e) => setRenameName(e.target.value)}
@@ -241,32 +280,26 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                             }}
                                             autoFocus
                                             onClick={(e) => e.stopPropagation()}
-                                            style={{
-                                                background: 'var(--vscode-input-background)',
-                                                color: 'var(--vscode-input-foreground)',
-                                                border: '1px solid var(--vscode-input-border)',
-                                                marginLeft: 5,
-                                                flex: 1
-                                            }}
+                                            title="Rename project"
+                                            placeholder="Project name"
                                         />
                                     ) : (
-                                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 5 }}>
+                                        <ProjectName>
                                             {proj.name || (proj as any).fileName}
-                                        </span>
+                                        </ProjectName>
                                     )}
 
                                     {/* Unsaved Project: Show Manual Save Button (Required for first save) */}
                                     {(!(proj as any).fileName) && !isRenaming && !isReadOnly && (
-                                        <HeaderButton
+                                        <SaveButton
                                             onClick={(e) => { e.stopPropagation(); saveProject(proj); }}
                                             title="Save Project (Required for Auto-Save)"
-                                            style={{ color: 'var(--vscode-charts-orange)' }}
                                         >
                                             <Save size={14} />
-                                        </HeaderButton>
+                                        </SaveButton>
                                     )}
 
-                                    {isReadOnly && <Lock size={12} style={{ opacity: 0.5, marginLeft: 5 }} />}
+                                    {isReadOnly && <ReadOnlyIcon size={12} />}
 
                                     {/* Add Folder button - only on selected project */}
                                     {isProjectActive && onAddFolder && !isRenaming && !isReadOnly && (
@@ -299,7 +332,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                             <Trash2 size={14} />
                                         </HeaderButton>
                                     )}
-                                </OperationItem>
+                                </ProjectRow>
                                 {(proj as any).expanded && (
                                     <>
                                         {/* Interfaces */}
@@ -363,7 +396,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                                 folders={proj.folders}
                                                 projectName={proj.name}
                                                 selectedFolderId={selectedFolderId}
-                                                setSelectedFolderId={setSelectedFolderId}
                                                 selectedRequest={selectedRequest}
                                                 setSelectedRequest={setSelectedRequest}
                                                 setSelectedProjectName={setSelectedProjectName}
@@ -397,7 +429,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         );
                     })
                 })()}
-            </div>
+            </ProjectContent>
 
             {/* Local Context Menu */}
             {localContextMenu && (
@@ -416,7 +448,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
                     {localContextMenu.type === 'interface' && onRefreshInterface && (
                         <>
-                            <div style={{ height: 1, backgroundColor: 'var(--vscode-menu-separatorBackground)', margin: '4px 0' }}></div>
+                            <MenuSeparator />
                             <ContextMenuItem onClick={() => {
                                 // We need project name. 
                                 // `data` is ApiInterface. We need parent project.
@@ -447,6 +479,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         */}
                 </ContextMenu>
             )}
-        </div>
+        </ProjectContainer>
     );
 };

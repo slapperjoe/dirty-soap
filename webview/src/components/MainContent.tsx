@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import styled from 'styled-components';
 import { Container, ContextMenu, ContextMenuItem } from '../styles/App.styles';
-import { bridge, isVsCode } from '../utils/bridge';
+import { bridge, isVsCode, isTauri } from '../utils/bridge';
 import { updateProjectWithRename } from '../utils/projectUtils';
 import { Sidebar } from './Sidebar';
 import { WorkspaceLayout } from './WorkspaceLayout';
@@ -17,8 +18,9 @@ import { CreateReplaceRuleModal } from './modals/CreateReplaceRuleModal';
 import { AddToDevOpsModal } from './modals/AddToDevOpsModal';
 import { AddToProjectModal } from './modals/AddToProjectModal';
 import { WsdlSyncModal } from './modals/WsdlSyncModal';
+import { PickRequestModal, PickRequestItem } from './modals/PickRequestModal';
 import { ApiRequest, TestCase, TestStep, SidebarView, ReplaceRule, RequestHistoryEntry, WsdlDiff } from '@shared/models';
-import { FrontendCommand } from '@shared/messages';
+import { BackendCommand, FrontendCommand } from '@shared/messages';
 import { useMessageHandler } from '../hooks/useMessageHandler';
 import { useProject } from '../contexts/ProjectContext';
 import { useSelection } from '../contexts/SelectionContext';
@@ -40,6 +42,88 @@ interface ConfirmationState {
     message: string;
     onConfirm: () => void;
 }
+
+const ImportModalOverlay = styled.div`
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+`;
+
+const ImportModalContainer = styled.div`
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 6px;
+    padding: 20px;
+    min-width: 400px;
+    max-width: 600px;
+    max-height: 70vh;
+    overflow: auto;
+`;
+
+const ImportModalTitle = styled.h3`
+    margin: 0 0 15px 0;
+`;
+
+const ImportModalDescription = styled.p`
+    margin-bottom: 15px;
+    opacity: 0.8;
+    font-size: 0.9em;
+`;
+
+const ImportModalList = styled.div`
+    max-height: 300px;
+    overflow: auto;
+    margin-bottom: 15px;
+`;
+
+const ImportModalItem = styled.div`
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    background: var(--vscode-list-hoverBackground);
+    cursor: pointer;
+    border: 1px solid var(--vscode-widget-border);
+`;
+
+const ImportModalItemTitle = styled.div`
+    font-weight: bold;
+`;
+
+const ImportModalItemMeta = styled.div`
+    font-size: 0.85em;
+    opacity: 0.7;
+`;
+
+const ImportModalItemCount = styled.div`
+    font-size: 0.8em;
+    opacity: 0.5;
+`;
+
+const ImportModalEmpty = styled.div`
+    padding: 20px;
+    text-align: center;
+    opacity: 0.6;
+`;
+
+const ImportModalCancel = styled.button`
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+`;
+
+const DangerMenuItem = styled(ContextMenuItem)`
+    color: var(--vscode-errorForeground);
+`;
 
 
 
@@ -196,7 +280,9 @@ export function MainContent() {
     // ==========================================================================
     const {
         activeView,
-        setActiveView
+        setActiveView,
+        sidebarExpanded,
+        setSidebarExpanded
     } = useNavigation();
 
     const {
@@ -597,6 +683,14 @@ export function MainContent() {
         });
     };
 
+    const handleAddPerformanceRequestForUi = (suiteId: string) => {
+        if (isTauri()) {
+            setPickRequestModal({ open: true, mode: 'performance', caseId: null, suiteId });
+            return;
+        }
+        handleAddPerformanceRequest(suiteId);
+    };
+
     const sidebarPerformanceProps = {
         suites: config?.performanceSuites || [],
         onAddSuite: handleAddPerformanceSuite,
@@ -608,7 +702,8 @@ export function MainContent() {
         activeRunId,
         selectedSuiteId: selectedPerformanceSuite?.id,
         deleteConfirm,
-        setDeleteConfirm
+        setDeleteConfirm,
+        onAddRequest: handleAddPerformanceRequestForUi
     };
 
     // Extractor Modal State (needed before useWorkspaceCallbacks)
@@ -742,20 +837,84 @@ export function MainContent() {
         setProxyHistory,
         setWatcherHistory,
         config,
-        setExtractorModal
+        setExtractorModal,
+        onPickRequestForTestCase: (caseId) => {
+            setPickRequestModal({ open: true, mode: 'testcase', caseId, suiteId: null });
+        }
     });
 
     // Modals (remaining)
     const [confirmationModal, setConfirmationModal] = useState<ConfirmationState | null>(null);
     const [addToTestCaseModal, setAddToTestCaseModal] = React.useState<{ open: boolean, request: ApiRequest | null }>({ open: false, request: null });
+    const [pickRequestModal, setPickRequestModal] = React.useState<{ open: boolean, mode: 'testcase' | 'performance', caseId: string | null, suiteId: string | null }>({ open: false, mode: 'testcase', caseId: null, suiteId: null });
     const [sampleModal, setSampleModal] = React.useState<{ open: boolean, schema: any | null, operationName: string }>({ open: false, schema: null, operationName: '' });
 
     const [replaceRuleModal, setReplaceRuleModal] = React.useState<{ open: boolean, xpath: string, matchText: string, target: 'request' | 'response' }>({ open: false, xpath: '', matchText: '', target: 'response' });
     const [importToPerformanceModal, setImportToPerformanceModal] = React.useState<{ open: boolean, suiteId: string | null }>({ open: false, suiteId: null });
 
+    const pickRequestItems = useMemo<PickRequestItem[]>(() => {
+        const items: PickRequestItem[] = [];
+
+        const addOperationItems = (project: any) => {
+            if (!project.interfaces) return;
+            project.interfaces.forEach((iface: any) => {
+                iface.operations?.forEach((op: any) => {
+                    items.push({
+                        id: `${project.id || project.name}-op-${op.name}`,
+                        label: op.name,
+                        description: `${project.name} > ${iface.name}`,
+                        detail: op.originalEndpoint || 'WSDL Operation',
+                        type: 'operation',
+                        data: op
+                    });
+                });
+            });
+        };
+
+        const traverseFolders = (project: any, folders: any[], parentPath: string) => {
+            folders.forEach(folder => {
+                const currentPath = parentPath ? `${parentPath} / ${folder.name}` : folder.name;
+                if (folder.requests) {
+                    folder.requests.forEach((req: any) => {
+                        if (!req) return;
+                        items.push({
+                            id: `${project.id || project.name}-req-${req.id || req.name}`,
+                            label: req.name,
+                            description: `${project.name} > ${currentPath}`,
+                            detail: req.endpoint || 'Request',
+                            type: 'request',
+                            data: req
+                        });
+                    });
+                }
+                if (folder.folders) {
+                    traverseFolders(project, folder.folders, currentPath);
+                }
+            });
+        };
+
+        projects.forEach((project: any) => {
+            addOperationItems(project);
+            if (project.folders) {
+                traverseFolders(project, project.folders, '');
+            }
+        });
+
+        return items;
+    }, [projects]);
+
     // Workspace State
     const [changelog, setChangelog] = useState<string>('');
     const [requestHistory, setRequestHistory] = useState<RequestHistoryEntry[]>([]);
+
+    useEffect(() => {
+        if (!isTauri()) return;
+        try {
+            localStorage.setItem('apinox_history_cache', JSON.stringify(requestHistory));
+        } catch (e) {
+            console.warn('[History] Failed to cache history:', e);
+        }
+    }, [requestHistory]);
 
     const handleRefreshWsdl = useCallback((projectName: string, interfaceName: string) => {
         bridge.sendMessage({
@@ -789,19 +948,15 @@ export function MainContent() {
     } = useLayoutHandler({
         config,
         setConfig,
+        layoutMode,
         activeView,
+        sidebarExpanded,
+        setSidebarExpanded,
         setActiveView,
         selectedRequest,
-        selectedOperation,
-        selectedInterface,
-        projects,
-        selectedProjectName,
-        setSelectedProjectName,
         setSelectedInterface,
         setSelectedOperation,
         setSelectedRequest,
-        selectedStep,
-        selectedTestCase,
         setSelectedTestCase,
         selectedPerformanceSuiteId,
         setSelectedPerformanceSuiteId
@@ -1109,7 +1264,7 @@ export function MainContent() {
                 }}
                 performanceProps={{
                     ...sidebarPerformanceProps,
-                    onAddRequest: handleAddPerformanceRequest,
+                    onAddRequest: handleAddPerformanceRequestForUi,
                     onDeleteRequest: handleDeletePerformanceRequest,
                     onSelectRequest: handleSelectPerformanceRequest,
                     onUpdateRequest: handleUpdatePerformanceRequest,
@@ -1173,6 +1328,7 @@ export function MainContent() {
                 }}
                 activeView={activeView}
                 onChangeView={handleSetActiveViewWrapper}
+                sidebarExpanded={sidebarExpanded}
                 backendConnected={backendConnected}
                 workspaceDirty={workspaceDirty}
                 showBackendStatus={!isVsCode()}
@@ -1282,7 +1438,7 @@ export function MainContent() {
                     onOpenDevOps: () => setShowDevOpsModal(true)
                 }}
                 onUpdateSuite={handleUpdatePerformanceSuite}
-                onAddPerformanceRequest={handleAddPerformanceRequest}
+                onAddPerformanceRequest={handleAddPerformanceRequestForUi}
                 onDeletePerformanceRequest={handleDeletePerformanceRequest}
                 onSelectPerformanceRequest={handleSelectPerformanceRequest}
                 onUpdatePerformanceRequest={handleUpdatePerformanceRequest}
@@ -1393,7 +1549,7 @@ export function MainContent() {
                                         closeContextMenu();
                                     }
                                 }}>Add to Test Case</ContextMenuItem>
-                                <ContextMenuItem onClick={() => handleDeleteRequest()} style={{ color: 'var(--vscode-errorForeground)' }}>Delete</ContextMenuItem>
+                                <DangerMenuItem onClick={() => handleDeleteRequest()}>Delete</DangerMenuItem>
                             </>
                         )}
                         {(contextMenu.type === 'operation') && (
@@ -1519,6 +1675,37 @@ export function MainContent() {
                 )
             }
 
+            {pickRequestModal.open && (
+                <PickRequestModal
+                    isOpen={pickRequestModal.open}
+                    items={pickRequestItems}
+                    title={pickRequestModal.mode === 'performance' ? 'Add Request to Performance Suite' : 'Add Request to Test Case'}
+                    onClose={() => setPickRequestModal({ open: false, mode: 'testcase', caseId: null, suiteId: null })}
+                    onSelect={(item) => {
+                        if (pickRequestModal.mode === 'performance') {
+                            const suiteId = pickRequestModal.suiteId;
+                            if (!suiteId) return;
+                            bridge.emit({
+                                command: BackendCommand.AddOperationToPerformance,
+                                suiteId,
+                                ...(item.type === 'request' ? { request: item.data } : { operation: item.data })
+                            });
+                            setPickRequestModal({ open: false, mode: 'testcase', caseId: null, suiteId: null });
+                            return;
+                        }
+
+                        const caseId = pickRequestModal.caseId;
+                        if (!caseId) return;
+                        bridge.emit({
+                            command: BackendCommand.AddStepToCase,
+                            caseId,
+                            ...(item.type === 'request' ? { request: item.data } : { operation: item.data })
+                        });
+                        setPickRequestModal({ open: false, mode: 'testcase', caseId: null, suiteId: null });
+                    }}
+                />
+            )}
+
             {/* Confirmation Modal */}
             <ConfirmationModal
                 isOpen={!!confirmationModal}
@@ -1533,18 +1720,11 @@ export function MainContent() {
 
             {/* Import to Performance Suite Modal */}
             {importToPerformanceModal.open && importToPerformanceModal.suiteId && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
-                    <div style={{
-                        background: 'var(--vscode-editor-background)',
-                        border: '1px solid var(--vscode-widget-border)',
-                        borderRadius: 6, padding: 20, minWidth: 400, maxWidth: 600, maxHeight: '70vh', overflow: 'auto'
-                    }}>
-                        <h3 style={{ margin: '0 0 15px 0' }}>Import Test Case to Performance Suite</h3>
-                        <p style={{ marginBottom: 15, opacity: 0.8, fontSize: '0.9em' }}>Select a test case to import. All request steps from the test case will be added to this performance suite.</p>
-                        <div style={{ maxHeight: 300, overflow: 'auto', marginBottom: 15 }}>
+                <ImportModalOverlay>
+                    <ImportModalContainer>
+                        <ImportModalTitle>Import Test Case to Performance Suite</ImportModalTitle>
+                        <ImportModalDescription>Select a test case to import. All request steps from the test case will be added to this performance suite.</ImportModalDescription>
+                        <ImportModalList>
                             {projects.flatMap(p =>
                                 (p.testSuites || []).flatMap(suite =>
                                     (suite.testCases || []).map(tc => ({
@@ -1556,11 +1736,7 @@ export function MainContent() {
                                     }))
                                 )
                             ).map((item, idx) => (
-                                <div key={idx} style={{
-                                    padding: '10px', marginBottom: 5, borderRadius: 4,
-                                    background: 'var(--vscode-list-hoverBackground)',
-                                    cursor: 'pointer', border: '1px solid var(--vscode-widget-border)'
-                                }} onClick={() => {
+                                <ImportModalItem key={idx} onClick={() => {
                                     // Import all request steps from the test case
                                     const requestSteps = (item.testCase.steps || []).filter(s => s.type === 'request');
                                     if (requestSteps.length > 0) {
@@ -1581,22 +1757,18 @@ export function MainContent() {
                                     }
                                     setImportToPerformanceModal({ open: false, suiteId: null });
                                 }}>
-                                    <div style={{ fontWeight: 'bold' }}>{item.testCase.name}</div>
-                                    <div style={{ fontSize: '0.85em', opacity: 0.7 }}>{item.projectName} → {item.suiteName}</div>
-                                    <div style={{ fontSize: '0.8em', opacity: 0.5 }}>{item.stepCount} request step{item.stepCount !== 1 ? 's' : ''}</div>
-                                </div>
+                                    <ImportModalItemTitle>{item.testCase.name}</ImportModalItemTitle>
+                                    <ImportModalItemMeta>{item.projectName} → {item.suiteName}</ImportModalItemMeta>
+                                    <ImportModalItemCount>{item.stepCount} request step{item.stepCount !== 1 ? 's' : ''}</ImportModalItemCount>
+                                </ImportModalItem>
                             ))}
                             {projects.flatMap(p => (p.testSuites || []).flatMap(s => s.testCases || [])).length === 0 && (
-                                <div style={{ padding: 20, textAlign: 'center', opacity: 0.6 }}>No test cases available. Create a test suite first.</div>
+                                <ImportModalEmpty>No test cases available. Create a test suite first.</ImportModalEmpty>
                             )}
-                        </div>
-                        <button onClick={() => setImportToPerformanceModal({ open: false, suiteId: null })} style={{
-                            background: 'var(--vscode-button-secondaryBackground)',
-                            color: 'var(--vscode-button-secondaryForeground)',
-                            border: 'none', padding: '8px 16px', borderRadius: 4, cursor: 'pointer'
-                        }}>Cancel</button>
-                    </div>
-                </div>
+                        </ImportModalList>
+                        <ImportModalCancel onClick={() => setImportToPerformanceModal({ open: false, suiteId: null })}>Cancel</ImportModalCancel>
+                    </ImportModalContainer>
+                </ImportModalOverlay>
             )}
             {/* Extractor Modal */}
             <ExtractorModal

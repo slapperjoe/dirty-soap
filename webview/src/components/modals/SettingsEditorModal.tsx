@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import Editor from '@monaco-editor/react';
+import Editor, { Monaco } from '@monaco-editor/react';
 import { X, Save, AlertTriangle, Settings, FileJson, Server, Globe, Replace, Cloud, Network } from 'lucide-react';
 import { GeneralTab, EnvironmentsTab, GlobalsTab, ReplaceRulesTab, IntegrationsTab, ServerTab, ApinoxConfig, ReplaceRuleSettings } from './settings';
 import { bridge } from '../../utils/bridge';
 import { ServerConfig } from '@shared/models';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const ModalOverlay = styled.div`
     position: fixed;
@@ -46,14 +47,16 @@ const Title = styled.h2`
     text-transform: uppercase;
 `;
 
-const Button = styled.button`
+const IconButton = styled.button`
     background: transparent;
     border: none;
     cursor: pointer;
-    color: var(--vscode-button-foreground);
+    color: var(--vscode-icon-foreground);
     display: flex;
     align-items: center;
+    justify-content: center;
     padding: 4px;
+    border-radius: 4px;
     &:hover {
         background: var(--vscode-toolbar-hoverBackground);
     }
@@ -138,6 +141,9 @@ interface SettingsEditorModalProps {
 }
 
 export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawConfig, onClose, onSave, initialTab }) => {
+    const { theme } = useTheme();
+    const monacoRef = useRef<Monaco | null>(null);
+    const [editorTheme, setEditorTheme] = useState<string>('vs-dark');
     const [activeTab, setActiveTab] = useState<SettingsTab>(
         (initialTab as SettingsTab) || SettingsTab.GUI
     );
@@ -160,6 +166,42 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
         mockRules: [],
         passthroughEnabled: true
     });
+
+    const applyEditorTheme = (monacoInstance: Monaco) => {
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) => {
+            const value = getComputedStyle(root).getPropertyValue(name).trim();
+            return value || fallback;
+        };
+
+        const isLight = theme.includes('light');
+        const themeId = `apinox-${theme}`;
+
+        monacoInstance.editor.defineTheme(themeId, {
+            base: isLight ? 'vs' : 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+                'editor.background': getVar('--vscode-editor-background', isLight ? '#ffffff' : '#1e1e1e'),
+                'editor.foreground': getVar('--vscode-editor-foreground', isLight ? '#000000' : '#d4d4d4'),
+                'editor.selectionBackground': getVar('--vscode-editor-selectionBackground', isLight ? '#add6ff' : '#264f78'),
+                'editor.lineHighlightBackground': getVar('--vscode-editor-lineHighlightBackground', 'transparent'),
+                'editorCursor.foreground': getVar('--vscode-editorCursor-foreground', isLight ? '#000000' : '#ffffff'),
+                'editorLineNumber.foreground': getVar('--vscode-editorLineNumber-foreground', isLight ? '#999999' : '#858585'),
+                'editorLineNumber.activeForeground': getVar('--vscode-editorLineNumber-activeForeground', isLight ? '#000000' : '#c6c6c6'),
+                'editorWhitespace.foreground': getVar('--vscode-editorWhitespace-foreground', isLight ? '#d3d3d3' : '#404040')
+            }
+        });
+
+        monacoInstance.editor.setTheme(themeId);
+        setEditorTheme(themeId);
+    };
+
+    useEffect(() => {
+        if (monacoRef.current) {
+            applyEditorTheme(monacoRef.current);
+        }
+    }, [theme]);
 
     // Initial Parse
     useEffect(() => {
@@ -365,7 +407,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
             <ModalContent>
                 <ModalHeader>
                     <Title>Settings</Title>
-                    <Button onClick={onClose}><X size={16} /></Button>
+                    <IconButton onClick={onClose} title="Close"><X size={16} /></IconButton>
                 </ModalHeader>
 
                 <TabContainer>
@@ -477,7 +519,7 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                             <Editor
                                 height="100%"
                                 language="json"
-                                theme="vs-dark"
+                                theme={editorTheme}
                                 value={jsonContent}
                                 onChange={(val) => setJsonContent(val || '')}
                                 options={{
@@ -485,6 +527,10 @@ export const SettingsEditorModal: React.FC<SettingsEditorModalProps> = ({ rawCon
                                     automaticLayout: true,
                                     formatOnPaste: true,
                                     formatOnType: true
+                                }}
+                                onMount={(editor, monaco) => {
+                                    monacoRef.current = monaco;
+                                    applyEditorTheme(monaco);
                                 }}
                             />
                         </>

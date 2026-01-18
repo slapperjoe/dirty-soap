@@ -4,9 +4,10 @@
  */
 
 import React from 'react';
+import styled, { css } from 'styled-components';
 import { Plus, ChevronDown, ChevronRight, Folder, FolderOpen, Trash2, FileJson } from 'lucide-react';
 import { RestCollection, RestFolder, ApiRequest } from '@shared/models';
-import { HeaderButton, OperationItem } from './shared/SidebarStyles';
+import { HeaderButton, OperationItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle, shake } from './shared/SidebarStyles';
 
 export interface CollectionListProps {
     collections: RestCollection[];
@@ -35,6 +36,123 @@ export interface CollectionListProps {
     setDeleteConfirm: (id: string | null) => void;
 }
 
+const CollectionContainer = styled(SidebarContainer)`
+    overflow: hidden;
+`;
+
+const CollectionContent = styled(SidebarContent)`
+    overflow-y: auto;
+`;
+
+const RequestRow = styled(OperationItem)<{ $isDeleting: boolean; $isSelected: boolean }>`
+    padding-left: 28px;
+    background-color: ${props => props.$isDeleting
+        ? 'var(--vscode-inputValidation-errorBackground)'
+        : props.$isSelected
+            ? 'var(--vscode-list-activeSelectionBackground)'
+            : 'transparent'};
+    color: ${props => props.$isDeleting
+        ? 'var(--vscode-errorForeground)'
+        : props.$isSelected
+            ? 'var(--vscode-list-activeSelectionForeground)'
+            : 'inherit'};
+    ${props => props.$isDeleting && css`animation: ${shake} 0.3s ease-in-out;`}
+`;
+
+const RequestIcon = styled(FileJson)`
+    margin-right: 6px;
+    opacity: 0.7;
+`;
+
+const MethodBadge = styled.span<{ $color: string }>`
+    font-size: 10px;
+    font-weight: 600;
+    margin-right: 6px;
+    color: ${props => props.$color};
+`;
+
+const RequestName = styled.span`
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const RequestDelete = styled(Trash2)`
+    opacity: 0.5;
+    margin-left: 4px;
+    cursor: pointer;
+`;
+
+const FolderRow = styled(OperationItem)<{ $level: number }>`
+    padding-left: ${props => 12 + props.$level * 12}px;
+`;
+
+const FolderIcon = styled(Folder)`
+    margin-left: 4px;
+`;
+
+const FolderOpenIcon = styled(FolderOpen)`
+    margin-left: 4px;
+`;
+
+const FolderName = styled.span`
+    margin-left: 6px;
+    font-weight: 500;
+`;
+
+const EmptyCollections = styled.div`
+    opacity: 0.6;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+`;
+
+const CollectionRow = styled(OperationItem)<{ $isDeleting: boolean; $isSelected: boolean }>`
+    font-weight: bold;
+    background-color: ${props => props.$isDeleting
+        ? 'var(--vscode-inputValidation-errorBackground)'
+        : props.$isSelected
+            ? 'var(--vscode-list-activeSelectionBackground)'
+            : 'transparent'};
+    color: ${props => props.$isDeleting ? 'var(--vscode-errorForeground)' : 'inherit'};
+    ${props => props.$isDeleting && css`animation: ${shake} 0.3s ease-in-out;`}
+`;
+
+const CollectionFolderIcon = styled(Folder)`
+    margin-left: 4px;
+`;
+
+const CollectionName = styled.span`
+    margin-left: 6px;
+    flex: 1;
+`;
+
+const CollectionAction = styled.div`
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+`;
+
+const AddRequestIcon = styled(Plus)`
+    opacity: 0.5;
+    margin-left: 4px;
+`;
+
+const DeleteCollectionIcon = styled(Trash2)`
+    opacity: 0.5;
+    margin-left: 4px;
+    cursor: pointer;
+`;
+
+const EmptyCollectionRequests = styled.div`
+    padding-left: 28px;
+    opacity: 0.5;
+    font-size: 11px;
+    font-style: italic;
+`;
+
 const RequestItem: React.FC<{
     request: ApiRequest;
     isSelected: boolean;
@@ -55,49 +173,29 @@ const RequestItem: React.FC<{
     const isDeleting = deleteConfirm === request.id;
 
     return (
-        <OperationItem
-            style={{
-                paddingLeft: 28,
-                backgroundColor: isDeleting
-                    ? 'var(--vscode-inputValidation-errorBackground)'
-                    : isSelected
-                        ? 'var(--vscode-list-activeSelectionBackground)'
-                        : undefined,
-                color: isDeleting
-                    ? 'var(--vscode-errorForeground)'
-                    : isSelected
-                        ? 'var(--vscode-list-activeSelectionForeground)'
-                        : undefined,
-                animation: isDeleting ? 'shake 0.3s ease-in-out' : undefined
-            }}
+        <RequestRow
+            $isDeleting={isDeleting}
+            $isSelected={isSelected}
             onClick={isDeleting ? () => {
                 onDelete?.();
                 setDeleteConfirm(null);
             } : onClick}
         >
-            <FileJson size={14} style={{ marginRight: 6, opacity: 0.7 }} />
-            <span style={{
-                fontSize: 10,
-                fontWeight: 600,
-                marginRight: 6,
-                color: methodColors[method] || 'var(--vscode-foreground)'
-            }}>
+            <RequestIcon size={14} />
+            <MethodBadge $color={methodColors[method] || 'var(--vscode-foreground)'}>
                 {method}
-            </span>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {request.name}
-            </span>
+            </MethodBadge>
+            <RequestName>{request.name}</RequestName>
             {onDelete && !isDeleting && (
-                <Trash2
+                <RequestDelete
                     size={12}
-                    style={{ opacity: 0.5, marginLeft: 4 }}
                     onClick={(e) => {
                         e.stopPropagation();
                         setDeleteConfirm(request.id || null);
                     }}
                 />
             )}
-        </OperationItem>
+        </RequestRow>
     );
 };
 
@@ -126,14 +224,14 @@ const FolderItem: React.FC<{
 
         return (
             <div>
-                <OperationItem
-                    style={{ paddingLeft: 12 + (level * 12) }}
+                <FolderRow
+                    $level={level}
                     onClick={onToggleExpand}
                 >
                     {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    {isExpanded ? <FolderOpen size={14} style={{ marginLeft: 4 }} /> : <Folder size={14} style={{ marginLeft: 4 }} />}
-                    <span style={{ marginLeft: 6, fontWeight: 500 }}>{folder.name}</span>
-                </OperationItem>
+                    {isExpanded ? <FolderOpenIcon size={14} /> : <FolderIcon size={14} />}
+                    <FolderName>{folder.name}</FolderName>
+                </FolderRow>
 
                 {isExpanded && (
                     <>
@@ -193,44 +291,25 @@ export const CollectionList: React.FC<CollectionListProps> = ({
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'hidden' }}>
+        <CollectionContainer>
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)',
-                padding: '5px 10px',
-                flexShrink: 0
-            }}>
-                <div style={{
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                    color: 'var(--vscode-sideBarTitle-foreground)',
-                    flex: 1
-                }}>
-                    Collections
-                </div>
-                <HeaderButton onClick={onAddCollection} title="New Collection">
-                    <Plus size={16} />
-                </HeaderButton>
-            </div>
+            <SidebarHeader>
+                <SidebarHeaderTitle>Collections</SidebarHeaderTitle>
+                <SidebarHeaderActions>
+                    <HeaderButton onClick={onAddCollection} title="New Collection">
+                        <Plus size={16} />
+                    </HeaderButton>
+                </SidebarHeaderActions>
+            </SidebarHeader>
 
             {/* Collections List */}
-            <div style={{ padding: 10, flex: 1, overflowY: 'auto' }}>
+            <CollectionContent>
                 {collections.length === 0 && (
-                    <div style={{
-                        opacity: 0.6,
-                        fontStyle: 'italic',
-                        textAlign: 'center',
-                        padding: 20,
-                        fontSize: 12
-                    }}>
+                    <EmptyCollections>
                         No REST collections yet.
                         <br />
                         Click + to create one.
-                    </div>
+                    </EmptyCollections>
                 )}
 
                 {collections.map(collection => {
@@ -241,19 +320,9 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                     return (
                         <div key={collection.id}>
                             {/* Collection Header */}
-                            <OperationItem
-                                style={{
-                                    fontWeight: 'bold',
-                                    backgroundColor: isDeleting
-                                        ? 'var(--vscode-inputValidation-errorBackground)'
-                                        : isSelected
-                                            ? 'var(--vscode-list-activeSelectionBackground)'
-                                            : undefined,
-                                    color: isDeleting
-                                        ? 'var(--vscode-errorForeground)'
-                                        : undefined,
-                                    animation: isDeleting ? 'shake 0.3s ease-in-out' : undefined
-                                }}
+                            <CollectionRow
+                                $isDeleting={isDeleting}
+                                $isSelected={isSelected}
                                 onClick={isDeleting ? () => {
                                     onDeleteCollection?.(collection);
                                     setDeleteConfirm(null);
@@ -263,25 +332,23 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                                 }}
                             >
                                 {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                <Folder size={14} style={{ marginLeft: 4 }} />
-                                <span style={{ marginLeft: 6, flex: 1 }}>{collection.name}</span>
+                                <CollectionFolderIcon size={14} />
+                                <CollectionName>{collection.name}</CollectionName>
 
                                 {!isDeleting && (
                                     <>
-                                        <div
+                                        <CollectionAction
                                             title="Add Request"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onAddRequest(collection.id);
                                             }}
-                                            style={{ display: 'flex', alignItems: 'center' }}
                                         >
-                                            <Plus size={12} style={{ opacity: 0.5, marginLeft: 4 }} />
-                                        </div>
+                                            <AddRequestIcon size={12} />
+                                        </CollectionAction>
                                         {onDeleteCollection && (
-                                            <Trash2
+                                            <DeleteCollectionIcon
                                                 size={12}
-                                                style={{ opacity: 0.5, marginLeft: 4 }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setDeleteConfirm(collection.id);
@@ -290,7 +357,7 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                                         )}
                                     </>
                                 )}
-                            </OperationItem>
+                            </CollectionRow>
 
                             {/* Expanded Content */}
                             {isExpanded && (
@@ -326,21 +393,16 @@ export const CollectionList: React.FC<CollectionListProps> = ({
 
                                     {/* Empty state within collection */}
                                     {collection.requests.length === 0 && (!collection.folders || collection.folders.length === 0) && (
-                                        <div style={{
-                                            paddingLeft: 28,
-                                            opacity: 0.5,
-                                            fontSize: 11,
-                                            fontStyle: 'italic'
-                                        }}>
+                                        <EmptyCollectionRequests>
                                             No requests yet
-                                        </div>
+                                        </EmptyCollectionRequests>
                                     )}
                                 </>
                             )}
                         </div>
                     );
                 })}
-            </div>
-        </div>
+            </CollectionContent>
+        </CollectionContainer>
     );
 };

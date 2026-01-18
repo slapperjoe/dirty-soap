@@ -162,7 +162,7 @@ export class WebviewPanel {
         });
 
         // Request History Service
-        const configDir = this._settingsManager['configDir']; // Access config directory
+        const configDir = this._settingsManager.getConfigDir();
         this._historyService = new RequestHistoryService(configDir);
 
         // Schedule Service

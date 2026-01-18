@@ -21,7 +21,7 @@ import { XPathGenerator } from '../utils/xpathGenerator';
 import { CodeSnippetModal } from './modals/CodeSnippetModal';
 import { WelcomePanel, TestCaseView, EmptyTestCase } from './workspace';
 import { ApiExplorerMain } from './explorer/ApiExplorerMain';
-import { EmptyState, EmptyFileWatcher, EmptyApiExplorer, EmptyServer, EmptyProject } from './workspace/EmptyStates';
+import { EmptyState, EmptyFileWatcher, EmptyApiExplorer, EmptyServer, EmptyProject, EmptyHistory } from './workspace/EmptyStates';
 import { ProjectSummary } from './workspace/ProjectSummary';
 import { InterfaceSummary } from './workspace/InterfaceSummary';
 import { TestSuiteSummary } from './workspace/TestSuiteSummary';
@@ -40,9 +40,60 @@ import { createMockRuleFromSource } from '../utils/mockUtils';
 import { findPathToRequest } from '../utils/projectUtils';
 
 import {
-    Toolbar, InfoBarMethod, InfoBarUrl,
+    Toolbar, InfoBarMethod,
     ToolbarButton, MainFooter, IconButton, ToolbarSeparator,
-    Content
+    Content,
+    DelayTitle,
+    DelayContent,
+    DelayField,
+    DelayLabel,
+    DelayInput,
+    WorkspaceBody,
+    ToolbarInfo,
+    InfoBarUrlPrimary,
+    UrlInputWrapper,
+    CancelButton,
+    RunButton,
+    VariablesWrapper,
+    VariablesLabel,
+    VariablesDropdown,
+    VariablesDropdownHeader,
+    VariablesDropdownEmpty,
+    VariablesDropdownItem,
+    VariablesDropdownName,
+    VariablesDropdownSource,
+    EditorSplitContainer,
+    RequestPane,
+    BreadcrumbBar,
+    BreadcrumbActive,
+    TabsHeader,
+    TabButton,
+    TabMeta,
+    TabsRight,
+    CompactIconButton,
+    CompactIconButtonWarning,
+    Divider,
+    StatText,
+    RequestEditorWrapper,
+    PanelColumn,
+    PanelBody,
+    HeadersViewer,
+    HeadersTitle,
+    HeadersRow,
+    HeadersKey,
+    HeadersValue,
+    HeadersEmpty,
+    ResponseHeadersContainer,
+    SplitResizer,
+    ResponseSection,
+    ResponseHeader,
+    ResponseHeaderLeft,
+    ResponseHeaderActions,
+    ResponseStats,
+    ResponseContentType,
+    ResponseStatus,
+    MiniToolbarButton,
+    MiniButtonIcon
 } from '../styles/WorkspaceLayout.styles';
 
 
@@ -159,6 +210,87 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     const [selection, setSelection] = React.useState<{ text: string, offset: number } | null>(null);
     const [currentXPath, setCurrentXPath] = React.useState<string | null>(null);
     const [editorForceUpdateKey, setEditorForceUpdateKey] = React.useState<number>(0);
+    const prevAlignAttributesRef = React.useRef<boolean>(alignAttributes);
+    const lastAlignedRequestIdRef = React.useRef<string | null>(null);
+    const lastFormattedRequestIdRef = React.useRef<string | null>(null);
+
+    React.useEffect(() => {
+        if (config?.ui?.alignAttributes !== undefined) {
+            setAlignAttributes(config.ui.alignAttributes);
+        }
+    }, [config?.ui?.alignAttributes]);
+
+    React.useEffect(() => {
+        if (prevAlignAttributesRef.current === alignAttributes) return;
+        prevAlignAttributesRef.current = alignAttributes;
+
+        if (preventEditing || !selectedRequest?.request) return;
+
+        const isXmlRequest = selectedRequest.requestType !== 'rest'
+            && selectedRequest.bodyType !== 'json'
+            && selectedRequest.bodyType !== 'graphql'
+            && selectedRequest.bodyType !== 'text';
+
+        if (!isXmlRequest) return;
+
+        onUpdateRequest({
+            ...selectedRequest,
+            request: formatXml(selectedRequest.request, alignAttributes, inlineElementValues)
+        });
+        forceEditorUpdate();
+    }, [alignAttributes, preventEditing, selectedRequest, inlineElementValues, onUpdateRequest]);
+
+    React.useEffect(() => {
+        if (!alignAttributes) {
+            lastAlignedRequestIdRef.current = null;
+            return;
+        }
+        if (preventEditing || !selectedRequest?.request) return;
+
+        const requestId = selectedRequest.id || selectedRequest.name || null;
+        if (requestId && lastAlignedRequestIdRef.current === requestId) return;
+
+        const isXmlRequest = selectedRequest.requestType !== 'rest'
+            && selectedRequest.bodyType !== 'json'
+            && selectedRequest.bodyType !== 'graphql'
+            && selectedRequest.bodyType !== 'text';
+
+        if (!isXmlRequest) return;
+
+        onUpdateRequest({
+            ...selectedRequest,
+            request: formatXml(selectedRequest.request, alignAttributes, inlineElementValues)
+        });
+        forceEditorUpdate();
+
+        if (requestId) {
+            lastAlignedRequestIdRef.current = requestId;
+        }
+    }, [alignAttributes, preventEditing, selectedRequest, inlineElementValues, onUpdateRequest]);
+
+    React.useEffect(() => {
+        if (preventEditing || !selectedRequest?.request) return;
+
+        const requestId = selectedRequest.id || selectedRequest.name || null;
+        if (requestId && lastFormattedRequestIdRef.current === requestId) return;
+
+        const isXmlRequest = selectedRequest.requestType !== 'rest'
+            && selectedRequest.bodyType !== 'json'
+            && selectedRequest.bodyType !== 'graphql'
+            && selectedRequest.bodyType !== 'text';
+
+        if (!isXmlRequest) return;
+
+        onUpdateRequest({
+            ...selectedRequest,
+            request: formatXml(selectedRequest.request, alignAttributes, inlineElementValues)
+        });
+        forceEditorUpdate();
+
+        if (requestId) {
+            lastFormattedRequestIdRef.current = requestId;
+        }
+    }, [alignAttributes, preventEditing, selectedRequest, inlineElementValues, onUpdateRequest]);
 
     React.useEffect(() => {
         if (selection && response?.rawResponse) {
@@ -236,6 +368,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         onAddMockRule(newRule);
     };
 
+    if (activeView === SidebarView.HOME) {
+        return <WelcomePanel changelog={changelog} />;
+    }
+
     // PERFORMANCE VIEW
     if (activeView === SidebarView.PERFORMANCE) {
         const suiteHistory = (performanceHistory || []).filter(run => selectedPerformanceSuite ? run.suiteId === selectedPerformanceSuite.id : false);
@@ -286,30 +422,22 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 <ChevronLeft size={14} /> Back
                             </ToolbarButton>
                         )}
-                        <span style={{ fontWeight: 'bold', marginLeft: 10 }}>Delay Configuration</span>
+                        <DelayTitle>Delay Configuration</DelayTitle>
                     </Toolbar>
-                    <div style={{ padding: 20, color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)' }}>
+                    <DelayContent>
                         <h2>Step: {selectedStep.name}</h2>
-                        <div style={{ marginTop: 20 }}>
-                            <label style={{ display: 'block', marginBottom: 5 }}>Delay Duration (milliseconds):</label>
-                            <input
+                        <DelayField>
+                            <DelayLabel>Delay Duration (milliseconds):</DelayLabel>
+                            <DelayInput
                                 type="number"
-                                style={{
-                                    background: 'var(--vscode-input-background)',
-                                    color: 'var(--vscode-input-foreground)',
-                                    border: '1px solid var(--vscode-input-border)',
-                                    padding: '5px',
-                                    fontSize: '1em',
-                                    width: '100px'
-                                }}
                                 value={selectedStep.config.delayMs || 0}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value) || 0;
                                     onUpdateStep({ ...selectedStep, config: { ...selectedStep.config, delayMs: val } });
                                 }}
                             />
-                        </div>
-                    </div>
+                        </DelayField>
+                    </DelayContent>
                 </Content>
             );
         }
@@ -384,6 +512,13 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         }
     }
 
+    // HISTORY VIEW
+    if (activeView === SidebarView.HISTORY) {
+        if (!selectedRequest) {
+            return <EmptyHistory />;
+        }
+    }
+
     // Fallback for other views that usually show Welcome if no request selected
     if (!selectedRequest) {
         if (selectedStep && selectedStep.type === 'script' && onUpdateStep) {
@@ -411,7 +546,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                 environment={config?.environments && config?.activeEnvironment ? config.environments[config.activeEnvironment] : undefined}
             />
 
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <WorkspaceBody>
                 {/* Toolbar */}
 
                 {!isHistoryMode && (
@@ -446,10 +581,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
                         {/* Request Type / Method / Content-Type - Unified Selector */}
                         {preventEditing || isStructureLocked ? (
-                            <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 10, overflow: 'hidden' }}>
+                            <ToolbarInfo>
                                 <InfoBarMethod>{selectedRequest.method || 'POST'}</InfoBarMethod>
-                                <InfoBarUrl title={selectedRequest.endpoint} style={{ marginLeft: 10, fontSize: '1em' }}>{selectedRequest.endpoint}</InfoBarUrl>
-                            </div>
+                                <InfoBarUrlPrimary title={selectedRequest.endpoint}>{selectedRequest.endpoint}</InfoBarUrlPrimary>
+                            </ToolbarInfo>
                         ) : (
                             <>
                                 <RequestTypeSelector
@@ -465,7 +600,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 />
 
                                 {/* URL */}
-                                <div style={{ flex: 1, minWidth: '150px' }}>
+                                <UrlInputWrapper>
                                     <MonacoSingleLineInput
                                         ref={urlEditorRef}
                                         value={selectedRequest.endpoint || defaultEndpoint || ''}
@@ -474,7 +609,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         readOnly={isReadOnly || isStructureLocked}
                                         onFocus={() => lastFocusedRef.current = urlEditorRef.current}
                                     />
-                                </div>
+                                </UrlInputWrapper>
                             </>
                         )}
 
@@ -492,18 +627,18 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                         )}
 
                         {loading ? (
-                            <ToolbarButton onClick={onCancel} style={{ backgroundColor: 'var(--vscode-errorForeground)' }}>
+                            <CancelButton onClick={onCancel}>
                                 <Loader2 size={14} className="spin" /> Cancel
-                            </ToolbarButton>
+                            </CancelButton>
                         ) : (
-                            <ToolbarButton onClick={() => {
+                            <RunButton onClick={() => {
                                 // Get current content from editor, falling back to selectedRequest.request
                                 // This allows users to edit read-only samples and test with the edited content
                                 const currentContent = bodyEditorRef.current?.getValue() ?? selectedRequest.request;
                                 onExecute(currentContent);
-                            }} title="Run Request" style={{ color: 'var(--vscode-testing-iconPassed)' }}>
+                            }} title="Run Request">
                                 <Play size={14} /> Run
-                            </ToolbarButton>
+                            </RunButton>
                         )}
 
                         <ToolbarSeparator />
@@ -512,29 +647,16 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
                         {/* Variables Inserter */}
                         {selectedTestCase && selectedStep && (
-                            <div style={{ position: 'relative' }}>
+                            <VariablesWrapper>
                                 <ToolbarButton onClick={() => setShowVariables(!showVariables)} title="Insert/View Variables from Previous Steps">
                                     <Braces size={14} />
-                                    <span style={{ marginLeft: 5 }}>Variables</span>
+                                    <VariablesLabel>Variables</VariablesLabel>
                                 </ToolbarButton>
                                 {showVariables && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        right: 0,
-                                        marginTop: 5,
-                                        background: 'var(--vscode-editor-background)',
-                                        border: '1px solid var(--vscode-dropdown-border)',
-                                        borderRadius: 3,
-                                        zIndex: 100,
-                                        boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
-                                        minWidth: 250,
-                                        maxHeight: 300,
-                                        overflow: 'auto'
-                                    }}>
-                                        <div style={{ padding: '8px', borderBottom: '1px solid var(--vscode-dropdown-border)', fontWeight: 'bold', fontSize: '0.9em' }}>
+                                    <VariablesDropdown>
+                                        <VariablesDropdownHeader>
                                             Available Context Variables
-                                        </div>
+                                        </VariablesDropdownHeader>
                                         {(() => {
                                             const idx = selectedTestCase.steps.findIndex(s => s.id === selectedStep.id);
                                             const vars: { name: string, step: string }[] = [];
@@ -549,20 +671,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                             }
 
                                             if (vars.length === 0) {
-                                                return <div style={{ padding: 10, opacity: 0.7, fontSize: '0.9em' }}>No variables defined in previous steps.</div>
+                                                return <VariablesDropdownEmpty>No variables defined in previous steps.</VariablesDropdownEmpty>
                                             }
 
                                             return vars.map((v, i) => (
-                                                <div
+                                                <VariablesDropdownItem
                                                     key={i}
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        cursor: 'pointer',
-                                                        borderBottom: '1px solid var(--vscode-panel-border)',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        gap: 2
-                                                    }}
                                                     onClick={() => {
                                                         const target = lastFocusedRef.current || bodyEditorRef.current; // Default to body
                                                         if (target) {
@@ -572,43 +686,25 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                                         }
                                                         setShowVariables(false);
                                                     }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--vscode-list-hoverBackground)'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                                     title="Click to Insert"
                                                 >
-                                                    <div style={{ fontWeight: 'bold', color: 'var(--vscode-textLink-foreground)' }}>{v.name}</div>
-                                                    <div style={{ fontSize: '0.8em', opacity: 0.7 }}>from {v.step}</div>
-                                                </div>
+                                                    <VariablesDropdownName>{v.name}</VariablesDropdownName>
+                                                    <VariablesDropdownSource>from {v.step}</VariablesDropdownSource>
+                                                </VariablesDropdownItem>
                                             ));
                                         })()}
-                                    </div>
+                                    </VariablesDropdown>
                                 )}
-                            </div>
+                            </VariablesWrapper>
                         )}
                     </Toolbar>
                 )}
 
-                <div style={{ flex: 1, display: 'flex', flexDirection: layoutMode === 'vertical' ? 'column' : 'row', overflow: 'hidden' }}>
-                    <div style={{
-                        flex: (response || loading) ? `0 0 ${splitRatio > 1 ? splitRatio : splitRatio * 100}% ` : '1 1 auto',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: 'auto',
-                        width: 'auto'
-                    }}>
+                <EditorSplitContainer $layoutMode={layoutMode}>
+                    <RequestPane $hasResponse={Boolean(response || loading)} $splitRatio={splitRatio}>
                         {/* Title Section (Moved above tabs) */}
                         {/* Title Section (Breadcrumbs) */}
-                        <div style={{
-                            padding: '10px 15px',
-                            backgroundColor: 'var(--vscode-editor-background)',
-                            borderBottom: '1px solid var(--vscode-panel-border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            fontSize: '0.9em',
-                            color: 'var(--vscode-descriptionForeground)'
-                        }}>
+                        <BreadcrumbBar>
                             {(() => {
                                 const breadcrumbPath = projects && selectedRequest && selectedRequest.id ? findPathToRequest(projects, selectedRequest.id) : null;
 
@@ -622,9 +718,9 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                                 </React.Fragment>
                                             ))}
                                             <ChevronRight size={12} />
-                                            <span style={{ fontWeight: 'bold', color: 'var(--vscode-foreground)' }}>
+                                            <BreadcrumbActive>
                                                 {selectedRequest.name}
-                                            </span>
+                                            </BreadcrumbActive>
                                         </>
                                     );
                                 }
@@ -633,146 +729,73 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                     <>
                                         <span>{selectedOperation?.name}</span>
                                         {selectedOperation && <ChevronRight size={12} />}
-                                        <span style={{ fontWeight: 'bold', color: 'var(--vscode-foreground)' }}>
+                                        <BreadcrumbActive>
                                             {selectedRequest.name}
-                                        </span>
+                                        </BreadcrumbActive>
                                     </>
                                 );
                             })()}
-                        </div>
+                        </BreadcrumbBar>
 
                         {/* Tabs Header */}
-                        <div style={{
-                            padding: '0 10px',
-                            backgroundColor: 'var(--vscode-editor-background)',
-                            borderBottom: '1px solid var(--vscode-panel-border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 20,
-                            flexShrink: 0,
-                            height: 35
-                        }}>
-                            <div
-                                style={{
-                                    cursor: 'pointer',
-                                    borderBottom: activeTab === 'request' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                    padding: '5px 0',
-                                    color: activeTab === 'request' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                }}
-                                onClick={() => setActiveTab('request')}
-                            >
+                        <TabsHeader>
+                            <TabButton $active={activeTab === 'request'} onClick={() => setActiveTab('request')}>
                                 Body
-                            </div>
-                            <div
-                                style={{
-                                    cursor: 'pointer',
-                                    borderBottom: activeTab === 'headers' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                    padding: '5px 0',
-                                    color: activeTab === 'headers' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                }}
-                                onClick={() => setActiveTab('headers')}
-                            >
+                            </TabButton>
+                            <TabButton $active={activeTab === 'headers'} onClick={() => setActiveTab('headers')}>
                                 Headers
                                 {selectedRequest.headers && Object.keys(selectedRequest.headers).length > 0 && ` (${Object.keys(selectedRequest.headers).length})`}
-                            </div>
+                            </TabButton>
 
                             {/* Params tab - only for REST requests */}
                             {selectedRequest.requestType === 'rest' && (
-                                <div
-                                    style={{
-                                        cursor: 'pointer',
-                                        borderBottom: activeTab === 'params' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                        padding: '5px 0',
-                                        color: activeTab === 'params' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                    }}
-                                    onClick={() => setActiveTab('params')}
-                                >
+                                <TabButton $active={activeTab === 'params'} onClick={() => setActiveTab('params')}>
                                     Params
                                     {selectedRequest.restConfig?.queryParams && Object.keys(selectedRequest.restConfig.queryParams).length > 0 && ` (${Object.keys(selectedRequest.restConfig.queryParams).length})`}
-                                </div>
+                                </TabButton>
                             )}
 
                             {/* Variables tab - only for GraphQL requests */}
                             {selectedRequest.requestType === 'graphql' && (
-                                <div
-                                    style={{
-                                        cursor: 'pointer',
-                                        borderBottom: activeTab === 'variables' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                        padding: '5px 0',
-                                        color: activeTab === 'variables' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                    }}
-                                    onClick={() => setActiveTab('variables')}
-                                >
+                                <TabButton $active={activeTab === 'variables'} onClick={() => setActiveTab('variables')}>
                                     Variables
                                     {selectedRequest.graphqlConfig?.variables && Object.keys(selectedRequest.graphqlConfig.variables).length > 0 && ' ✓'}
-                                </div>
+                                </TabButton>
                             )}
                             {!isHistoryMode && (
                                 <>
-                                    <div
-                                        style={{
-                                            cursor: 'pointer',
-                                            borderBottom: activeTab === 'assertions' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                            padding: '5px 0',
-                                            color: activeTab === 'assertions' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                        }}
-                                        onClick={() => setActiveTab('assertions')}
-                                    >
+                                    <TabButton $active={activeTab === 'assertions'} onClick={() => setActiveTab('assertions')}>
                                         Assertions
                                         {selectedRequest.assertions && selectedRequest.assertions.length > 0 && ` (${selectedRequest.assertions.length})`}
                                         {response && response.assertionResults && (
-                                            <span style={{ marginLeft: 5, fontSize: '0.8em' }}>
+                                            <TabMeta>
                                                 {response.assertionResults.every((r: any) => r.status === 'PASS') ? '✔' : '❌'}
-                                            </span>
+                                            </TabMeta>
                                         )}
-                                    </div>
-                                    <div
-                                        style={{
-                                            cursor: 'pointer',
-                                            borderBottom: activeTab === 'extractors' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                            padding: '5px 0',
-                                            color: activeTab === 'extractors' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                        }}
-                                        onClick={() => setActiveTab('extractors')}
-                                    >
+                                    </TabButton>
+                                    <TabButton $active={activeTab === 'extractors'} onClick={() => setActiveTab('extractors')}>
                                         Extractors
                                         {selectedRequest.extractors && selectedRequest.extractors.length > 0 && ` (${selectedRequest.extractors.length})`}
-                                    </div>
+                                    </TabButton>
                                 </>
                             )}
-                            <div
-                                style={{
-                                    cursor: 'pointer',
-                                    borderBottom: activeTab === 'auth' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                    padding: '5px 0',
-                                    color: activeTab === 'auth' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                }}
-                                onClick={() => setActiveTab('auth')}
-                            >
+                            <TabButton $active={activeTab === 'auth'} onClick={() => setActiveTab('auth')}>
                                 Auth
                                 {selectedRequest.wsSecurity && selectedRequest.wsSecurity.type !== 'none' && ' ✓'}
-                            </div>
-                            <div
-                                style={{
-                                    cursor: 'pointer',
-                                    borderBottom: activeTab === 'attachments' ? '2px solid var(--vscode-textLink-foreground)' : '2px solid transparent',
-                                    padding: '5px 0',
-                                    color: activeTab === 'attachments' ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'
-                                }}
-                                onClick={() => setActiveTab('attachments')}
-                            >
+                            </TabButton>
+                            <TabButton $active={activeTab === 'attachments'} onClick={() => setActiveTab('attachments')}>
                                 Attachments
                                 {selectedRequest.attachments && selectedRequest.attachments.length > 0 && ` (${selectedRequest.attachments.length})`}
-                            </div>
+                            </TabButton>
 
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', alignItems: 'center', fontSize: '0.9em' }}>
+                            <TabsRight>
                                 {/* Formatting Toggles */}
                                 <IconButton onClick={() => {
                                     const newValue = !alignAttributes;
                                     setAlignAttributes(newValue);
                                     if (selectedRequest.request) onUpdateRequest({ ...selectedRequest, request: formatXml(selectedRequest.request, newValue, inlineElementValues) });
                                     forceEditorUpdate();
-                                }} active={alignAttributes} title="Toggle Attribute Alignment" style={{ width: 24, height: 24, padding: 2 }}>
+                                }} active={alignAttributes} title="Toggle Attribute Alignment" as={CompactIconButton}>
                                     <WrapText size={14} />
                                 </IconButton>
 
@@ -788,7 +811,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                             }
                                         }}
                                         active={inlineElementValues}
-                                        style={{ width: 24, height: 24, padding: 2 }}
+                                        as={CompactIconButton}
                                     >
                                         <AlignLeft size={14} />
                                     </IconButton>
@@ -798,7 +821,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         title={hideCausalityData ? "Show Debugger Causality Data" : "Hide Debugger Causality Data"}
                                         onClick={onToggleHideCausalityData}
                                         active={hideCausalityData}
-                                        style={{ width: 24, height: 24, padding: 2 }}
+                                        as={CompactIconButton}
                                     >
                                         <Bug size={14} />
                                     </IconButton>
@@ -810,7 +833,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         onUpdateRequest({ ...selectedRequest, request: formatted });
                                         forceEditorUpdate();
                                     }}
-                                    style={{ width: 24, height: 24, padding: 2 }}
+                                    as={CompactIconButton}
                                 >
                                     <Braces size={14} />
                                 </IconButton>
@@ -819,37 +842,30 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                     <IconButton
                                         title="Add to Azure DevOps"
                                         onClick={onOpenDevOps}
-                                        style={{ width: 24, height: 24, padding: 2 }}
+                                        as={CompactIconButton}
                                     >
                                         <Cloud size={14} />
                                     </IconButton>
                                 )}
 
                                 {isReadOnly && onAddMockRule && (
-                                    <IconButton
+                                    <CompactIconButtonWarning
                                         title="Import to Mock Rule"
                                         onClick={handleCreateMockRule}
-                                        style={{ width: 24, height: 24, padding: 2, color: 'var(--vscode-charts-orange)' }}
                                     >
                                         <PlusSquare size={14} />
-                                    </IconButton>
+                                    </CompactIconButtonWarning>
                                 )}
 
-                                <div style={{ width: 1, height: 16, background: 'var(--vscode-panel-border)', margin: '0 5px' }} />
+                                <Divider />
 
-                                <span style={{ opacity: 0.8 }}>Lines: {typeof selectedRequest.request === 'string' ? selectedRequest.request.split('\n').length : 0}</span>
-                                <span style={{ opacity: 0.8 }}>Size: {typeof selectedRequest.request === 'string' ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</span>
-                            </div>
-                        </div>
+                                <StatText>Lines: {typeof selectedRequest.request === 'string' ? selectedRequest.request.split('\n').length : 0}</StatText>
+                                <StatText>Size: {typeof selectedRequest.request === 'string' ? (selectedRequest.request.length / 1024).toFixed(2) : 0} KB</StatText>
+                            </TabsRight>
+                        </TabsHeader>
 
                         {activeTab === 'request' && (
-                            <div style={{
-                                position: 'relative',
-                                flex: 1,
-                                width: '100%',
-                                height: '100%',
-                                overflow: 'hidden'
-                            }}>
+                            <RequestEditorWrapper>
                                 <MonacoRequestEditor
                                     ref={bodyEditorRef}
                                     value={hideCausalityData ? stripCausalityData(selectedRequest.request) : selectedRequest.request}
@@ -866,16 +882,16 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                     onChange={(val) => onUpdateRequest({ ...selectedRequest, request: val })}
                                     onFocus={() => lastFocusedRef.current = bodyEditorRef.current}
                                     autoFoldElements={config?.ui?.autoFoldElements}
+                                    showLineNumbers={showLineNumbers}
                                     requestId={selectedRequest.id || selectedRequest.name}
                                     forceUpdateKey={editorForceUpdateKey}
                                 />
                                 {/* Format Button Overlay */}
-
-                            </div>
+                            </RequestEditorWrapper>
                         )}
                         {activeTab === 'headers' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                                <div style={{ flex: 1, overflow: 'hidden', padding: (isReadOnly || isStructureLocked) ? '10px' : '0' }}>
+                            <PanelColumn>
+                                <PanelBody $padded={isReadOnly || isStructureLocked}>
                                     {!isReadOnly && !isStructureLocked ? (
                                         <HeadersPanel
                                             headers={selectedRequest.headers || {}}
@@ -883,43 +899,37 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                             contentType={selectedRequest.contentType}
                                         />
                                     ) : (
-                                        <div style={{ overflow: 'auto', height: '100%', backgroundColor: 'var(--vscode-editor-background)' }}>
-                                            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: '1em' }}>Request Headers</h3>
+                                        <HeadersViewer>
+                                            <HeadersTitle>Request Headers</HeadersTitle>
                                             {selectedRequest.headers && Object.keys(selectedRequest.headers).length > 0 ? (
                                                 Object.entries(selectedRequest.headers).map(([key, value]) => (
-                                                    <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 5, fontSize: '0.9em' }}>
-                                                        <div style={{ fontWeight: 'bold', minWidth: 150, color: 'var(--vscode-textLink-foreground)' }}>{key}:</div>
-                                                        <div style={{ wordBreak: 'break-all', fontFamily: 'monospace' }}>{String(value)}</div>
-                                                    </div>
+                                                    <HeadersRow key={key}>
+                                                        <HeadersKey>{key}:</HeadersKey>
+                                                        <HeadersValue>{String(value)}</HeadersValue>
+                                                    </HeadersRow>
                                                 ))
                                             ) : (
-                                                <div style={{ fontStyle: 'italic', opacity: 0.7 }}>No headers captured.</div>
+                                                <HeadersEmpty>No headers captured.</HeadersEmpty>
                                             )}
-                                        </div>
+                                        </HeadersViewer>
                                     )}
-                                </div>
+                                </PanelBody>
                                 {response && response.headers && (
-                                    <div style={{
-                                        flex: 1,
-                                        borderTop: '1px solid var(--vscode-panel-border)',
-                                        padding: 10,
-                                        overflow: 'auto',
-                                        backgroundColor: 'var(--vscode-editor-background)'
-                                    }}>
-                                        <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: '1em' }}>Response Headers</h3>
+                                    <ResponseHeadersContainer>
+                                        <HeadersTitle>Response Headers</HeadersTitle>
                                         {Object.entries(response.headers).map(([key, value]) => (
-                                            <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 5, fontSize: '0.9em' }}>
-                                                <div style={{ fontWeight: 'bold', minWidth: 150, color: 'var(--vscode-textLink-foreground)' }}>{key}:</div>
-                                                <div style={{ wordBreak: 'break-all', fontFamily: 'monospace' }}>{String(value)}</div>
-                                            </div>
+                                            <HeadersRow key={key}>
+                                                <HeadersKey>{key}:</HeadersKey>
+                                                <HeadersValue>{String(value)}</HeadersValue>
+                                            </HeadersRow>
                                         ))}
-                                    </div>
+                                    </ResponseHeadersContainer>
                                 )}
-                            </div>
+                            </PanelColumn>
                         )}
                         {/* Query Params Panel - REST only */}
                         {activeTab === 'params' && selectedRequest.requestType === 'rest' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                            <PanelColumn>
                                 <QueryParamsPanel
                                     params={selectedRequest.restConfig?.queryParams || {}}
                                     onChange={(newParams) => onUpdateRequest({
@@ -929,11 +939,11 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                     title="Query Parameters"
                                     readOnly={isReadOnly || isStructureLocked}
                                 />
-                            </div>
+                            </PanelColumn>
                         )}
                         {/* GraphQL Variables Panel - GraphQL only */}
                         {activeTab === 'variables' && selectedRequest.requestType === 'graphql' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                            <PanelColumn>
                                 <GraphQLVariablesPanel
                                     variables={selectedRequest.graphqlConfig?.variables}
                                     operationName={selectedRequest.graphqlConfig?.operationName}
@@ -946,7 +956,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                         graphqlConfig: { ...selectedRequest.graphqlConfig, operationName: name }
                                     })}
                                 />
-                            </div>
+                            </PanelColumn>
                         )}
                         {activeTab === 'assertions' && (
                             <AssertionsPanel
@@ -986,21 +996,14 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 onChange={(newAttachments) => onUpdateRequest({ ...selectedRequest, attachments: newAttachments })}
                             />
                         )}
-                    </div>
+                    </RequestPane>
 
                     {/* Resizer */}
                     {(response || loading) && (
-                        <div
+                        <SplitResizer
                             onMouseDown={onStartResizing}
-                            style={{
-                                width: layoutMode === 'horizontal' ? 5 : '100%',
-                                height: layoutMode === 'vertical' ? 5 : '100%',
-                                cursor: layoutMode === 'horizontal' ? 'col-resize' : 'row-resize',
-                                backgroundColor: isResizing ? 'var(--vscode-focusBorder)' : 'var(--vscode-widget-shadow)',
-                                zIndex: 10,
-                                flex: '0 0 auto',
-                                transition: 'background-color 0.2s'
-                            }}
+                            $layoutMode={layoutMode}
+                            $isResizing={isResizing}
                         />
                     )}
 
@@ -1009,84 +1012,61 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
                     {/* Response Section */}
                     {(response || loading) && (
-                        <div
-                            data-testid="response-section"
-                            style={{
-                                flex: 1,
-                                overflow: 'hidden',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                borderLeft: layoutMode === 'horizontal' ? '1px solid var(--vscode-panel-border)' : 'none',
-                                borderTop: layoutMode === 'vertical' ? '1px solid var(--vscode-panel-border)' : 'none',
-                            }}
-                        >
-                            <div style={{
-                                padding: '5px 10px',
-                                backgroundColor: 'var(--vscode-editor-background)',
-                                borderBottom: '1px solid var(--vscode-panel-border)',
-                                fontWeight: 'bold',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                flexShrink: 0
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <ResponseSection data-testid="response-section" $layoutMode={layoutMode}>
+                            <ResponseHeader>
+                                <ResponseHeaderLeft>
                                     <span>Response</span>
                                     {selection && onAddExtractor && !isReadOnly && currentXPath && (
-                                        <div style={{ display: 'flex', gap: 5 }}>
+                                        <ResponseHeaderActions>
                                             {selection.text && (
                                                 <>
-                                                    <ToolbarButton onClick={handleCreateExtractor} style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}>
-                                                        <Bug size={12} style={{ marginRight: 4 }} /> Extract
-                                                    </ToolbarButton>
+                                                    <MiniToolbarButton onClick={handleCreateExtractor}>
+                                                        <MiniButtonIcon><Bug size={12} /></MiniButtonIcon> Extract
+                                                    </MiniToolbarButton>
                                                     {onAddAssertion && (
-                                                        <ToolbarButton onClick={handleCreateAssertion} style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}>
-                                                            <Braces size={12} style={{ marginRight: 4 }} /> Match
-                                                        </ToolbarButton>
+                                                        <MiniToolbarButton onClick={handleCreateAssertion}>
+                                                            <MiniButtonIcon><Braces size={12} /></MiniButtonIcon> Match
+                                                        </MiniToolbarButton>
                                                     )}
                                                 </>
                                             )}
                                             {onAddExistenceAssertion && (
-                                                <ToolbarButton onClick={handleCreateExistenceAssertion} style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}>
-                                                    <ListChecks size={12} style={{ marginRight: 4 }} /> Exists
-                                                </ToolbarButton>
+                                                <MiniToolbarButton onClick={handleCreateExistenceAssertion}>
+                                                    <MiniButtonIcon><ListChecks size={12} /></MiniButtonIcon> Exists
+                                                </MiniToolbarButton>
                                             )}
-                                        </div>
+                                        </ResponseHeaderActions>
                                     )}
                                     {/* Replace Rule button for Proxy view */}
                                     {selection && selection.text && isReadOnly && onAddReplaceRule && currentXPath && (
-                                        <ToolbarButton
+                                        <MiniToolbarButton
                                             onClick={() => handleCreateReplaceRule('response')}
-                                            style={{ fontSize: '0.8em', padding: '0 8px', height: 20 }}
                                             title="Create a replace rule for this selection"
                                         >
-                                            <Replace size={12} style={{ marginRight: 4 }} /> Add Replace Rule
-                                        </ToolbarButton>
+                                            <MiniButtonIcon><Replace size={12} /></MiniButtonIcon> Add Replace Rule
+                                        </MiniToolbarButton>
                                     )}
-                                </div>
+                                </ResponseHeaderLeft>
                                 {response && (
-                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                    <ResponseStats>
                                         {/* ... stats ... */}
-                                        <span style={{ opacity: 0.8 }}>Lines: {response.lineCount || 0}</span>
-                                        <span style={{ opacity: 0.8 }}>Time: {(response.duration || 0).toFixed(1)}s</span>
-                                        <span style={{ opacity: 0.8 }}>Size: {typeof response.rawResponse === 'string' ? (response.rawResponse.length / 1024).toFixed(2) : 0} KB</span>
+                                        <StatText>Lines: {response.lineCount || 0}</StatText>
+                                        <StatText>Time: {(response.duration || 0).toFixed(1)}s</StatText>
+                                        <StatText>Size: {typeof response.rawResponse === 'string' ? (response.rawResponse.length / 1024).toFixed(2) : 0} KB</StatText>
                                         {response.createdAt && (
-                                            <span style={{ opacity: 0.8 }}>Received: {new Date(response.createdAt).toLocaleTimeString()}</span>
+                                            <StatText>Received: {new Date(response.createdAt).toLocaleTimeString()}</StatText>
                                         )}
                                         {response.headers && response.headers['content-type'] && (
-                                            <span title="Content-Type" style={{ opacity: 0.8, borderLeft: '1px solid var(--vscode-panel-border)', paddingLeft: '10px' }}>
+                                            <ResponseContentType title="Content-Type">
                                                 {response.headers['content-type'].split(';')[0]}
-                                            </span>
+                                            </ResponseContentType>
                                         )}
-                                        <span style={{
-                                            color: response.success ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)',
-                                            marginLeft: 10
-                                        }}>
+                                        <ResponseStatus $success={response.success}>
                                             {response.success ? '200 OK' : 'Error'}
-                                        </span>
-                                    </div>
+                                        </ResponseStatus>
+                                    </ResponseStats>
                                 )}
-                            </div>
+                            </ResponseHeader>
                             <MonacoResponseViewer
                                 value={(() => {
                                     const raw = response ? (response.rawResponse ? response.rawResponse : (response.error || '')) : '';
@@ -1100,10 +1080,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
                                 onSelectionChange={setSelection}
                                 autoFoldElements={config?.ui?.autoFoldElements}
                             />
-                        </div>
+                        </ResponseSection>
                     )}
-                </div>
-            </div >
+                </EditorSplitContainer>
+            </WorkspaceBody>
 
             <MainFooter>
                 <IconButton onClick={onToggleLineNumbers} active={showLineNumbers} title="Toggle Line Numbers">

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { RequestHistoryEntry, HistoryConfig } from '../../shared/src/models';
 
 /**
@@ -16,7 +17,11 @@ export class RequestHistoryService {
     };
 
     constructor(configDir: string) {
-        this.historyPath = path.join(configDir, 'history.json');
+        const resolvedDir = configDir || path.join(os.homedir(), '.apinox');
+        if (!fs.existsSync(resolvedDir)) {
+            fs.mkdirSync(resolvedDir, { recursive: true });
+        }
+        this.historyPath = path.join(resolvedDir, 'history.json');
         this.load();
     }
 

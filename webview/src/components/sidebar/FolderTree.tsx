@@ -1,7 +1,83 @@
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { ChevronRight, ChevronDown, FolderPlus, Plus, Trash2, Folder, Code, Globe, Zap } from 'lucide-react';
 import { ApinoxFolder, ApiRequest } from '@shared/models';
 import { HeaderButton, OperationItem, RequestItem } from './shared/SidebarStyles';
+
+const FolderWrapper = styled.div<{ $level: number }>`
+    margin-left: ${props => props.$level * 10}px;
+`;
+
+const Toggle = styled.span`
+    margin-right: 5px;
+    display: flex;
+    align-items: center;
+    width: 14px;
+    cursor: pointer;
+`;
+
+const FolderIcon = styled(Folder)`
+    margin-right: 5px;
+    opacity: 0.7;
+`;
+
+const FolderName = styled.span`
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const RenameInput = styled.input`
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    flex: 1;
+`;
+
+const Actions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 2px;
+`;
+
+const RequestRow = styled(RequestItem)`
+    margin-left: 20px;
+`;
+
+const RequestName = styled.span`
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const RequestActions = styled.div`
+    display: flex;
+    gap: 4px;
+`;
+
+const DangerButton = styled(HeaderButton)<{ $danger?: boolean }>`
+    color: ${props => props.$danger ? 'var(--vscode-errorForeground)' : 'var(--vscode-icon-foreground)'};
+`;
+
+const SoapIcon = styled(Code)`
+    margin-right: 6px;
+    flex-shrink: 0;
+    color: #4299e1;
+`;
+
+const RestIcon = styled(Globe)`
+    margin-right: 6px;
+    flex-shrink: 0;
+    color: #48bb78;
+`;
+
+const GraphqlIcon = styled(Zap)`
+    margin-right: 6px;
+    flex-shrink: 0;
+    color: #9f7aea;
+`;
 
 export interface FolderTreeProps {
     folders: ApinoxFolder[];
@@ -10,7 +86,7 @@ export interface FolderTreeProps {
 
     // Selection
     selectedFolderId: string | null;
-    setSelectedFolderId: (id: string | null) => void;
+    setSelectedFolderId?: (id: string | null) => void;
     selectedRequest: ApiRequest | null;
     setSelectedRequest: (req: ApiRequest | null) => void;
     setSelectedProjectName: (name: string | null) => void;
@@ -71,13 +147,13 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
     const handleFolderClick = (folder: ApinoxFolder) => {
         setSelectedProjectName(projectName);
-        setSelectedFolderId(folder.id);
+        setSelectedFolderId?.(folder.id);
         setSelectedRequest(null);
     };
 
     const handleRequestClick = (req: ApiRequest, folder: ApinoxFolder) => {
         setSelectedProjectName(projectName);
-        setSelectedFolderId(folder.id);
+        setSelectedFolderId?.(folder.id);
         setSelectedRequest(req);
         setResponse(null);
     };
@@ -90,7 +166,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                 const isRenaming = renameId === folder.id;
 
                 return (
-                    <div key={folder.id} style={{ marginLeft: level * 10 }}>
+                    <FolderWrapper key={folder.id} $level={level}>
                         <OperationItem
                             $active={isSelected}
                             onClick={() => handleFolderClick(folder)}
@@ -99,19 +175,18 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 
                             onContextMenu={(e) => !readOnly && handleContextMenu && handleContextMenu(e, 'folder', folder)}
                         >
-                            <span
+                            <Toggle
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onToggleFolderExpand?.(projectName, folder.id);
                                 }}
-                                style={{ marginRight: 5, display: 'flex', alignItems: 'center', width: 14, cursor: 'pointer' }}
                             >
                                 {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </span>
-                            <Folder size={14} style={{ marginRight: 5, opacity: 0.7 }} />
+                            </Toggle>
+                            <FolderIcon size={14} />
 
                             {isRenaming ? (
-                                <input
+                                <RenameInput
                                     type="text"
                                     value={renameValue}
                                     onChange={(e) => onRenameChange?.(e.target.value)}
@@ -122,22 +197,16 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                     }}
                                     autoFocus
                                     onClick={(e) => e.stopPropagation()}
-                                    style={{
-                                        background: 'var(--vscode-input-background)',
-                                        color: 'var(--vscode-input-foreground)',
-                                        border: '1px solid var(--vscode-input-border)',
-                                        flex: 1
-                                    }}
+                                    title="Rename folder"
+                                    placeholder="Folder name"
                                 />
                             ) : (
-                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {folder.name}
-                                </span>
+                                <FolderName>{folder.name}</FolderName>
                             )}
 
                             {/* Show buttons only when selected */}
                             {isSelected && !isRenaming && !readOnly && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Actions>
                                     {onAddRequest && (
                                         <HeaderButton
                                             onClick={(e) => { e.stopPropagation(); onAddRequest(projectName, folder.id); }}
@@ -155,7 +224,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                         </HeaderButton>
                                     )}
                                     {onDeleteFolder && (
-                                        <HeaderButton
+                                        <DangerButton
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (deleteConfirm === folder.id) {
@@ -167,13 +236,13 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                                 }
                                             }}
                                             title={deleteConfirm === folder.id ? "Click again to Confirm" : "Delete Folder"}
-                                            style={{ color: deleteConfirm === folder.id ? 'var(--vscode-errorForeground)' : undefined }}
+                                            $danger={deleteConfirm === folder.id}
                                             $shake={deleteConfirm === folder.id}
                                         >
                                             <Trash2 size={12} />
-                                        </HeaderButton>
+                                        </DangerButton>
                                     )}
-                                </div>
+                                </Actions>
                             )}
                         </OperationItem >
 
@@ -184,31 +253,28 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                 // Determine icon and color based on request type
                                 const getRequestIcon = () => {
                                     const type = req.requestType || 'soap';
-                                    const iconProps = { size: 14, style: { marginRight: 6, flexShrink: 0 } };
-
                                     switch (type) {
                                         case 'rest':
-                                            return <Globe {...iconProps} style={{ ...iconProps.style, color: '#48bb78' }} />; // Green
+                                            return <RestIcon size={14} />; // Green
                                         case 'graphql':
-                                            return <Zap {...iconProps} style={{ ...iconProps.style, color: '#9f7aea' }} />; // Purple
+                                            return <GraphqlIcon size={14} />; // Purple
                                         case 'soap':
                                         default:
-                                            return <Code {...iconProps} style={{ ...iconProps.style, color: '#4299e1' }} />; // Blue
+                                            return <SoapIcon size={14} />; // Blue
                                     }
                                 };
 
                                 return (
-                                    <RequestItem
+                                    <RequestRow
                                         key={req.id}
                                         $active={selectedRequest?.id === req.id}
                                         onClick={() => handleRequestClick(req, folder)}
-                                        style={{ marginLeft: 20 }}
                                         onContextMenu={(e) => !readOnly && handleContextMenu && handleContextMenu(e, 'request', req)}
                                     >
                                         {getRequestIcon()}
 
                                         {isReqRenaming ? (
-                                            <input
+                                            <RenameInput
                                                 type="text"
                                                 value={renameValue}
                                                 onChange={(e) => onRenameChange?.(e.target.value)}
@@ -219,23 +285,17 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                                 }}
                                                 autoFocus
                                                 onClick={(e) => e.stopPropagation()}
-                                                style={{
-                                                    background: 'var(--vscode-input-background)',
-                                                    color: 'var(--vscode-input-foreground)',
-                                                    border: '1px solid var(--vscode-input-border)',
-                                                    flex: 1
-                                                }}
+                                                title="Rename request"
+                                                placeholder="Request name"
                                             />
                                         ) : (
-                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {req.name}
-                                            </span>
+                                            <RequestName>{req.name}</RequestName>
                                         )}
 
                                         {/* Action Buttons */}
-                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                        <RequestActions>
                                             {selectedRequest?.id === req.id && onDeleteRequest && !isReqRenaming && !readOnly && (
-                                                <HeaderButton
+                                                <DangerButton
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (deleteConfirm === req.id) {
@@ -247,14 +307,14 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                                         }
                                                     }}
                                                     title={deleteConfirm === req.id ? "Click again to Confirm" : "Delete Request"}
-                                                    style={{ color: deleteConfirm === req.id ? 'var(--vscode-errorForeground)' : undefined }}
+                                                    $danger={deleteConfirm === req.id}
                                                     $shake={deleteConfirm === req.id}
                                                 >
                                                     <Trash2 size={12} />
-                                                </HeaderButton>
+                                                </DangerButton>
                                             )}
-                                        </div>
-                                    </RequestItem>
+                                        </RequestActions>
+                                    </RequestRow>
                                 );
                             })
                         }
@@ -291,7 +351,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
                                 />
                             )
                         }
-                    </div >
+                    </FolderWrapper>
                 );
             })}
         </>

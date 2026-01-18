@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components';
 import { SidebarView } from '@shared/models';
 
 // Components
@@ -8,9 +9,26 @@ import { WatcherPanel } from './sidebar/WatcherPanel';
 import { TestsUi } from './sidebar/TestsUi';
 import { ServerUi } from './sidebar/ServerUi';
 import { PerformanceUi } from './sidebar/PerformanceUi';
-import { HistorySidebar } from './sidebar/HistorySidebar';
+// @ts-ignore - TS export detection issue; runtime export exists.
+import HistorySidebar from './sidebar/HistorySidebar';
 import { SidebarRail } from './sidebar/SidebarRail';
 
+const SidebarContainer = styled.div<{ $collapsed: boolean }>`
+    display: flex;
+    height: 100%;
+    flex-direction: row;
+    min-width: ${props => props.$collapsed ? '50px' : '300px'};
+    width: ${props => props.$collapsed ? '50px' : 'auto'};
+    flex-shrink: 0;
+`;
+
+const SidebarContent = styled.div<{ $hidden: boolean }>`
+    flex: ${props => props.$hidden ? 0 : 1};
+    display: ${props => props.$hidden ? 'none' : 'flex'};
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--vscode-sideBar-background);
+`;
 
 // Prop Groups
 import {
@@ -42,6 +60,7 @@ interface SidebarProps {
     // View State
     activeView: SidebarView;
     onChangeView: (view: SidebarView) => void;
+    sidebarExpanded: boolean;
 
     // Global/Computed
     backendConnected: boolean;
@@ -72,6 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onOpenHelp,
     activeView,
     onChangeView,
+    sidebarExpanded,
     activeEnvironment,
     environments,
     onChangeEnvironment
@@ -93,10 +113,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onStart: onStartWatcher, onStop: onStopWatcher, onClear: onClearWatcher
     } = watcherProps;
 
-    const hideContent = activeView === SidebarView.HOME; // When on Welcome/Home, hide sidebar content but keep rail
+    const hideContent = !sidebarExpanded || activeView === SidebarView.HOME;
 
     return (
-        <div style={{ display: 'flex', height: '100%', flexDirection: 'row', minWidth: 300, flexShrink: 0 }}>
+        <SidebarContainer $collapsed={hideContent}>
             <SidebarRail
                 activeView={activeView}
                 onChangeView={onChangeView}
@@ -108,15 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
 
             {/* Content Area */}
-            <div
-                style={{
-                    flex: hideContent ? 0 : 1,
-                    display: hideContent ? 'none' : 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    backgroundColor: 'var(--vscode-sideBar-background)'
-                }}
-            >
+            <SidebarContent $hidden={hideContent}>
 
                 {activeView === SidebarView.SERVER && serverProps && (
                     <ServerUi
@@ -162,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
                 {activeView === SidebarView.HISTORY && historyProps && (
-                    <HistorySidebar
+                        <HistorySidebar
                         {...historyProps}
                     />
                 )}
@@ -229,8 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                 )}
 
-
-            </div >
-        </div >
+            </SidebarContent>
+        </SidebarContainer>
     );
 };

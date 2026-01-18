@@ -1,7 +1,8 @@
 import React from 'react';
+import styled from 'styled-components';
 import { Clock, Play, Square, Trash2, Download } from 'lucide-react';
 import { WatcherEvent } from '@shared/models';
-import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
+import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { exportWatcherEvents } from '../../utils/csvExport';
 
 export interface WatcherPanelProps {
@@ -12,6 +13,38 @@ export interface WatcherPanelProps {
     onClear: () => void;
     onSelectEvent: (event: WatcherEvent) => void;
 }
+
+const EmptyMessage = styled.div`
+    color: var(--vscode-descriptionForeground);
+    text-align: center;
+    margin-top: 20px;
+`;
+
+const EventContent = styled.div`
+    flex: 1;
+    min-width: 0;
+`;
+
+const EventTitle = styled.div`
+    font-weight: bold;
+`;
+
+const EventMeta = styled.div`
+    font-size: 0.8em;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const ToggleButton = styled(HeaderButton)<{ $running: boolean }>`
+    color: ${props => props.$running ? 'var(--vscode-testing-iconFailed)' : 'var(--vscode-testing-iconPassed)'};
+`;
+
+const ExportButton = styled(HeaderButton)<{ $disabled: boolean }>`
+    opacity: ${props => props.$disabled ? 0.5 : 1};
+`;
+
+const EventIcon = styled(Clock)`
+    margin-right: 5px;
+`;
 
 export const WatcherPanel: React.FC<WatcherPanelProps> = ({
     history,
@@ -36,36 +69,36 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <SidebarContainer>
             {/* Header */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)', padding: '5px 10px', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1 }}>File Watcher</div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <HeaderButton
+            <SidebarHeader>
+                <SidebarHeaderTitle>File Watcher</SidebarHeaderTitle>
+                <SidebarHeaderActions>
+                    <ToggleButton
                         onClick={(e) => { e.stopPropagation(); if (isRunning) onStop(); else onStart(); }}
                         title={isRunning ? "Stop Watcher" : "Start Watcher"}
-                        style={{ color: isRunning ? 'var(--vscode-testing-iconFailed)' : 'var(--vscode-testing-iconPassed)' }}
+                        $running={isRunning}
                     >
                         {isRunning ? <Square size={14} /> : <Play size={14} />}
-                    </HeaderButton>
-                    <HeaderButton
+                    </ToggleButton>
+                    <ExportButton
                         onClick={(e) => { e.stopPropagation(); handleExport(); }}
                         title="Export to CSV"
-                        style={{ marginLeft: 5, opacity: history.length === 0 ? 0.5 : 1 }}
+                        $disabled={history.length === 0}
                         disabled={history.length === 0}
                     >
                         <Download size={14} />
-                    </HeaderButton>
-                    <HeaderButton onClick={(e) => { e.stopPropagation(); onClear(); }} title="Clear History" style={{ marginLeft: 5 }}>
+                    </ExportButton>
+                    <HeaderButton onClick={(e) => { e.stopPropagation(); onClear(); }} title="Clear History">
                         <Trash2 size={14} />
                     </HeaderButton>
-                </div>
-            </div>
+                </SidebarHeaderActions>
+            </SidebarHeader>
 
             {/* List */}
-            <div style={{ padding: 10, flex: 1, overflowY: 'auto' }}>
+            <SidebarContent>
                 {history.length === 0 ? (
-                    <div style={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', marginTop: 20 }}>
+                    <EmptyMessage>
                         {isRunning ? (
                             <>
                                 Watching C:\temp\requestXML.xml...<br />Waiting for events.
@@ -75,13 +108,13 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
                                 Watcher is stopped.<br />Press Play to begin.
                             </>
                         )}
-                    </div>
+                    </EmptyMessage>
                 ) : (
                     history.map(event => (
                         <ServiceItem key={event.id} onClick={() => onSelectEvent(event)}>
-                            <Clock size={14} style={{ marginRight: 5 }} />
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 'bold' }}>
+                            <EventIcon size={14} />
+                            <EventContent>
+                                <EventTitle>
                                     {(() => {
                                         const reqOp = event.requestOperation || 'Unknown';
                                         const resOp = event.responseOperation;
@@ -91,16 +124,16 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
                                         if (reqBase === resBase) return reqBase;
                                         return `${reqOp} - ${resOp} `;
                                     })()}
-                                </div>
-                                <div style={{ fontSize: '0.8em', color: 'var(--vscode-descriptionForeground)' }}>{event.timestampLabel}</div>
-                                <div style={{ fontSize: '0.8em', color: 'var(--vscode-descriptionForeground)' }}>
+                                </EventTitle>
+                                <EventMeta>{event.timestampLabel}</EventMeta>
+                                <EventMeta>
                                     {event.responseContent ? 'Request & Response' : 'Request Pending...'}
-                                </div>
-                            </div>
+                                </EventMeta>
+                            </EventContent>
                         </ServiceItem>
                     ))
                 )}
-            </div>
-        </div>
+            </SidebarContent>
+        </SidebarContainer>
     );
 };

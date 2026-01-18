@@ -6,6 +6,7 @@
  */
 
 import { FrontendCommand } from '../../shared/src/messages';
+import { RequestHistoryEntry } from '../../shared/src/models';
 import { ServiceContainer } from './services';
 
 export interface CommandRouter {
@@ -13,6 +14,8 @@ export interface CommandRouter {
 }
 
 export function createCommandRouter(services: ServiceContainer): CommandRouter {
+    const testRunStore = new Map<string, { updates: any[]; done: boolean; error?: string }>();
+    const performanceRunStore = new Map<string, { updates: any[]; done: boolean; error?: string; run?: any }>();
     const handlers: Record<string, (payload: any) => Promise<any>> = {
         // ===== WSDL/SOAP Operations =====
         [FrontendCommand.LoadWsdl]: async (payload) => {
@@ -23,17 +26,100 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
         [FrontendCommand.ExecuteRequest]: async (payload) => {
             // Frontend sends: url, operation, xml, headers, contentType, etc.
             // Accept both naming conventions
+            const startTime = Date.now();
             const endpoint = payload.endpoint || payload.url;
             const operation = payload.operation;
             const args = payload.args || payload.xml;
             const headers = payload.headers || {};
+            const requestType = payload.requestType || 'soap';
 
             // Apply content type if provided
             if (payload.contentType && !headers['Content-Type']) {
                 headers['Content-Type'] = payload.contentType;
             }
 
-            return await services.soapClient.executeRequest(endpoint, operation, args, headers);
+            try {
+                let result: any;
+
+                if (requestType !== 'soap') {
+                    result = await services.soapClient.executeHttpRequest({
+                        id: payload.requestId,
+                        name: payload.requestName || operation || 'Request',
+                        endpoint,
+                        method: payload.method,
+                        requestType,
+                        bodyType: payload.bodyType,
+                        contentType: payload.contentType,
+                        headers,
+                        request: args,
+                        restConfig: payload.restConfig,
+                        graphqlConfig: payload.graphqlConfig
+                    } as any);
+                } else {
+                    result = await services.soapClient.executeRequest(endpoint, operation, args, headers);
+                }
+
+                let historyEntry: RequestHistoryEntry | null = null;
+                if (services.historyService && !payload.isTestRun) {
+                    try {
+                        const responsePayload = result?.rawResponse ?? result?.result ?? result;
+                        const responseSize = typeof responsePayload === 'string'
+                            ? responsePayload.length
+                            : JSON.stringify(responsePayload ?? '').length;
+                        historyEntry = {
+                            id: `hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            timestamp: startTime,
+                            projectName: payload.projectName || 'Unknown',
+                            projectId: payload.projectId,
+                            interfaceName: payload.interfaceName || 'Unknown',
+                            operationName: operation || 'Unknown',
+                            requestName: payload.requestName || 'Manual Request',
+                            endpoint,
+                            requestBody: args,
+                            headers: headers || {},
+                            statusCode: result?.status ?? 200,
+                            duration: Date.now() - startTime,
+                            responseSize,
+                            responseBody: typeof responsePayload === 'string' ? responsePayload : JSON.stringify(responsePayload ?? ''),
+                            responseHeaders: result?.headers,
+                            success: result?.success,
+                            starred: false,
+                        };
+                        services.historyService.addEntry(historyEntry);
+                    } catch (histErr) {
+                        console.error('Failed to save to history:', histErr);
+                    }
+                }
+
+                return { response: result, historyEntry };
+            } catch (error: any) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                let historyEntry: RequestHistoryEntry | null = null;
+                if (services.historyService && !payload.isTestRun) {
+                    try {
+                        historyEntry = {
+                            id: `hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            timestamp: Date.now(),
+                            projectName: payload.projectName || 'Unknown',
+                            projectId: payload.projectId,
+                            interfaceName: payload.interfaceName || 'Unknown',
+                            operationName: operation || 'Unknown',
+                            requestName: payload.requestName || 'Manual Request',
+                            endpoint,
+                            requestBody: args,
+                            headers: headers || {},
+                            success: false,
+                            error: errorMessage,
+                            starred: false,
+                        };
+                        services.historyService.addEntry(historyEntry);
+                    } catch (histErr) {
+                        console.error('Failed to save error to history:', histErr);
+                    }
+                }
+
+                return { response: null, historyEntry, error: errorMessage };
+            }
         },
 
         [FrontendCommand.CancelRequest]: async () => {
@@ -49,7 +135,7 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
         // ===== Project Storage =====
         [FrontendCommand.SaveProject]: async (payload) => {
             // Accept both 'filePath' and 'path' from frontend
-            const filePath = payload.filePath || payload.path;
+            const filePath = payload.filePath || payload.path || payload?.project?.fileName;
             const { project } = payload;
             if (!filePath) {
                 // If no path, this is a new project that needs "Save As" dialog
@@ -72,7 +158,8 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             if (!filePath) {
                 throw new Error('No file path provided');
             }
-            return await services.folderStorage.loadProject(filePath);
+            const project = await services.folderStorage.loadProject(filePath);
+            return { project, filename: filePath };
         },
 
         [FrontendCommand.SyncProjects]: async (payload) => {
@@ -183,24 +270,132 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
         // ===== Test Runner =====
         [FrontendCommand.RunTestCase]: async (payload) => {
             const { testCase, fallbackEndpoint } = payload;
-            return await services.testRunnerService.runTestCase(testCase, fallbackEndpoint);
+            if (payload?.stream) {
+                const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const run = { updates: [], done: false } as { updates: any[]; done: boolean; error?: string };
+                testRunStore.set(runId, run);
+                services.testRunnerService.setCallback((data) => run.updates.push(data));
+                (async () => {
+                    try {
+                        await services.testRunnerService.runTestCase(testCase, fallbackEndpoint);
+                    } catch (error: any) {
+                        run.error = error?.message || String(error);
+                    } finally {
+                        run.done = true;
+                        services.testRunnerService.setCallback(() => { });
+                    }
+                })();
+                return { runId };
+            }
+
+            const updates: any[] = [];
+            services.testRunnerService.setCallback((data) => updates.push(data));
+            await services.testRunnerService.runTestCase(testCase, fallbackEndpoint);
+            services.testRunnerService.setCallback(() => { });
+            return { updates };
         },
 
         [FrontendCommand.RunTestSuite]: async (payload) => {
             // TestRunnerService doesn't have runTestSuite, needs to iterate
             const { testSuite, fallbackEndpoint } = payload;
+            if (payload?.stream) {
+                const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const run = { updates: [], done: false } as { updates: any[]; done: boolean; error?: string };
+                testRunStore.set(runId, run);
+                services.testRunnerService.setCallback((data) => run.updates.push(data));
+                (async () => {
+                    try {
+                        for (const testCase of testSuite.testCases || []) {
+                            await services.testRunnerService.runTestCase(testCase, fallbackEndpoint);
+                        }
+                    } catch (error: any) {
+                        run.error = error?.message || String(error);
+                    } finally {
+                        run.done = true;
+                        services.testRunnerService.setCallback(() => { });
+                    }
+                })();
+                return { runId };
+            }
+
             const results = [];
+            const updates: any[] = [];
+            services.testRunnerService.setCallback((data) => updates.push(data));
             for (const testCase of testSuite.testCases || []) {
                 const result = await services.testRunnerService.runTestCase(testCase, fallbackEndpoint);
                 results.push(result);
             }
-            return results;
+            services.testRunnerService.setCallback(() => { });
+            return { results, updates };
+        },
+
+        [FrontendCommand.GetTestRunUpdates]: async (payload) => {
+            const runId = payload?.runId;
+            const fromIndex = typeof payload?.fromIndex === 'number' ? payload.fromIndex : 0;
+            if (!runId) return { updates: [], nextIndex: fromIndex, done: true, error: 'Missing runId' };
+
+            const run = testRunStore.get(runId);
+            if (!run) return { updates: [], nextIndex: fromIndex, done: true, error: 'Run not found' };
+
+            const safeIndex = Math.max(0, fromIndex);
+            const updates = run.updates.slice(safeIndex);
+            const nextIndex = safeIndex + updates.length;
+            const done = run.done;
+            const error = run.error;
+
+            if (done && nextIndex >= run.updates.length) {
+                testRunStore.delete(runId);
+            }
+
+            return { updates, nextIndex, done, error };
         },
 
         // ===== Performance Testing =====
         [FrontendCommand.RunPerformanceSuite]: async (payload) => {
             const { suiteId, environment, variables } = payload;
-            return await services.performanceService.runSuite(suiteId, environment, variables);
+            if (payload?.stream) {
+                const runId = `perf-run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const runState = { updates: [], done: false } as { updates: any[]; done: boolean; error?: string; run?: any };
+                performanceRunStore.set(runId, runState);
+
+                const onRunStarted = (data: any) => {
+                    runState.updates.push({ type: 'runStarted', runId: data.runId, suiteId: data.suiteId, suiteName: data.suiteName });
+                };
+                const onIterationComplete = (data: any) => {
+                    runState.updates.push({ type: 'iterationComplete', runId: data.runId, iteration: data.iteration, total: data.total });
+                };
+                const onRunCompleted = (run: any) => {
+                    runState.run = run;
+                    runState.updates.push({ type: 'runCompleted', run });
+                    runState.done = true;
+                    services.performanceService.off('runStarted', onRunStarted);
+                    services.performanceService.off('iterationComplete', onIterationComplete);
+                    services.performanceService.off('runCompleted', onRunCompleted);
+                };
+
+                services.performanceService.on('runStarted', onRunStarted);
+                services.performanceService.on('iterationComplete', onIterationComplete);
+                services.performanceService.on('runCompleted', onRunCompleted);
+
+                (async () => {
+                    try {
+                        await services.performanceService.runSuite(suiteId, environment, variables);
+                        services.settingsManager.updatePerformanceHistory(services.performanceService.getHistory());
+                    } catch (error: any) {
+                        runState.error = error?.message || String(error);
+                        runState.done = true;
+                        services.performanceService.off('runStarted', onRunStarted);
+                        services.performanceService.off('iterationComplete', onIterationComplete);
+                        services.performanceService.off('runCompleted', onRunCompleted);
+                    }
+                })();
+
+                return { runId };
+            }
+
+            const result = await services.performanceService.runSuite(suiteId, environment, variables);
+            services.settingsManager.updatePerformanceHistory(services.performanceService.getHistory());
+            return result;
         },
 
         [FrontendCommand.AbortPerformanceSuite]: async () => {
@@ -219,19 +414,60 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             return services.performanceService.getSuites();
         },
 
+        [FrontendCommand.GetPerformanceRunUpdates]: async (payload) => {
+            const runId = payload?.runId;
+            const fromIndex = typeof payload?.fromIndex === 'number' ? payload.fromIndex : 0;
+            if (!runId) return { updates: [], nextIndex: fromIndex, done: true, error: 'Missing runId' };
+
+            const run = performanceRunStore.get(runId);
+            if (!run) return { updates: [], nextIndex: fromIndex, done: true, error: 'Run not found' };
+
+            const safeIndex = Math.max(0, fromIndex);
+            const updates = run.updates.slice(safeIndex);
+            const nextIndex = safeIndex + updates.length;
+            const done = run.done;
+            const error = run.error;
+            const runData = run.run;
+
+            if (done && nextIndex >= run.updates.length) {
+                performanceRunStore.delete(runId);
+            }
+
+            return { updates, nextIndex, done, error, run: runData };
+        },
+
         [FrontendCommand.AddPerformanceSuite]: async (payload) => {
-            services.performanceService.addSuite(payload.suite);
-            return { added: true };
+            const now = Date.now();
+            const suite = payload?.suite || {
+                id: payload?.id || `perf-suite-${now}`,
+                name: payload?.name || 'New Performance Suite',
+                description: payload?.description || '',
+                requests: [],
+                iterations: payload?.iterations || 10,
+                delayBetweenRequests: payload?.delayBetweenRequests || 0,
+                warmupRuns: payload?.warmupRuns || 1,
+                concurrency: payload?.concurrency || 1,
+                createdAt: now,
+                modifiedAt: now,
+                collapsedSections: ['scheduling', 'workers']
+            };
+            services.performanceService.addSuite(suite);
+            services.settingsManager.updatePerformanceSuites(services.performanceService.getSuites());
+            return { suite, config: services.settingsManager.getConfig() };
         },
 
         [FrontendCommand.UpdatePerformanceSuite]: async (payload) => {
-            services.performanceService.updateSuite(payload.id, payload.updates);
-            return { updated: true };
+            const suiteId = payload.suiteId || payload.id;
+            services.performanceService.updateSuite(suiteId, payload.updates);
+            services.settingsManager.updatePerformanceSuites(services.performanceService.getSuites());
+            return { updated: true, config: services.settingsManager.getConfig() };
         },
 
         [FrontendCommand.DeletePerformanceSuite]: async (payload) => {
-            services.performanceService.deleteSuite(payload.id);
-            return { deleted: true };
+            const suiteId = payload.suiteId || payload.id;
+            services.performanceService.deleteSuite(suiteId);
+            services.settingsManager.updatePerformanceSuites(services.performanceService.getSuites());
+            return { deleted: true, config: services.settingsManager.getConfig() };
         },
 
         // ===== Config Switcher =====
@@ -270,8 +506,22 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
         },
 
         [FrontendCommand.SaveSettings]: async (payload) => {
-            services.settingsManager.saveConfig(payload);
-            return { saved: true };
+            if (payload?.raw) {
+                services.settingsManager.saveRawConfig(payload.content || '');
+            } else if (payload?.config) {
+                services.settingsManager.updateConfigFromObject(payload.config);
+            } else if (payload?.content) {
+                services.settingsManager.saveRawConfig(payload.content);
+            }
+            const updatedConfig = services.settingsManager.getConfig();
+            services.performanceService.setSuites(updatedConfig.performanceSuites || []);
+            services.performanceService.setHistory(updatedConfig.performanceHistory || []);
+            services.scheduleService.loadSchedules(updatedConfig.performanceSchedules || []);
+            return {
+                saved: true,
+                config: updatedConfig,
+                raw: services.settingsManager.getRawConfig()
+            };
         },
 
         // ===== File Watcher =====
@@ -372,9 +622,15 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             return { hasAutosave: false };
         },
 
-        [FrontendCommand.SaveUiState]: async () => {
-            // UI state is saved to localStorage in Tauri
-            return { saved: true };
+        [FrontendCommand.SaveUiState]: async (payload) => {
+            if (payload?.ui) {
+                services.settingsManager.updateUiState(payload.ui);
+            }
+            return {
+                saved: true,
+                config: services.settingsManager.getConfig(),
+                raw: services.settingsManager.getRawConfig()
+            };
         },
 
         [FrontendCommand.Log]: async (payload) => {

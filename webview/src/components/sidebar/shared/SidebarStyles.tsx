@@ -7,6 +7,47 @@ export const DirtyMarker = styled.span`
     line-height: 0.5;
 `;
 
+export const SidebarHeader = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    min-height: 28px;
+    border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+    user-select: none;
+`;
+
+export const SidebarHeaderTitle = styled.div`
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--vscode-sideBarTitle-foreground);
+    letter-spacing: 0.3px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
+export const SidebarHeaderActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--vscode-icon-foreground);
+`;
+
+export const SidebarContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+`;
+
+export const SidebarContent = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+`;
+
 export const SectionHeader = styled.div`
     padding: 5px 10px;
     font-weight: bold;
@@ -74,7 +115,7 @@ export const shake = keyframes`
 export const HeaderButton = styled.button<{ $shake?: boolean }>`
     background: transparent;
     border: none;
-    color: var(--vscode-icon-foreground);
+    color: currentColor;
     cursor: pointer;
     padding: 2px;
     margin-left: 5px;

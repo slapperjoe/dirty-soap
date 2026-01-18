@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Users, Server, Cpu, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { CoordinatorStatus } from '@shared/models';
+import { EmptyState } from '../common/EmptyState';
 
 const Container = styled.div`
     /* No outer styling - panel is now embedded in a Section */
@@ -86,11 +87,9 @@ const StatusBadge = styled.span<{ status: string }>`
     color: white;
 `;
 
-const EmptyState = styled.div`
-    text-align: center;
-    padding: 30px 20px;
-    color: var(--vscode-descriptionForeground);
-    font-size: 0.9em;
+const EmptyCode = styled.div`
+    font-size: 0.85em;
+    margin-top: 5px;
 `;
 
 interface WorkerStatusPanelProps {
@@ -119,22 +118,23 @@ export const WorkerStatusPanel: React.FC<WorkerStatusPanelProps> = ({
         <Container>
             <WorkerList>
                 {status.workers.length === 0 ? (
-                    <EmptyState>
-                        {status.running ? (
-                            <>
-                                <Users size={32} style={{ marginBottom: 10, opacity: 0.5 }} />
-                                <div>Waiting for workers to connect...</div>
-                                <div style={{ fontSize: '0.85em', marginTop: 5 }}>
-                                    Run: <code>npx dirty-soap worker --connect ws://localhost:{status.port}</code>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <Users size={32} style={{ marginBottom: 10, opacity: 0.5 }} />
-                                <div>Start the coordinator to accept worker connections</div>
-                            </>
-                        )}
-                    </EmptyState>
+                    status.running ? (
+                        <EmptyState
+                            icon={Users}
+                            title="Waiting for workers to connect..."
+                            description="Run a worker to connect to the coordinator."
+                        >
+                            <EmptyCode>
+                                Run: <code>npx dirty-soap worker --connect ws://localhost:{status.port}</code>
+                            </EmptyCode>
+                        </EmptyState>
+                    ) : (
+                        <EmptyState
+                            icon={Users}
+                            title="No workers connected"
+                            description="Start the coordinator to accept worker connections."
+                        />
+                    )
                 ) : (
                     status.workers.map(worker => (
                         <WorkerCard key={worker.id} status={worker.status}>

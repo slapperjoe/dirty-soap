@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components';
 import ReactMarkdown from 'react-markdown';
 import { Mascot, MarkdownContainer } from '../../styles/WorkspaceLayout.styles';
 import titleDark from '../../assets/app-title-dark.jpg';
@@ -8,9 +9,18 @@ interface WelcomePanelProps {
     changelog?: string;
 }
 
+const WelcomeContainer = styled.div`
+    padding: 20px;
+    flex: 1;
+    overflow: auto;
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family);
+    position: relative;
+`;
+
 export const WelcomePanel: React.FC<WelcomePanelProps> = ({ changelog }) => {
     return (
-        <div style={{ padding: 20, flex: 1, overflow: 'auto', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)', position: 'relative' }}>
+        <WelcomeContainer>
             <Mascot src={titleDark} className="dark-only" alt="APInox" />
             <Mascot src={titleLight} className="light-only" alt="APInox" />
             <h1>Welcome to APInox</h1>
@@ -20,6 +30,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({ changelog }) => {
                     <ReactMarkdown>{changelog}</ReactMarkdown>
                 </MarkdownContainer>
             )}
-        </div>
+        </WelcomeContainer>
     );
 };

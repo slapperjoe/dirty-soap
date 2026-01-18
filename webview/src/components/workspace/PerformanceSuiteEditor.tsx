@@ -3,13 +3,13 @@ import styled from 'styled-components';
 import { Play, Plus, Trash2, Settings, Clock, Repeat, Flame, Zap, GripVertical, Loader, Square, Calendar, ToggleLeft, ToggleRight, Import, Download, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertTriangle, Users, Server } from 'lucide-react';
 import { PerformanceSuite, PerformanceRun, PerformanceSchedule, PerformanceRequest, CoordinatorStatus } from '@shared/models';
 import { WorkerStatusPanel } from './WorkerStatusPanel';
-import { EmptyState } from '../../components/common/EmptyState';
 
 import {
     Content,
     Toolbar,
     ToolbarButton,
-    IconButton
+    IconButton,
+    RunButton
 } from '../../styles/WorkspaceLayout.styles';
 import { ContextMenu, ContextMenuItem } from '../../styles/App.styles';
 
@@ -97,15 +97,15 @@ const RequestList = styled.div`
     gap: 8px;
 `;
 
-const RequestItem = styled.div<{ isDragging?: boolean; isDropTarget?: boolean }>`
+const RequestItem = styled.div<{ $isDragging?: boolean; $isDropTarget?: boolean }>`
     display: flex;
     align-items: center;
     padding: 10px;
-    background: ${props => props.isDragging ? 'var(--vscode-editor-selectionBackground)' : 'var(--vscode-list-hoverBackground)'};
-    border: 1px solid ${props => props.isDropTarget ? 'var(--vscode-focusBorder)' : 'var(--vscode-panel-border)'};
+    background: ${props => props.$isDragging ? 'var(--vscode-editor-selectionBackground)' : 'var(--vscode-list-hoverBackground)'};
+    border: 1px solid ${props => props.$isDropTarget ? 'var(--vscode-focusBorder)' : 'var(--vscode-panel-border)'};
     border-radius: 4px;
     gap: 12px;
-    opacity: ${props => props.isDragging ? 0.5 : 1};
+    opacity: ${props => props.$isDragging ? 0.5 : 1};
     transition: border-color 0.15s ease, background-color 0.15s ease;
 `;
 
@@ -173,16 +173,18 @@ const ProgressContainer = styled.div`
 
 const ProgressBar = styled.div`
     height: 8px;
-    background: var(--vscode-input-background);
+    background: var(--vscode-editorWidget-background);
     border-radius: 4px;
     overflow: hidden;
+    border: 1px solid var(--vscode-widget-border);
 `;
 
 const ProgressFill = styled.div<{ $percent: number }>`
     height: 100%;
     width: ${props => props.$percent}%;
-    background: var(--vscode-progressBar-background);
+    background: var(--vscode-progressBar-background, var(--vscode-testing-iconPassed));
     transition: width 0.3s ease;
+    min-width: ${props => (props.$percent > 0 ? '4px' : '0')};
 `;
 
 // Bar Chart for response times
@@ -234,6 +236,24 @@ const RunDetails = styled.div`
     background: var(--vscode-editor-background);
     max-height: 200px;
     overflow-y: auto;
+`;
+
+const InfoBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--vscode-editor-inactiveSelectionBackground);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 6px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 16px;
+    font-size: 0.9em;
+`;
+
+const InfoBannerTitle = styled.div`
+    font-weight: 600;
+    color: var(--vscode-foreground);
 `;
 
 const ResultRow = styled.div<{ $success: boolean }>`
@@ -424,6 +444,7 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
     };
 
     const sortedRequests = [...(suite.requests || [])].sort((a, b) => a.order - b.order);
+    const sortedHistory = [...(history || [])].sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
 
     return (
         <Content>
@@ -446,16 +467,16 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                 <Import size={14} /> Import
                             </ToolbarButton>
                         )}
-                        <ToolbarButton onClick={() => onRun(suite.id)} style={{ color: 'var(--vscode-testing-iconPassed)' }}>
+                        <RunButton onClick={() => onRun(suite.id)}>
                             <Play size={14} /> Run Suite
-                        </ToolbarButton>
+                        </RunButton>
                     </>
                 )}
             </Toolbar>
 
             <EditorContainer>
                 {/* Summary Card - Only shown when there's run history */}
-                {history && history.length > 0 && (
+                {sortedHistory.length > 0 && (
                     <Section style={{ marginBottom: 20, background: 'var(--vscode-editor-background)', borderColor: 'var(--vscode-testing-iconPassed)' }}>
                         <SectionHeader>
                             <SectionTitle style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -472,35 +493,35 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                 <div>
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Last Run</div>
                                     <div style={{ fontSize: '1.5em', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        {history[0].status === 'completed' ? (
+                                        {sortedHistory[0].status === 'completed' ? (
                                             <CheckCircle size={18} style={{ color: 'var(--vscode-testing-iconPassed)' }} />
                                         ) : (
                                             <XCircle size={18} style={{ color: 'var(--vscode-testing-iconFailed)' }} />
                                         )}
-                                        <span style={{ fontSize: '0.7em' }}>{new Date(history[0].startTime).toLocaleString()}</span>
+                                        <span style={{ fontSize: '0.7em' }}>{new Date(sortedHistory[0].startTime).toLocaleString()}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Avg Response Time</div>
                                     <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
-                                        {history[0].summary?.avgResponseTime ?
-                                            history[0].summary.avgResponseTime.toFixed(0)
+                                        {sortedHistory[0].summary?.avgResponseTime ?
+                                            sortedHistory[0].summary.avgResponseTime.toFixed(0)
                                             : '0'}ms
                                     </div>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Success Rate</div>
                                     <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
-                                        {history[0].summary?.successRate !== undefined ?
-                                            (history[0].summary.successRate * 100).toFixed(0)
+                                        {sortedHistory[0].summary?.successRate !== undefined ?
+                                            (sortedHistory[0].summary.successRate * 100).toFixed(0)
                                             : '0'}%
                                     </div>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: 4 }}>Iterations</div>
                                     <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>{
-                                        history[0].summary?.totalRequests ?
-                                            Math.floor(history[0].summary.totalRequests / (suite.requests?.length || 1))
+                                        sortedHistory[0].summary?.totalRequests ?
+                                            Math.floor(sortedHistory[0].summary.totalRequests / (suite.requests?.length || 1))
                                             : '0'
                                     }</div>
                                 </div>
@@ -510,12 +531,14 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                 )}
 
                 {/* Info Banner - Only shown when there are no runs */}
-                {(!history || history.length === 0) && (
-                    <EmptyState
-                        icon={AlertTriangle}
-                        title="No performance runs yet"
-                        description='Configure your test requests below and click "Run Suite" to start your first performance test.'
-                    />
+                {sortedHistory.length === 0 && (
+                    <InfoBanner>
+                        <AlertTriangle size={18} />
+                        <div>
+                            <InfoBannerTitle>No performance runs yet</InfoBannerTitle>
+                            <div>Configure your test requests below and click "Run Suite" to start your first performance test.</div>
+                        </div>
+                    </InfoBanner>
                 )}
 
                 {/* Run Progress - Only show when running */}
@@ -605,8 +628,8 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                                 <RequestItem
                                     key={req.id}
                                     draggable
-                                    isDragging={draggedId === req.id}
-                                    isDropTarget={dropTargetId === req.id}
+                                    $isDragging={draggedId === req.id}
+                                    $isDropTarget={dropTargetId === req.id}
                                     onDragStart={(e) => handleDragStart(e, req.id)}
                                     onDragOver={(e) => handleDragOver(e, req.id)}
                                     onDragLeave={handleDragLeave}
@@ -864,12 +887,12 @@ export const PerformanceSuiteEditor: React.FC<PerformanceSuiteEditorProps> = ({
                 <Section $collapsed={isCollapsed('history')}>
                     <SectionHeader $clickable onClick={() => toggleSection('history')}>
                         {isCollapsed('history') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                        <SectionTitle><Clock size={16} /> Run History ({history.length})</SectionTitle>
+                        <SectionTitle><Clock size={16} /> Run History ({sortedHistory.length})</SectionTitle>
                     </SectionHeader>
                     <SectionContent $collapsed={isCollapsed('history')}>
-                        {history.length > 0 ? (
+                        {sortedHistory.length > 0 ? (
                             <>
-                                {history.slice(0, 5).map((run) => {
+                                {sortedHistory.slice(0, 5).map((run) => {
                                     const isExpanded = expandedRunId === run.id;
                                     const stats = run.summary;
                                     const maxDuration = Math.max(...run.results.map(r => r.duration), 1);

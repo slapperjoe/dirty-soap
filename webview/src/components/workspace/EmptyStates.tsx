@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Compass, Network, FolderOpen } from 'lucide-react';
+import { Eye, Compass, Network, FolderOpen, Clock } from 'lucide-react';
 import { EmptyState } from '../common/EmptyState';
 export { EmptyState };
 
@@ -24,6 +24,14 @@ export const EmptyServer: React.FC = () => (
         icon={Network}
         title="APInox Server"
         description="Configure a local proxy server to inspect traffic or mock responses."
+    />
+);
+
+export const EmptyHistory: React.FC = () => (
+    <EmptyState
+        icon={Clock}
+        title="Request History"
+        description="Execute a request to see it appear in your history."
     />
 );
 

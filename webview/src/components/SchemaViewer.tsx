@@ -30,6 +30,28 @@ const TypeLabel = styled.span`
   opacity: 0.8;
 `;
 
+const ExpandIconSlot = styled.div`
+    width: 16px;
+    display: flex;
+    align-items: center;
+`;
+
+const NodeName = styled.span<{ $isComplex?: boolean }>`
+    font-weight: ${props => props.$isComplex ? 'bold' : 'normal'};
+`;
+
+const OptionalMark = styled.span`
+    color: var(--vscode-descriptionForeground);
+    margin-left: 4px;
+`;
+
+const ViewerContainer = styled.div`
+    padding: 10px;
+    overflow: auto;
+    height: 100%;
+    user-select: text;
+`;
+
 const NodeIcon = ({ kind }: { kind: string }) => {
     return kind === 'complex' ? <Box size={14} color="var(--vscode-symbolIcon-classForeground)" /> : <FileType size={14} color="var(--vscode-symbolIcon-variableForeground)" />;
 };
@@ -41,13 +63,13 @@ const SchemaNodeItem: React.FC<{ node: SchemaNode }> = ({ node }) => {
     return (
         <div>
             <ItemHeader onClick={() => setExpanded(!expanded)}>
-                <div style={{ width: 16, display: 'flex', alignItems: 'center' }}>
+                <ExpandIconSlot>
                     {hasChildren && (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
-                </div>
+                </ExpandIconSlot>
                 <NodeIcon kind={node.kind} />
                 <Label>
-                    <span style={{ fontWeight: node.kind === 'complex' ? 'bold' : 'normal' }}>{node.name}</span>
-                    {node.isOptional && <span style={{ color: 'var(--vscode-descriptionForeground)', marginLeft: 4 }}>?</span>}
+                    <NodeName $isComplex={node.kind === 'complex'}>{node.name}</NodeName>
+                    {node.isOptional && <OptionalMark>?</OptionalMark>}
                 </Label>
                 <TypeLabel>{node.type}</TypeLabel>
             </ItemHeader>
@@ -64,8 +86,8 @@ const SchemaNodeItem: React.FC<{ node: SchemaNode }> = ({ node }) => {
 
 export const SchemaViewer: React.FC<{ schema: SchemaNode }> = ({ schema }) => {
     return (
-        <div style={{ padding: 10, overflow: 'auto', height: '100%', userSelect: 'text' }}>
+        <ViewerContainer>
             <SchemaNodeItem node={schema} />
-        </div>
+        </ViewerContainer>
     );
 };

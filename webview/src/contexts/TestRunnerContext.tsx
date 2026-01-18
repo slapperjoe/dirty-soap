@@ -7,6 +7,7 @@ import { useUI } from './UIContext';
 import { useNavigation } from './NavigationContext';
 import { ApiInterface, ApiOperation, ApiRequest } from '@shared/models';
 import { BackendCommand } from '@shared/messages';
+import { bridge } from '../utils/bridge';
 
 interface TestExecutionState {
     status: 'running' | 'pass' | 'fail';
@@ -80,19 +81,84 @@ export const TestRunnerProvider = ({ children }: { children: ReactNode }) => {
     // -------------------------------------------------------------------------
 
     React.useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            const message = event.data;
+        const applyTestRunnerUpdate = (prev: Record<string, Record<string, TestExecutionState>>, update: any) => {
+            if (!update || typeof update !== 'object') return prev;
+
+            const type = update.type;
+            if (!type) {
+                // Legacy shape: merge update object
+                return { ...prev, ...update };
+            }
+
+            if (type === 'testCaseStart') {
+                return { ...prev, [update.id]: {} };
+            }
+
+            if (type === 'stepStart') {
+                const caseId = update.caseId;
+                const stepId = update.stepId;
+                if (!caseId || !stepId) return prev;
+                return {
+                    ...prev,
+                    [caseId]: {
+                        ...(prev[caseId] || {}),
+                        [stepId]: { status: 'running' }
+                    }
+                };
+            }
+
+            if (type === 'stepPass') {
+                const caseId = update.caseId;
+                const stepId = update.stepId;
+                if (!caseId || !stepId) return prev;
+                return {
+                    ...prev,
+                    [caseId]: {
+                        ...(prev[caseId] || {}),
+                        [stepId]: {
+                            status: 'pass',
+                            response: update.response,
+                            assertionResults: update.assertionResults
+                        }
+                    }
+                };
+            }
+
+            if (type === 'stepFail') {
+                const caseId = update.caseId;
+                const stepId = update.stepId;
+                if (!caseId || !stepId) return prev;
+                return {
+                    ...prev,
+                    [caseId]: {
+                        ...(prev[caseId] || {}),
+                        [stepId]: {
+                            status: 'fail',
+                            error: update.error,
+                            response: update.response,
+                            assertionResults: update.assertionResults
+                        }
+                    }
+                };
+            }
+
+            return prev;
+        };
+
+        const handleMessage = (message: any) => {
             switch (message.command) {
-                case BackendCommand.TestRunnerUpdate:
-                    if (message.update) {
-                        setTestExecution(prev => ({ ...prev, ...message.update }));
+                case BackendCommand.TestRunnerUpdate: {
+                    const update = message.update ?? message.data;
+                    if (update) {
+                        setTestExecution(prev => applyTestRunnerUpdate(prev, update));
                     }
                     break;
+                }
             }
         };
 
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
+        const unsubscribe = bridge.onMessage(handleMessage);
+        return () => unsubscribe();
     }, []);
 
     // -------------------------------------------------------------------------

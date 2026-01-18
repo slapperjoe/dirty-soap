@@ -85,6 +85,7 @@ export const darkTheme: Theme = {
         // Activity Bar
         '--vscode-activityBar-background': '#333333',
         '--vscode-activityBar-foreground': '#ffffff',
+        '--vscode-activityBar-inactiveForeground': '#c5c5c5',
         '--vscode-activityBarBadge-background': '#007acc',
         '--vscode-activityBarBadge-foreground': '#ffffff',
 
@@ -225,6 +226,7 @@ export const lightTheme: Theme = {
         // Activity Bar
         '--vscode-activityBar-background': '#2c2c2c',
         '--vscode-activityBar-foreground': '#ffffff',
+        '--vscode-activityBar-inactiveForeground': '#b0b0b0',
         '--vscode-activityBarBadge-background': '#007acc',
         '--vscode-activityBarBadge-foreground': '#ffffff',
 
@@ -371,6 +373,7 @@ export const solarizedDarkTheme: Theme = {
         // Activity Bar
         '--vscode-activityBar-background': '#073642',
         '--vscode-activityBar-foreground': '#93a1a1',
+        '--vscode-activityBar-inactiveForeground': '#839496',
         '--vscode-activityBarBadge-background': '#268bd2',
         '--vscode-activityBarBadge-foreground': '#fdf6e3',
 
@@ -511,6 +514,7 @@ export const solarizedLightTheme: Theme = {
         // Activity Bar
         '--vscode-activityBar-background': '#eee8d5',
         '--vscode-activityBar-foreground': '#586e75',
+        '--vscode-activityBar-inactiveForeground': '#7b8790',
         '--vscode-activityBarBadge-background': '#268bd2',
         '--vscode-activityBarBadge-foreground': '#fdf6e3',
 

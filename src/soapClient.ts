@@ -145,6 +145,10 @@ export class SoapClient {
     return this.executeRawRequest(operation, xmlPayload, headers, url);
   }
 
+  public async executeHttpRequest(request: ApiRequest): Promise<any> {
+    return this.httpClient.execute(request);
+  }
+
   private async executeRawRequest(
     operation: string,
     xml: string,

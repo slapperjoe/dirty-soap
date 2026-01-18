@@ -46,6 +46,21 @@ const Title = styled.h2`
   gap: 10px;
 `;
 
+const CloseButton = styled.button`
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--vscode-icon-foreground);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    &:hover {
+        background: var(--vscode-toolbar-hoverBackground);
+    }
+`;
+
 const Content = styled.div`
   padding: 20px;
   overflow-y: auto;
@@ -186,7 +201,9 @@ export const WsdlSyncModal: React.FC<WsdlSyncModalProps> = ({ diff, onClose, onS
                         <RefreshCw size={18} />
                         Synchronize Interface: {diff.interfaceName}
                     </Title>
-                    <X size={18} style={{ cursor: 'pointer' }} onClick={onClose} />
+                    <CloseButton onClick={onClose} title="Close">
+                        <X size={18} />
+                    </CloseButton>
                 </Header>
 
                 <Content>

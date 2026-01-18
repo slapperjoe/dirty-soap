@@ -13,6 +13,7 @@ interface ThemeContextType {
     theme: ThemeName;
     setTheme: (theme: ThemeName) => void;
     isTauriMode: boolean;
+    monacoTheme: string;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -35,6 +36,7 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
 
     // Default to dark theme
     const [theme, setThemeState] = useState<ThemeName>('dark');
+    const [monacoTheme, setMonacoTheme] = useState<string>('vs-dark');
 
     // Load saved theme preference on mount (Tauri only)
     useEffect(() => {
@@ -60,6 +62,43 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
         });
 
         console.log(`[ThemeContext] Applied ${theme} theme (${Object.keys(selectedTheme.variables).length} variables)`);
+
+        // Apply Monaco theme globally
+        const applyMonacoTheme = async () => {
+            try {
+                const monaco = await import('monaco-editor');
+                const getVar = (name: string, fallback: string) => {
+                    const value = getComputedStyle(root).getPropertyValue(name).trim();
+                    return value || fallback;
+                };
+
+                const isLight = theme.includes('light');
+                const themeId = `apinox-${theme}`;
+
+                monaco.editor.defineTheme(themeId, {
+                    base: isLight ? 'vs' : 'vs-dark',
+                    inherit: true,
+                    rules: [],
+                    colors: {
+                        'editor.background': getVar('--vscode-editor-background', isLight ? '#ffffff' : '#1e1e1e'),
+                        'editor.foreground': getVar('--vscode-editor-foreground', isLight ? '#000000' : '#d4d4d4'),
+                        'editor.selectionBackground': getVar('--vscode-editor-selectionBackground', isLight ? '#add6ff' : '#264f78'),
+                        'editor.lineHighlightBackground': getVar('--vscode-editor-lineHighlightBackground', 'transparent'),
+                        'editorCursor.foreground': getVar('--vscode-editorCursor-foreground', isLight ? '#000000' : '#ffffff'),
+                        'editorLineNumber.foreground': getVar('--vscode-editorLineNumber-foreground', isLight ? '#999999' : '#858585'),
+                        'editorLineNumber.activeForeground': getVar('--vscode-editorLineNumber-activeForeground', isLight ? '#000000' : '#c6c6c6'),
+                        'editorWhitespace.foreground': getVar('--vscode-editorWhitespace-foreground', isLight ? '#d3d3d3' : '#404040')
+                    }
+                });
+
+                monaco.editor.setTheme(themeId);
+                setMonacoTheme(themeId);
+            } catch (e) {
+                console.warn('[ThemeContext] Failed to apply Monaco theme:', e);
+            }
+        };
+
+        applyMonacoTheme();
     }, [theme, isTauriMode]);
 
     // Wrapper to save theme preference
@@ -75,7 +114,7 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     };
 
     return (
-        <ThemeContext.Provider value={{ theme, setTheme, isTauriMode }}>
+        <ThemeContext.Provider value={{ theme, setTheme, isTauriMode, monacoTheme }}>
             {children}
         </ThemeContext.Provider>
     );

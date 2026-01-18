@@ -1,11 +1,12 @@
 
-import { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { useRef, useImperativeHandle, forwardRef, useEffect, useState } from 'react';
 import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import styled from 'styled-components';
 import { useWildcardDecorations } from '../hooks/useWildcardDecorations';
 import { bridge } from '../utils/bridge';
 import { applyAutoFolding } from '../utils/xmlFoldingUtils';
+import { useTheme } from '../contexts/ThemeContext';
 
 loader.config({ monaco });
 
@@ -22,6 +23,7 @@ export interface MonacoRequestEditorProps {
     readOnly?: boolean;
     onFocus?: () => void;
     autoFoldElements?: string[];
+    showLineNumbers?: boolean;
     requestId?: string; // Used to detect when user switches to different request
     forceUpdateKey?: number; // Used to force update when value changes externally (e.g. formatting)
     logId?: string; // Debugging ID
@@ -39,11 +41,14 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
     readOnly = false,
     onFocus,
     autoFoldElements,
+    showLineNumbers = true,
     requestId,
     forceUpdateKey
 }, ref) => {
     const editorRef = useRef<any>(null);
     const monacoRef = useRef<Monaco | null>(null);
+    const { theme } = useTheme();
+    const [editorTheme, setEditorTheme] = useState<string>('vs-dark');
     const previousRequestIdRef = useRef<string | undefined>(undefined);
     const lastSyncedRequestIdRef = useRef<string | undefined>(undefined);
     const lastSyncedForceUpdateKeyRef = useRef<number | undefined>(undefined);
@@ -86,8 +91,9 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
             const isNewRequest = requestId !== lastSyncedRequestIdRef.current;
             const isForceUpdate = forceUpdateKey !== undefined && forceUpdateKey !== lastSyncedForceUpdateKeyRef.current;
             const isMount = lastSyncedRequestIdRef.current === undefined;
+            const shouldSync = isNewRequest || isForceUpdate || isMount;
 
-            if (!isMount && (isNewRequest || isForceUpdate)) {
+            if (shouldSync) {
                 // If content is identical, avoid updating to prevent cursor jumps.
                 // This specifically handles the "ID Transition" case (Unsaved Name -> Saved ID)
                 // where isNewRequest is true but content hasn't changed.
@@ -110,9 +116,41 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
         // We do NOT want to react to value prop changes unless it is a new request or forced.
     }, [requestId, forceUpdateKey]);
 
+    const applyEditorTheme = (monacoInstance: Monaco) => {
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) => {
+            const value = getComputedStyle(root).getPropertyValue(name).trim();
+            return value || fallback;
+        };
+
+        const isLight = theme.includes('light');
+        const themeId = `apinox-${theme}`;
+
+        monacoInstance.editor.defineTheme(themeId, {
+            base: isLight ? 'vs' : 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+                'editor.background': getVar('--vscode-editor-background', isLight ? '#ffffff' : '#1e1e1e'),
+                'editor.foreground': getVar('--vscode-editor-foreground', isLight ? '#000000' : '#d4d4d4'),
+                'editor.selectionBackground': getVar('--vscode-editor-selectionBackground', isLight ? '#add6ff' : '#264f78'),
+                'editor.lineHighlightBackground': getVar('--vscode-editor-lineHighlightBackground', 'transparent'),
+                'editorCursor.foreground': getVar('--vscode-editorCursor-foreground', isLight ? '#000000' : '#ffffff'),
+                'editorLineNumber.foreground': getVar('--vscode-editorLineNumber-foreground', isLight ? '#999999' : '#858585'),
+                'editorLineNumber.activeForeground': getVar('--vscode-editorLineNumber-activeForeground', isLight ? '#000000' : '#c6c6c6'),
+                'editorWhitespace.foreground': getVar('--vscode-editorWhitespace-foreground', isLight ? '#d3d3d3' : '#404040')
+            }
+        });
+
+        monacoInstance.editor.setTheme(themeId);
+        setEditorTheme(themeId);
+    };
+
     const handleEditorDidMount = (editor: any, monaco: Monaco) => {
         editorRef.current = editor;
         monacoRef.current = monaco;
+
+        applyEditorTheme(monaco);
 
         editor.onDidFocusEditorText(() => {
             if (onFocus) onFocus();
@@ -219,6 +257,12 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
         // --- End Clipboard Fixes ---
     };
 
+    useEffect(() => {
+        if (monacoRef.current) {
+            applyEditorTheme(monacoRef.current);
+        }
+    }, [theme]);
+
     // Listen for Clipboard Data from Backend (Fallback for Paste)
     // Listen for Clipboard Data from Backend (Fallback for Paste)
     useEffect(() => {
@@ -255,7 +299,7 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
         readOnly: readOnly,
         folding: true,
         automaticLayout: true,
-        lineNumbers: 'on',
+        lineNumbers: showLineNumbers ? 'on' : 'off',
         renderLineHighlight: 'none',
         contextmenu: true,
         acceptSuggestionOnEnter: 'off',
@@ -297,10 +341,11 @@ export const MonacoRequestEditor = forwardRef<MonacoRequestEditorHandle, MonacoR
             </style>
             <Editor
                 height="100%"
+                key={`request-editor-${theme}`}
                 defaultLanguage={language}
                 defaultValue={value}
                 onChange={(val) => onChange(val || '')}
-                theme="vs-dark" // Default to dark, ideally sync with VSCode theme
+                theme={editorTheme}
                 onMount={handleEditorDidMount}
                 options={editorOptions as any}
             />

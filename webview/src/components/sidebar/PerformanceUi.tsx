@@ -3,6 +3,7 @@ import styled, { keyframes, css } from 'styled-components';
 import { Play, Square, Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { SidebarPerformanceProps } from '../../types/props';
 import { ContextMenu, ContextMenuItem } from '../../styles/App.styles';
+import { SidebarContainer, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 
 // Shake animation for delete confirmation
 const shakeAnimation = keyframes`
@@ -12,28 +13,9 @@ const shakeAnimation = keyframes`
 `;
 
 // Styled Components (borrowed from existing UI)
-const Container = styled.div`
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+const Container = styled(SidebarContainer)`
     color: var(--vscode-foreground);
     background-color: var(--vscode-sideBar-background);
-`;
-
-const Toolbar = styled.div`
-    display: flex;
-    padding: 10px;
-    gap: 8px;
-    border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
-    align-items: center;
-`;
-
-const Title = styled.div`
-    font-size: 11px;
-    font-weight: bold;
-    text-transform: uppercase;
-    color: var(--vscode-sideBarTitle-foreground);
-    flex: 1;
 `;
 
 const IconButton = styled.button`
@@ -41,7 +23,7 @@ const IconButton = styled.button`
     border: none;
     cursor: pointer;
     padding: 4px;
-    color: var(--vscode-icon-foreground);
+    color: inherit;
     border-radius: 3px;
     display: flex;
     align-items: center;
@@ -50,6 +32,25 @@ const IconButton = styled.button`
     &:hover {
         background-color: var(--vscode-toolbar-hoverBackground);
     }
+`;
+
+const AddSuiteRow = styled.div`
+    padding: 8px;
+`;
+
+const RunSuiteButton = styled(IconButton)`
+    color: var(--vscode-testing-iconPassed);
+`;
+
+const RequestIndent = styled.div`
+    width: 14px;
+`;
+
+const EmptyMessage = styled.div`
+    padding: 20px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
 `;
 
 const List = styled.div`
@@ -92,10 +93,14 @@ const Actions = styled.div`
     ${SuiteItem}:hover & {
         opacity: 1;
     }
+        color: var(--vscode-icon-foreground);
+        ${SuiteItem}[data-active='true'] & {
+            color: var(--vscode-list-activeSelectionForeground);
+        }
 `;
 
-const DeleteButton = styled(IconButton) <{ $shake?: boolean }>`
-    color: ${props => props.$shake ? '#f14c4c' : 'var(--vscode-icon-foreground)'};
+const DeleteButton = styled(IconButton)<{ $shake?: boolean }>`
+    color: ${props => props.$shake ? '#f14c4c' : 'currentColor'};
     &:hover {
         background-color: rgba(241, 76, 76, 0.1);
     }
@@ -115,6 +120,15 @@ const Input = styled.input`
     &:focus {
         outline: 1px solid var(--vscode-focusBorder);
     }
+`;
+
+const RequestRenameInput = styled(Input)`
+    margin: 0;
+    padding: 2px 4px;
+`;
+
+const RequestLabel = styled(SuiteLabel)`
+    font-size: 12px;
 `;
 
 const RequestItem = styled.div<{ active: boolean }>`
@@ -218,21 +232,23 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
 
     return (
         <Container>
-            <Toolbar>
-                <Title>Performance Suites</Title>
-                <IconButton onClick={handleCreateSuite} title="New Performance Suite">
-                    <Plus size={16} />
-                </IconButton>
-                {isRunning && (
-                    <IconButton onClick={onStopRun} title="Stop All Runs">
-                        <Square size={16} fill="currentColor" />
+            <SidebarHeader>
+                <SidebarHeaderTitle>Performance Suites</SidebarHeaderTitle>
+                <SidebarHeaderActions>
+                    <IconButton onClick={handleCreateSuite} title="New Performance Suite">
+                        <Plus size={16} />
                     </IconButton>
-                )}
-            </Toolbar>
+                    {isRunning && (
+                        <IconButton onClick={onStopRun} title="Stop All Runs">
+                            <Square size={16} fill="currentColor" />
+                        </IconButton>
+                    )}
+                </SidebarHeaderActions>
+            </SidebarHeader>
 
             <List>
                 {isAdding && (
-                    <div style={{ padding: '8px' }}>
+                    <AddSuiteRow>
                         <Input
                             autoFocus
                             placeholder="Suite Name"
@@ -241,7 +257,7 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                             onBlur={submitCreateSuite}
                             onKeyDown={handleKeyDown}
                         />
-                    </div>
+                    </AddSuiteRow>
                 )}
 
                 {suites.map(suite => {
@@ -250,6 +266,7 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                         <React.Fragment key={suite.id}>
                             <SuiteItem
                                 active={selectedSuiteId === suite.id}
+                                data-active={selectedSuiteId === suite.id}
                                 onClick={() => onSelectSuite(suite.id)}
                             >
                                 <SuiteIcon onClick={(e) => { e.stopPropagation(); onToggleSuiteExpand?.(suite.id); }}>
@@ -263,13 +280,12 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                                     >
                                         <Plus size={14} />
                                     </IconButton>
-                                    <IconButton
+                                    <RunSuiteButton
                                         onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }}
                                         title="Run Suite"
-                                        style={{ color: 'var(--vscode-charts-green)' }}
                                     >
                                         <Play size={14} fill="currentColor" />
-                                    </IconButton>
+                                    </RunSuiteButton>
                                     <DeleteButton
                                         $shake={deleteConfirm === suite.id}
                                         onClick={(e) => {
@@ -296,9 +312,9 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                                     onClick={() => onSelectRequest?.(req)}
                                     onContextMenu={(e) => handleContextMenu(e, 'request', req.id, req.name, suite.id)}
                                 >
-                                    <div style={{ width: 14 }}></div> {/* Indent for no icon */}
+                                    <RequestIndent />
                                     {renameId === req.id ? (
-                                        <Input
+                                        <RequestRenameInput
                                             value={renameValue}
                                             onChange={(e) => setRenameValue(e.target.value)}
                                             onBlur={submitRename}
@@ -309,10 +325,9 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                                             }}
                                             autoFocus
                                             onClick={(e) => e.stopPropagation()}
-                                            style={{ margin: 0, padding: '2px 4px' }}
                                         />
                                     ) : (
-                                        <SuiteLabel style={{ fontSize: 12 }}>{req.name}</SuiteLabel>
+                                        <RequestLabel>{req.name}</RequestLabel>
                                     )}
                                 </RequestItem>
                             ))}
@@ -321,10 +336,10 @@ export const PerformanceUi: React.FC<SidebarPerformanceProps> = ({
                 })}
 
                 {suites.length === 0 && !isAdding && (
-                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--vscode-descriptionForeground)', fontSize: 13 }}>
+                    <EmptyMessage>
                         No performance suites.<br />
                         Click + to create one.
-                    </div>
+                    </EmptyMessage>
                 )}
             </List>
 

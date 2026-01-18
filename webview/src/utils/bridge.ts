@@ -38,6 +38,7 @@ if (isVsCode() && !vscodeApi) {
 let tauriInvoke: ((cmd: string, args?: any) => Promise<any>) | null = null;
 let tauriListen: ((event: string, handler: (e: any) => void) => Promise<() => void>) | null = null;
 let sidecarPort: number | null = null;
+let tauriInitPromise: Promise<void> | null = null;
 
 async function initTauri(): Promise<void> {
     if (!isTauri()) return;
@@ -55,9 +56,17 @@ async function initTauri(): Promise<void> {
     }
 }
 
+function ensureTauriInitialized(): Promise<void> {
+    if (!isTauri()) return Promise.resolve();
+    if (!tauriInitPromise) {
+        tauriInitPromise = initTauri();
+    }
+    return tauriInitPromise;
+}
+
 // Initialize Tauri on load
 if (isTauri()) {
-    initTauri();
+    ensureTauriInitialized();
 }
 
 // ============== Message Types ==============
@@ -78,8 +87,8 @@ export interface BackendMessage {
 
 async function sendToSidecar(message: BridgeMessage): Promise<any> {
     if (!sidecarPort) {
-        // Try to get port again
-        if (tauriInvoke) {
+        await ensureTauriInitialized();
+        if (tauriInvoke && !sidecarPort) {
             sidecarPort = await tauriInvoke('get_sidecar_port');
         }
         if (!sidecarPort) {
@@ -87,20 +96,32 @@ async function sendToSidecar(message: BridgeMessage): Promise<any> {
         }
     }
 
-    const response = await fetch(`http://127.0.0.1:${sidecarPort}/command`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            command: message.command,
-            payload: message
-        })
-    });
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+            const response = await fetch(`http://127.0.0.1:${sidecarPort}/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    command: message.command,
+                    payload: message
+                })
+            });
 
-    const result = await response.json();
-    if (!result.success) {
-        throw new Error(result.error || 'Sidecar command failed');
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Sidecar command failed');
+            }
+            return result.data;
+        } catch (e) {
+            lastError = e;
+            if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
     }
-    return result.data;
+
+    throw lastError instanceof Error ? lastError : new Error('Sidecar command failed');
 }
 
 // ============== Response to Event Mapping ==============
@@ -122,7 +143,7 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
         [FrontendCommand.ExecuteRequest]: (data) => ({
             command: BackendCommand.Response,
             // Frontend expects response data in 'result' property
-            result: data || { rawResponse: '', headers: {}, status: 0, timeTaken: 0 }
+            result: (data && 'response' in data) ? data.response : data || { rawResponse: '', headers: {}, status: 0, timeTaken: 0 }
         }),
         [FrontendCommand.GetHistory]: (data) => ({
             command: BackendCommand.HistoryLoaded,
@@ -137,10 +158,37 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
             command: BackendCommand.ProjectSaved,
             ...data
         }),
-        [FrontendCommand.LoadProject]: (data) => ({
-            command: BackendCommand.ProjectLoaded,
-            project: data
+        [FrontendCommand.SaveSettings]: (data) => ({
+            command: BackendCommand.SettingsUpdate,
+            config: data?.config,
+            raw: data?.raw
         }),
+        [FrontendCommand.SaveUiState]: (data) => ({
+            command: BackendCommand.SettingsUpdate,
+            config: data?.config,
+            raw: data?.raw
+        }),
+        [FrontendCommand.AddPerformanceSuite]: (data) => ({
+            command: BackendCommand.SettingsUpdate,
+            config: data?.config ?? data
+        }),
+        [FrontendCommand.UpdatePerformanceSuite]: (data) => ({
+            command: BackendCommand.SettingsUpdate,
+            config: data?.config ?? data
+        }),
+        [FrontendCommand.DeletePerformanceSuite]: (data) => ({
+            command: BackendCommand.SettingsUpdate,
+            config: data?.config ?? data
+        }),
+        [FrontendCommand.LoadProject]: (data) => {
+            const project = data?.project ?? data;
+            const fileName = data?.filename || data?.fileName;
+            return {
+                command: BackendCommand.ProjectLoaded,
+                project: fileName && project ? { ...project, fileName } : project,
+                filename: fileName
+            };
+        },
         [FrontendCommand.GetMockStatus]: (data) => ({
             command: BackendCommand.MockStatus,
             ...data
@@ -175,6 +223,34 @@ export const bridge = {
             // Send to sidecar and convert response to backend message
             sendToSidecar(message)
                 .then(data => {
+                    // Emit test runner updates for Tauri test runs
+                    if ((message.command === FrontendCommand.RunTestCase || message.command === FrontendCommand.RunTestSuite) && data?.updates) {
+                        data.updates.forEach((update: any) => {
+                            listeners.forEach(cb => cb({
+                                command: BackendCommand.TestRunnerUpdate,
+                                update
+                            }));
+                        });
+                    }
+
+                    // Sidecar can return history entries for executeRequest
+                    if (message.command === FrontendCommand.ExecuteRequest && data?.historyEntry) {
+                        listeners.forEach(cb => cb({
+                            command: BackendCommand.HistoryUpdate,
+                            entry: data.historyEntry
+                        }));
+                    }
+
+                    if (message.command === FrontendCommand.ExecuteRequest && data?.error) {
+                        listeners.forEach(cb => cb({
+                            command: BackendCommand.Error,
+                            error: data.error,
+                            message: data.error,
+                            originalCommand: message.command
+                        }));
+                        return;
+                    }
+
                     // Map command responses to backend events
                     const backendEvent = mapResponseToBackendEvent(message.command, data);
                     if (backendEvent) {

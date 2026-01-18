@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
-import Editor, { loader } from '@monaco-editor/react';
+import React, { useRef, useEffect, useState } from 'react';
+import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import styled from 'styled-components';
 import { applyAutoFolding } from '../utils/xmlFoldingUtils';
+import { useTheme } from '../contexts/ThemeContext';
 
 loader.config({ monaco });
 
@@ -28,7 +29,40 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
     autoFoldElements
 }) => {
     const editorRef = useRef<any>(null);
+    const monacoRef = useRef<Monaco | null>(null);
     const [isReady, setIsReady] = React.useState(!autoFoldElements || autoFoldElements.length === 0 || !value);
+    const { theme } = useTheme();
+    const [viewerTheme, setViewerTheme] = useState<string>('vs-dark');
+
+    const applyViewerTheme = (monacoInstance: Monaco) => {
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) => {
+            const value = getComputedStyle(root).getPropertyValue(name).trim();
+            return value || fallback;
+        };
+
+        const isLight = theme.includes('light');
+        const themeId = `apinox-${theme}`;
+
+        monacoInstance.editor.defineTheme(themeId, {
+            base: isLight ? 'vs' : 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+                'editor.background': getVar('--vscode-editor-background', isLight ? '#ffffff' : '#1e1e1e'),
+                'editor.foreground': getVar('--vscode-editor-foreground', isLight ? '#000000' : '#d4d4d4'),
+                'editor.selectionBackground': getVar('--vscode-editor-selectionBackground', isLight ? '#add6ff' : '#264f78'),
+                'editor.lineHighlightBackground': getVar('--vscode-editor-lineHighlightBackground', 'transparent'),
+                'editorCursor.foreground': getVar('--vscode-editorCursor-foreground', isLight ? '#000000' : '#ffffff'),
+                'editorLineNumber.foreground': getVar('--vscode-editorLineNumber-foreground', isLight ? '#999999' : '#858585'),
+                'editorLineNumber.activeForeground': getVar('--vscode-editorLineNumber-activeForeground', isLight ? '#000000' : '#c6c6c6'),
+                'editorWhitespace.foreground': getVar('--vscode-editorWhitespace-foreground', isLight ? '#d3d3d3' : '#404040')
+            }
+        });
+
+        monacoInstance.editor.setTheme(themeId);
+        setViewerTheme(themeId);
+    };
 
     // Keep Monaco language in sync so highlighting matches the response format (e.g., JSON vs XML)
     useEffect(() => {
@@ -38,6 +72,12 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
             monaco.editor.setModelLanguage(model, language);
         }
     }, [language, value]);
+
+    useEffect(() => {
+        if (monacoRef.current) {
+            applyViewerTheme(monacoRef.current);
+        }
+    }, [theme]);
 
     // Apply auto-folding when response content changes
     // Response viewer is read-only, so any value change is a new response
@@ -55,9 +95,10 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
         <ViewerContainer style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.1s' }}>
             <Editor
                 height="100%"
+                key={`response-viewer-${theme}`}
                 defaultLanguage={language}
                 value={value}
-                theme="vs-dark"
+                theme={viewerTheme}
                 options={{
                     minimap: { enabled: false },
                     fontSize: 14,
@@ -72,6 +113,8 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
                 }}
                 onMount={(editor, monaco) => {
                     editorRef.current = editor;
+                    monacoRef.current = monaco;
+                    applyViewerTheme(monaco);
 
                     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, () => {
                         editor.trigger('keyboard', 'editor.action.clipboardCopyAction', null);

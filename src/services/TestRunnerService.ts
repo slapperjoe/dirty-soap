@@ -167,12 +167,30 @@ export class TestRunnerService {
             headers['Content-Type'] = req.contentType;
         }
 
-        const result = await this.soapClient.executeRequest(
-            resolvedUrl,
-            req.name,
-            resolvedXml,
-            headers
-        );
+        const requestType = req.requestType || 'soap';
+        let result: any;
+
+        if (requestType !== 'soap') {
+            result = await this.soapClient.executeHttpRequest({
+                ...req,
+                endpoint: resolvedUrl,
+                request: resolvedXml,
+                headers,
+                requestType,
+                method: req.method,
+                bodyType: req.bodyType,
+                contentType: req.contentType,
+                restConfig: req.restConfig,
+                graphqlConfig: req.graphqlConfig
+            } as any);
+        } else {
+            result = await this.soapClient.executeRequest(
+                resolvedUrl,
+                req.name,
+                resolvedXml,
+                headers
+            );
+        }
 
         let assertionResults: any[] = [];
         if (req.assertions && req.assertions.length > 0) {

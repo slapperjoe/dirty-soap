@@ -19,6 +19,13 @@ const Select = styled.select`
     &:focus {
         outline: 1px solid var(--vscode-focusBorder);
     }
+
+    &:disabled {
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border-color: var(--vscode-button-secondaryHoverBackground);
+        cursor: not-allowed;
+    }
 `;
 
 const Label = styled.span`
@@ -39,7 +46,7 @@ const MethodSelect = styled.select<{ $method: string }>`
             default: return 'var(--vscode-input-background)';
         }
     }};
-    color: white;
+    color: var(--vscode-foreground);
     border: none;
     padding: 4px 8px;
     border-radius: 3px;
@@ -49,6 +56,13 @@ const MethodSelect = styled.select<{ $method: string }>`
 
     &:focus {
         outline: 1px solid var(--vscode-focusBorder);
+    }
+
+    &:disabled {
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: 1px solid var(--vscode-button-secondaryHoverBackground);
+        cursor: not-allowed;
     }
 `;
 

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Play, Plus, FileCode, Loader2, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import styled from 'styled-components';
+import { Play, Plus, FileCode, Loader2, ArrowUp, ArrowDown, Trash2, ListChecks } from 'lucide-react';
 import { TestCase, TestStep, TestStepType } from '@shared/models';
-import { ToolbarButton, IconButton } from '../../styles/WorkspaceLayout.styles';
+import { ToolbarButton, IconButton, RunButton } from '../../styles/WorkspaceLayout.styles';
 import { ContextHelpButton } from '../ContextHelpButton';
+import { EmptyState } from '../common/EmptyState';
 
 // Empty state component
 interface EmptyTestCaseProps {
@@ -10,19 +12,163 @@ interface EmptyTestCaseProps {
     projectName?: string;
 }
 
+const EmptyTestCaseContainer = styled.div`
+    position: relative;
+    flex: 1;
+`;
+
+const EmptyHelp = styled.div`
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1;
+`;
+
+const EmptyActionButton = styled(ToolbarButton)`
+    font-size: 1em;
+    padding: 10px 20px;
+`;
+
+const ViewContainer = styled.div`
+    padding: 20px;
+    flex: 1;
+    overflow: auto;
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family);
+`;
+
+const HeaderRow = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const HeaderActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+`;
+
+const StepsToolbar = styled.div`
+    padding: 10px 0;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    display: flex;
+    gap: 10px;
+`;
+
+const StepsSection = styled.div`
+    margin-top: 20px;
+`;
+
+const StepsTitle = styled.h2`
+    border-bottom: 1px solid var(--vscode-panel-border);
+    padding-bottom: 5px;
+`;
+
+const StepsList = styled.ul`
+    list-style: none;
+    padding: 0;
+    margin: 0;
+`;
+
+const StepRow = styled.li<{ $clickable: boolean }>`
+    padding: 10px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: ${props => props.$clickable ? 'pointer' : 'default'};
+    background-color: var(--vscode-list-hoverBackground);
+`;
+
+const StepIndex = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 48px;
+`;
+
+const StepIndexNumber = styled.span`
+    opacity: 0.7;
+    min-width: 22px;
+    display: inline-flex;
+    justify-content: center;
+`;
+
+const StepStatusRunning = styled.div`
+    color: var(--vscode-testing-iconQueued);
+    display: inline-flex;
+    align-items: center;
+`;
+
+const StepStatusPass = styled.div`
+    color: var(--vscode-testing-iconPassed);
+`;
+
+const StepStatusFail = styled.div`
+    color: var(--vscode-testing-iconFailed);
+`;
+
+const StepContent = styled.div`
+    flex: 1;
+`;
+
+const StepType = styled.span`
+    opacity: 0.7;
+`;
+
+const StepMeta = styled.div`
+    font-size: 0.8em;
+    opacity: 0.6;
+`;
+
+const DelayMeta = styled(StepMeta)`
+    color: var(--vscode-textLink-foreground);
+`;
+
+const ErrorText = styled.div`
+    color: var(--vscode-errorForeground);
+    font-size: 0.8em;
+`;
+
+const StepActions = styled.div`
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8em;
+    opacity: 0.9;
+`;
+
+const StepStat = styled.span`
+    margin-right: 5px;
+`;
+
+const StepStatWide = styled.span`
+    margin-right: 10px;
+`;
+
+const DeleteStepButton = styled(IconButton)`
+    margin-left: 5px;
+`;
+
 const EmptyTestCase: React.FC<EmptyTestCaseProps> = ({ onCreateTestSuite, projectName }) => (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)', padding: 20, textAlign: 'center', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 10, right: 10 }}>
+    <EmptyTestCaseContainer>
+        <EmptyHelp>
             <ContextHelpButton sectionId="test-suite" />
-        </div>
-        <h2 style={{ marginBottom: 10, color: 'var(--vscode-foreground)' }}>No Test Case Selected</h2>
-        <p style={{ marginBottom: 20 }}>Select a test case from the sidebar or create a new test suite.</p>
-        {onCreateTestSuite && projectName && (
-            <ToolbarButton onClick={() => onCreateTestSuite(projectName)} style={{ fontSize: '1em', padding: '10px 20px' }}>
-                <Plus size={16} /> Create Test Suite
-            </ToolbarButton>
-        )}
-    </div>
+        </EmptyHelp>
+        <EmptyState
+            icon={ListChecks}
+            title="No Test Case Selected"
+            description="Select a test case from the sidebar or create a new test suite."
+        >
+            {onCreateTestSuite && projectName && (
+                <EmptyActionButton onClick={() => onCreateTestSuite(projectName)}>
+                    <Plus size={16} /> Create Test Suite
+                </EmptyActionButton>
+            )}
+        </EmptyState>
+    </EmptyTestCaseContainer>
 );
 
 export interface TestExecutionStatus {
@@ -62,19 +208,19 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
     return (
-        <div style={{ padding: 20, flex: 1, overflow: 'auto', color: 'var(--vscode-editor-foreground)', fontFamily: 'var(--vscode-font-family)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <ViewContainer>
+            <HeaderRow>
                 <h1>Test Case: {testCase.name}</h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <HeaderActions>
                     <ContextHelpButton sectionId="test-suite" />
-                    <ToolbarButton onClick={() => onRunTestCase && onRunTestCase(testCase.id)} style={{ color: 'var(--vscode-testing-iconPassed)' }}>
+                    <RunButton onClick={() => onRunTestCase && onRunTestCase(testCase.id)}>
                         <Play size={14} /> Run Test Case
-                    </ToolbarButton>
-                </div>
-            </div>
+                    </RunButton>
+                </HeaderActions>
+            </HeaderRow>
 
             {onAddStep && (
-                <div style={{ padding: '10px 0', borderBottom: '1px solid var(--vscode-panel-border)', display: 'flex', gap: 10 }}>
+                <StepsToolbar>
                     <ToolbarButton onClick={() => onAddStep(testCase.id, 'delay')}>
                         <Plus size={14} /> Add Delay
                     </ToolbarButton>
@@ -84,25 +230,19 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
                     <ToolbarButton onClick={() => onAddStep(testCase.id, 'script')}>
                         <FileCode size={14} /> Add Script
                     </ToolbarButton>
-                </div>
+                </StepsToolbar>
             )}
 
-            <div style={{ marginTop: 20 }}>
-                <h2 style={{ borderBottom: '1px solid var(--vscode-panel-border)', paddingBottom: 5 }}>Steps</h2>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
+            <StepsSection>
+                <StepsTitle>Steps</StepsTitle>
+                <StepsList>
                     {testCase.steps.map((step, index) => {
                         const status = testExecution && testExecution[testCase.id] && testExecution[testCase.id][step.id];
                         const isConfirming = deleteConfirm === step.id;
                         return (
-                            <li key={step.id} style={{
-                                padding: '10px',
-                                borderBottom: '1px solid var(--vscode-panel-border)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 10,
-                                cursor: step.type === 'request' || step.type === 'delay' || step.type === 'script' ? 'pointer' : 'default',
-                                backgroundColor: 'var(--vscode-list-hoverBackground)'
-                            }}
+                            <StepRow
+                                key={step.id}
+                                $clickable={step.type === 'request' || step.type === 'delay' || step.type === 'script'}
                                 onClick={() => {
                                     if (onSelectStep) {
                                         onSelectStep(step);
@@ -111,31 +251,35 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
                                     }
                                 }}
                             >
-                                <div style={{ opacity: 0.7, width: 24, display: 'flex', justifyContent: 'center' }}>
-                                    {status?.status === 'running' && <Loader2 size={14} className="spin" />}
-                                    {status?.status === 'pass' && <div style={{ color: 'var(--vscode-testing-iconPassed)' }}>✔</div>}
-                                    {status?.status === 'fail' && <div style={{ color: 'var(--vscode-testing-iconFailed)' }}>✘</div>}
-                                    {!status && <span>{index + 1}.</span>}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <strong>{step.name}</strong> <span style={{ opacity: 0.7 }}>({step.type})</span>
+                                <StepIndex>
+                                    <StepIndexNumber>{index + 1}.</StepIndexNumber>
+                                    {status?.status === 'running' && (
+                                        <StepStatusRunning>
+                                            <Loader2 size={14} className="spin" />
+                                        </StepStatusRunning>
+                                    )}
+                                    {status?.status === 'pass' && <StepStatusPass>✔</StepStatusPass>}
+                                    {status?.status === 'fail' && <StepStatusFail>✘</StepStatusFail>}
+                                </StepIndex>
+                                <StepContent>
+                                    <strong>{step.name}</strong> <StepType>({step.type})</StepType>
                                     {step.type === 'request' && step.config.request && (
-                                        <div style={{ fontSize: '0.8em', opacity: 0.6 }}>
+                                        <StepMeta>
                                             {step.config.request.method || 'POST'} {step.config.request.endpoint || 'No Endpoint'}
-                                        </div>
+                                        </StepMeta>
                                     )}
                                     {step.type === 'delay' && (
-                                        <div style={{ fontSize: '0.8em', opacity: 0.6, color: 'var(--vscode-textLink-foreground)' }}>
+                                        <DelayMeta>
                                             Delay: {step.config.delayMs || 0} ms
-                                        </div>
+                                        </DelayMeta>
                                     )}
                                     {status?.error && (
-                                        <div style={{ color: 'var(--vscode-errorForeground)', fontSize: '0.8em' }}>Error: {status.error}</div>
+                                        <ErrorText>Error: {status.error}</ErrorText>
                                     )}
-                                </div>
-                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8em', opacity: 0.9 }}>
-                                    {status?.response?.duration !== undefined && <span title="Duration" style={{ marginRight: 5 }}>{status.response.duration.toFixed(3)}s</span>}
-                                    {status?.response?.rawResponse !== undefined && <span title="Response Size" style={{ marginRight: 10 }}>{(status.response.rawResponse.length / 1024).toFixed(2)} KB</span>}
+                                </StepContent>
+                                <StepActions>
+                                    {status?.response?.duration !== undefined && <StepStat title="Duration">{status.response.duration.toFixed(3)}s</StepStat>}
+                                    {status?.response?.rawResponse !== undefined && <StepStatWide title="Response Size">{(status.response.rawResponse.length / 1024).toFixed(2)} KB</StepStatWide>}
 
                                     {onMoveStep && (
                                         <>
@@ -143,7 +287,6 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
                                                 onClick={(e) => { e.stopPropagation(); onMoveStep(step.id, 'up'); }}
                                                 title="Move Up"
                                                 disabled={index === 0}
-                                                style={{ opacity: index === 0 ? 0.3 : 1 }}
                                             >
                                                 <ArrowUp size={14} />
                                             </IconButton>
@@ -151,7 +294,6 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
                                                 onClick={(e) => { e.stopPropagation(); onMoveStep(step.id, 'down'); }}
                                                 title="Move Down"
                                                 disabled={index === testCase.steps.length - 1}
-                                                style={{ opacity: index === testCase.steps.length - 1 ? 0.3 : 1 }}
                                             >
                                                 <ArrowDown size={14} />
                                             </IconButton>
@@ -159,7 +301,7 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
                                     )}
 
                                     {onDeleteStep && (
-                                        <IconButton
+                                        <DeleteStepButton
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (isConfirming) {
@@ -170,23 +312,19 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({
                                                     setTimeout(() => setDeleteConfirm(null), 2000);
                                                 }
                                             }}
-                                            style={{
-                                                color: isConfirming ? 'var(--vscode-errorForeground)' : 'inherit',
-                                                animation: isConfirming ? 'shake 0.5s' : 'none',
-                                                marginLeft: 5
-                                            }}
+                                            shake={isConfirming}
                                             title={isConfirming ? "Click to Confirm Delete" : "Delete Step"}
                                         >
                                             <Trash2 size={14} />
-                                        </IconButton>
+                                        </DeleteStepButton>
                                     )}
-                                </div>
-                            </li>
+                                </StepActions>
+                            </StepRow>
                         );
                     })}
-                </ul>
-            </div>
-        </div>
+                </StepsList>
+            </StepsSection>
+        </ViewContainer>
     );
 };
 

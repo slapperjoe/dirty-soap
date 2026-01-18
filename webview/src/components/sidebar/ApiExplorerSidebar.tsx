@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { Plus, Trash2 } from 'lucide-react';
 import { ApiInterface, ApiOperation, ApiRequest } from '@shared/models';
-import { HeaderButton, SectionHeader } from './shared/SidebarStyles';
+import { HeaderButton, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { ServiceTree } from './ServiceTree';
 
 
@@ -28,6 +29,19 @@ export interface ApiExplorerSidebarProps {
     handleContextMenu: (e: React.MouseEvent, type: string, data: any, isExplorer?: boolean) => void;
 }
 
+const ExplorerContent = styled(SidebarContent)`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+`;
+
+const EmptyMessage = styled.div`
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    padding: 20px 0;
+    font-size: 0.9em;
+`;
+
 export const ApiExplorerSidebar: React.FC<ApiExplorerSidebarProps> = ({
     exploredInterfaces,
     addToProject,
@@ -49,34 +63,29 @@ export const ApiExplorerSidebar: React.FC<ApiExplorerSidebarProps> = ({
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <SidebarContainer>
 
-            <div style={{ borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)' }}>
-                <SectionHeader>
-                    <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1, display: 'flex', alignItems: 'center', gap: 5 }}>
-                        API Explorer
-                    </div>
-                    {exploredInterfaces.length > 0 && (
-                        <>
-                            <div style={{ flex: 1 }}></div>
-                            <HeaderButton onClick={(e) => { e.stopPropagation(); addAllToProject(); }} title="Add All to Project">
-                                <Plus size={16} />
-                            </HeaderButton>
-                            <HeaderButton onClick={(e) => { e.stopPropagation(); clearExplorer(); }} title="Clear Explorer">
-                                <Trash2 size={16} />
-                            </HeaderButton>
-                        </>
-                    )}
-                </SectionHeader>
-            </div>
+            <SidebarHeader>
+                <SidebarHeaderTitle>API Explorer</SidebarHeaderTitle>
+                {exploredInterfaces.length > 0 && (
+                    <SidebarHeaderActions>
+                        <HeaderButton onClick={(e) => { e.stopPropagation(); addAllToProject(); }} title="Add All to Project">
+                            <Plus size={16} />
+                        </HeaderButton>
+                        <HeaderButton onClick={(e) => { e.stopPropagation(); clearExplorer(); }} title="Clear Explorer">
+                            <Trash2 size={16} />
+                        </HeaderButton>
+                    </SidebarHeaderActions>
+                )}
+            </SidebarHeader>
 
-            <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflowY: 'auto' }}>
+            <ExplorerContent>
                 {exploredInterfaces.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: 'var(--vscode-descriptionForeground)', padding: '20px 0', fontSize: '0.9em' }}>
+                    <EmptyMessage>
                         No APIs loaded.
                         <br /><br />
                         Use the main view to load a WSDL or OpenAPI spec.
-                    </div>
+                    </EmptyMessage>
                 ) : (
                     <ServiceTree
                         interfaces={exploredInterfaces}
@@ -114,7 +123,7 @@ export const ApiExplorerSidebar: React.FC<ApiExplorerSidebarProps> = ({
                         onRemoveFromExplorer={removeFromExplorer}
                     />
                 )}
-            </div>
-        </div>
+            </ExplorerContent>
+        </SidebarContainer>
     );
 };

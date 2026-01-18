@@ -6,9 +6,10 @@
  */
 
 import React, { useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 import { Play, Square, Trash2, Settings, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield } from 'lucide-react';
 import { WatcherEvent, MockEvent, ServerMode, ServerConfig, MockRule } from '@shared/models';
-import { HeaderButton, ServiceItem } from './shared/SidebarStyles';
+import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';
 import { createMockRuleFromSource } from '../../utils/mockUtils';
@@ -45,6 +46,288 @@ export interface ServerUiProps {
     // Certificate
     onOpenCertificate?: () => void;
 }
+
+const Content = styled(SidebarContent)`
+    color: var(--vscode-descriptionForeground);
+`;
+
+const fadeIn = keyframes`
+    from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+`;
+
+const pulse = keyframes`
+    0% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.6; }
+`;
+
+const NotificationToast = styled.div`
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--vscode-notificationsInfoIcon-foreground);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    z-index: 1000;
+    font-size: 0.85em;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    animation: ${fadeIn} 0.2s ease;
+`;
+
+const StatusDot = styled.span`
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--vscode-testing-iconPassed);
+    animation: ${pulse} 2s infinite;
+`;
+
+const ModeSection = styled.div`
+    margin-bottom: 10px;
+`;
+
+const ModeLabel = styled.div`
+    font-size: 0.8em;
+    margin-bottom: 4px;
+`;
+
+const ModeOptions = styled.div<{ $disabled: boolean }>`
+    display: flex;
+    gap: 4px;
+    opacity: ${props => props.$disabled ? 0.6 : 1};
+`;
+
+const ModeButton = styled.button<{ $active: boolean; $activeColor?: string; $disabled: boolean }>`
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 11px;
+    border: 1px solid ${props => props.$active
+        ? (props.$activeColor || 'var(--vscode-button-background)')
+        : 'var(--vscode-input-border)'};
+    border-radius: 4px;
+    background: ${props => props.$active
+        ? (props.$activeColor || 'var(--vscode-button-background)')
+        : 'transparent'};
+    color: ${props => props.$active
+        ? 'var(--vscode-button-foreground)'
+        : 'var(--vscode-input-foreground)'};
+    cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+    transition: all 0.15s ease;
+`;
+
+const StatusBar = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--vscode-editor-inactiveSelectionBackground);
+    border-radius: 5px;
+    font-size: 0.85em;
+    margin-bottom: 10px;
+`;
+
+const StatusLabel = styled.span`
+    opacity: 0.7;
+`;
+
+const StatusArrow = styled.span`
+    opacity: 0.5;
+    margin: 0 8px;
+`;
+
+const StatusTarget = styled.span`
+    opacity: 0.7;
+`;
+
+const StartStopButton = styled(HeaderButton)<{ $running: boolean }>`
+    color: ${props => props.$running ? 'var(--vscode-testing-iconFailed)' : 'var(--vscode-testing-iconPassed)'};
+    border: 1px solid currentColor;
+    padding: 4px 6px;
+`;
+
+const CertButton = styled(HeaderButton)`
+    color: var(--vscode-charts-yellow);
+    margin-left: 4px;
+`;
+
+const Section = styled.div`
+    border-top: 1px solid var(--vscode-panel-border);
+    padding-top: 10px;
+    margin-bottom: 10px;
+`;
+
+const SectionHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+`;
+
+const SectionTitle = styled.h4<{ $clickable?: boolean }>`
+    margin: 0;
+    font-size: 0.9em;
+    cursor: ${props => props.$clickable ? 'pointer' : 'default'};
+    display: flex;
+    align-items: center;
+    gap: 5px;
+`;
+
+const SectionList = styled.div`
+    font-size: 0.85em;
+`;
+
+const RuleRow = styled.div<{ $enabled: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    background-color: var(--vscode-list-hoverBackground);
+    border-radius: 4px;
+    opacity: ${props => props.$enabled ? 1 : 0.5};
+`;
+
+const RuleToggle = styled.button<{ $enabled: boolean }>`
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: ${props => props.$enabled ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-disabledForeground)'};
+    padding: 2px;
+    display: flex;
+`;
+
+const RuleInfo = styled.div`
+    flex: 1;
+    overflow: hidden;
+`;
+
+const RuleName = styled.div`
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const RuleMeta = styled.div`
+    font-size: 0.8em;
+    opacity: 0.7;
+`;
+
+const SmallHeaderButton = styled(HeaderButton)`
+    padding: 4px;
+`;
+
+const SmallDangerButton = styled(SmallHeaderButton)`
+    color: var(--vscode-testing-iconFailed);
+`;
+
+const EmptySection = styled.div`
+    font-size: 0.8em;
+    opacity: 0.7;
+    text-align: center;
+    padding: 10px;
+`;
+
+const TrafficSection = styled.div`
+    border-top: 1px solid var(--vscode-panel-border);
+    padding-top: 10px;
+`;
+
+const TrafficHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+`;
+
+const TrafficTitle = styled.h4`
+    margin: 0;
+    font-size: 0.9em;
+`;
+
+const EmptyTraffic = styled.div`
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.8em;
+    opacity: 0.7;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const TrafficItem = styled(ServiceItem)<{ $selected: boolean }>`
+    padding-left: 5px;
+    padding-right: 5px;
+    background-color: ${props => props.$selected ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent'};
+    color: ${props => props.$selected ? 'var(--vscode-list-activeSelectionForeground)' : 'inherit'};
+`;
+
+const TrafficContent = styled.div`
+    flex: 1;
+    font-size: 0.85em;
+    overflow: hidden;
+`;
+
+const TrafficRow = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const TrafficMethod = styled.span`
+    font-weight: bold;
+`;
+
+const TrafficMeta = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+`;
+
+const ProxyBadge = styled.span`
+    color: var(--vscode-charts-blue);
+    font-size: 0.8em;
+`;
+
+const MoxyBadge = styled.span`
+    color: var(--vscode-charts-green);
+    font-size: 0.8em;
+`;
+
+const ForwardBadge = styled.span`
+    color: var(--vscode-charts-blue);
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+`;
+
+const TrafficStatus = styled.span`
+    opacity: 0.7;
+`;
+
+const TrafficUrl = styled.div`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const RuleBadge = styled.div`
+    font-size: 0.75em;
+    opacity: 0.7;
+    color: var(--vscode-charts-green);
+`;
+
+const CreateRuleButton = styled.button<{ $selected: boolean }>`
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    opacity: ${props => props.$selected ? 1 : 0.5};
+    padding: 4px;
+    display: flex;
+    align-items: center;
+`;
 
 const MODE_OPTIONS: { value: ServerMode; label: string; color?: string }[] = [
     { value: 'off', label: 'Off' },
@@ -137,341 +420,231 @@ export const ServerUi: React.FC<ServerUiProps> = ({
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <SidebarContainer>
             {/* Notification Toast */}
             {notification && (
-                <div style={{
-                    position: 'absolute',
-                    top: 60,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'var(--vscode-notificationsInfoIcon-foreground)',
-                    color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: 4,
-                    zIndex: 1000,
-                    fontSize: '0.85em',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                    animation: 'fadeIn 0.2s ease'
-                }}>
+                <NotificationToast>
                     {notification}
-                </div>
+                </NotificationToast>
             )}
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)',
-                padding: '5px 10px',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-            }}>
-                <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <SidebarHeader>
+                <SidebarHeaderTitle>
                     Server
-                    {isRunning && (
-                        <span style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: 'var(--vscode-testing-iconPassed)',
-                            animation: 'pulse 2s infinite'
-                        }} />
-                    )}
-                </div>
-                <HeaderButton onClick={onOpenSettings} title="Server Settings">
-                    <Settings size={14} />
-                </HeaderButton>
-            </div>
+                    {isRunning && <StatusDot />}
+                </SidebarHeaderTitle>
+                <SidebarHeaderActions>
+                    <HeaderButton onClick={onOpenSettings} title="Server Settings">
+                        <Settings size={14} />
+                    </HeaderButton>
+                </SidebarHeaderActions>
+            </SidebarHeader>
 
             {/* Scrollable Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 10, color: 'var(--vscode-descriptionForeground)' }}>
+            <Content>
                 {/* Mode Toggle */}
-                <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: '0.8em', marginBottom: 4 }}>Mode</div>
-                    <div style={{ display: 'flex', gap: 4, opacity: isRunning ? 0.6 : 1 }}>
+                <ModeSection>
+                    <ModeLabel>Mode</ModeLabel>
+                    <ModeOptions $disabled={isRunning}>
                         {MODE_OPTIONS.map(opt => (
-                            <button
+                            <ModeButton
                                 key={opt.value}
                                 onClick={() => !isRunning && onModeChange(opt.value)}
                                 disabled={isRunning}
                                 title={isRunning ? "Stop the server to change modes" : opt.label}
-                                style={{
-                                    flex: 1,
-                                    padding: '6px 8px',
-                                    fontSize: 11,
-                                    border: `1px solid ${serverConfig.mode === opt.value ? (opt.color || 'var(--vscode-button-background)') : 'var(--vscode-input-border)'}`,
-                                    borderRadius: 4,
-                                    background: serverConfig.mode === opt.value
-                                        ? (opt.color || 'var(--vscode-button-background)')
-                                        : 'transparent',
-                                    color: serverConfig.mode === opt.value
-                                        ? 'var(--vscode-button-foreground)'
-                                        : 'var(--vscode-input-foreground)',
-                                    cursor: isRunning ? 'not-allowed' : 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
+                                $active={serverConfig.mode === opt.value}
+                                $activeColor={opt.color}
+                                $disabled={isRunning}
                             >
                                 {opt.label}
-                            </button>
+                            </ModeButton>
                         ))}
-                    </div>
-                </div>
+                    </ModeOptions>
+                </ModeSection>
 
                 {/* Status Bar */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 10px',
-                    background: 'var(--vscode-editor-inactiveSelectionBackground)',
-                    borderRadius: 5,
-                    fontSize: '0.85em',
-                    marginBottom: 10
-                }}>
+                <StatusBar>
                     <div>
-                        <span style={{ opacity: 0.7 }}>Port:</span> {serverConfig.port}
+                        <StatusLabel>Port:</StatusLabel> {serverConfig.port}
                         {serverConfig.targetUrl && (
                             <>
-                                <span style={{ opacity: 0.5, margin: '0 8px' }}>→</span>
-                                <span style={{ opacity: 0.7 }} title={serverConfig.targetUrl}>
+                                <StatusArrow>→</StatusArrow>
+                                <StatusTarget title={serverConfig.targetUrl}>
                                     {serverConfig.targetUrl.length > 25
                                         ? serverConfig.targetUrl.substring(0, 25) + '...'
                                         : serverConfig.targetUrl}
-                                </span>
+                                </StatusTarget>
                             </>
                         )}
                     </div>
 
                     {serverConfig.mode !== 'off' && (
                         !isRunning ? (
-                            <HeaderButton
+                            <StartStopButton
                                 onClick={onStart}
-                                style={{ color: 'var(--vscode-testing-iconPassed)', border: '1px solid currentColor', padding: '4px 6px' }}
                                 title="Start Server"
+                                $running={false}
                             >
                                 <Play size={12} />
-                            </HeaderButton>
+                            </StartStopButton>
                         ) : (
-                            <HeaderButton
+                            <StartStopButton
                                 onClick={onStop}
-                                style={{ color: 'var(--vscode-testing-iconFailed)', border: '1px solid currentColor', padding: '4px 6px' }}
                                 title="Stop Server"
+                                $running={true}
                             >
                                 <Square size={12} />
-                            </HeaderButton>
+                            </StartStopButton>
                         )
                     )}
                     {/* Certificate button for HTTPS targets */}
                     {serverConfig.targetUrl?.toLowerCase().startsWith('https') && onOpenCertificate && (
-                        <HeaderButton
+                        <CertButton
                             onClick={onOpenCertificate}
                             title="Install Certificate (Required for HTTPS)"
-                            style={{ color: 'var(--vscode-charts-yellow)', marginLeft: 4 }}
                         >
                             <Shield size={14} />
-                        </HeaderButton>
+                        </CertButton>
                     )}
-                </div>
+                </StatusBar>
 
                 {/* Mock Rules Section */}
                 {showMockSection && onAddMockRule && (
-                    <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <h4
-                                style={{ margin: 0, fontSize: '0.9em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-                                onClick={() => setShowRules(!showRules)}
-                            >
+                    <Section>
+                        <SectionHeader>
+                            <SectionTitle $clickable onClick={() => setShowRules(!showRules)}>
                                 <Radio size={14} />
                                 Mock Rules ({mockRules.length})
-                            </h4>
+                            </SectionTitle>
                             <HeaderButton onClick={() => setRuleModal({ open: true })} title="Add Mock Rule">
                                 <Plus size={14} />
                             </HeaderButton>
-                        </div>
+                        </SectionHeader>
 
                         {showRules && mockRules.length > 0 && (
-                            <div style={{ fontSize: '0.85em' }}>
+                            <SectionList>
                                 {mockRules.map((rule) => (
-                                    <div
-                                        key={rule.id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            padding: '6px 8px',
-                                            marginBottom: 4,
-                                            backgroundColor: 'var(--vscode-list-hoverBackground)',
-                                            borderRadius: 4,
-                                            opacity: rule.enabled ? 1 : 0.5
-                                        }}
-                                    >
-                                        <button
+                                    <RuleRow key={rule.id} $enabled={rule.enabled}>
+                                        <RuleToggle
                                             onClick={() => onToggleMockRule?.(rule.id, !rule.enabled)}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                color: rule.enabled ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-disabledForeground)',
-                                                padding: 2,
-                                                display: 'flex'
-                                            }}
+                                            $enabled={rule.enabled}
                                             title={rule.enabled ? 'Disable' : 'Enable'}
                                         >
                                             {rule.enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                        </button>
-                                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                                            <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {rule.name || 'Unnamed Rule'}
-                                            </div>
-                                            <div style={{ fontSize: '0.8em', opacity: 0.7 }}>
+                                        </RuleToggle>
+                                        <RuleInfo>
+                                            <RuleName>{rule.name || 'Unnamed Rule'}</RuleName>
+                                            <RuleMeta>
                                                 {rule.conditions?.length || 0} condition(s) • {rule.statusCode}
-                                            </div>
-                                        </div>
-                                        <HeaderButton
+                                            </RuleMeta>
+                                        </RuleInfo>
+                                        <SmallHeaderButton
                                             onClick={() => setRuleModal({ open: true, rule })}
                                             title="Edit"
-                                            style={{ padding: 4 }}
                                         >
                                             <Edit2 size={12} />
-                                        </HeaderButton>
-                                        <HeaderButton
+                                        </SmallHeaderButton>
+                                        <SmallDangerButton
                                             onClick={() => onDeleteMockRule?.(rule.id)}
                                             title="Delete"
-                                            style={{ padding: 4, color: 'var(--vscode-testing-iconFailed)' }}
                                         >
                                             <Trash2 size={12} />
-                                        </HeaderButton>
-                                    </div>
+                                        </SmallDangerButton>
+                                    </RuleRow>
                                 ))}
-                            </div>
+                            </SectionList>
                         )}
 
                         {showRules && mockRules.length === 0 && (
-                            <div style={{ fontSize: '0.8em', opacity: 0.7, textAlign: 'center', padding: 10 }}>
+                            <EmptySection>
                                 No mock rules. Click + to add one.
-                            </div>
+                            </EmptySection>
                         )}
-                    </div>
+                    </Section>
                 )}
 
                 {/* Breakpoints Section */}
                 {showProxySection && onUpdateBreakpoints && (
-                    <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <h4
-                                style={{ margin: 0, fontSize: '0.9em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-                                onClick={() => setShowBreakpoints(!showBreakpoints)}
-                            >
+                    <Section>
+                        <SectionHeader>
+                            <SectionTitle $clickable onClick={() => setShowBreakpoints(!showBreakpoints)}>
                                 <Bug size={14} />
                                 Breakpoints ({breakpoints.length})
-                            </h4>
+                            </SectionTitle>
                             <HeaderButton onClick={() => setBreakpointModal({ open: true })} title="Add Breakpoint">
                                 <Plus size={14} />
                             </HeaderButton>
-                        </div>
+                        </SectionHeader>
 
                         {showBreakpoints && breakpoints.length > 0 && (
-                            <div style={{ fontSize: '0.85em' }}>
+                            <SectionList>
                                 {breakpoints.map((bp, i) => (
-                                    <div
-                                        key={bp.id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            padding: '6px 8px',
-                                            marginBottom: 4,
-                                            backgroundColor: 'var(--vscode-list-hoverBackground)',
-                                            borderRadius: 4,
-                                            opacity: bp.enabled ? 1 : 0.5
-                                        }}
-                                    >
-                                        <button
+                                    <RuleRow key={bp.id} $enabled={bp.enabled}>
+                                        <RuleToggle
                                             onClick={() => {
                                                 const updated = breakpoints.map((b, idx) =>
                                                     idx === i ? { ...b, enabled: !b.enabled } : b
                                                 );
                                                 onUpdateBreakpoints(updated);
                                             }}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                color: bp.enabled ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-disabledForeground)',
-                                                padding: 2,
-                                                display: 'flex'
-                                            }}
+                                            $enabled={bp.enabled}
                                             title={bp.enabled ? 'Disable' : 'Enable'}
                                         >
                                             {bp.enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                        </button>
-                                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                                            <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {bp.name || bp.pattern}
-                                            </div>
-                                            <div style={{ fontSize: '0.8em', opacity: 0.7 }}>
+                                        </RuleToggle>
+                                        <RuleInfo>
+                                            <RuleName>{bp.name || bp.pattern}</RuleName>
+                                            <RuleMeta>
                                                 {bp.target} • {bp.matchOn}{bp.isRegex ? ' (regex)' : ''}
-                                            </div>
-                                        </div>
-                                        <HeaderButton
+                                            </RuleMeta>
+                                        </RuleInfo>
+                                        <SmallHeaderButton
                                             onClick={() => setBreakpointModal({ open: true, bp })}
                                             title="Edit"
-                                            style={{ padding: 4 }}
                                         >
                                             <Edit2 size={12} />
-                                        </HeaderButton>
-                                        <HeaderButton
+                                        </SmallHeaderButton>
+                                        <SmallDangerButton
                                             onClick={() => {
                                                 const updated = breakpoints.filter((_, idx) => idx !== i);
                                                 onUpdateBreakpoints(updated);
                                             }}
                                             title="Delete"
-                                            style={{ padding: 4, color: 'var(--vscode-testing-iconFailed)' }}
                                         >
                                             <Trash2 size={12} />
-                                        </HeaderButton>
-                                    </div>
+                                        </SmallDangerButton>
+                                    </RuleRow>
                                 ))}
-                            </div>
+                            </SectionList>
                         )}
 
                         {showBreakpoints && breakpoints.length === 0 && (
-                            <div style={{ fontSize: '0.8em', opacity: 0.7, textAlign: 'center', padding: 10 }}>
+                            <EmptySection>
                                 No breakpoints. Click + to add one.
-                            </div>
+                            </EmptySection>
                         )}
-                    </div>
+                    </Section>
                 )}
 
                 {/* Traffic History */}
-                <div style={{ borderTop: '1px solid var(--vscode-panel-border)', paddingTop: 10 }}>
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: 5
-                    }}>
-                        <h4 style={{ margin: 0, fontSize: '0.9em' }}>Traffic ({totalEvents})</h4>
+                <TrafficSection>
+                    <TrafficHeader>
+                        <TrafficTitle>Traffic ({totalEvents})</TrafficTitle>
                         {totalEvents > 0 && (
-                            <HeaderButton onClick={onClearHistory} title="Clear History" style={{ padding: 4 }}>
+                            <SmallHeaderButton onClick={onClearHistory} title="Clear History">
                                 <Trash2 size={14} />
-                            </HeaderButton>
+                            </SmallHeaderButton>
                         )}
-                    </div>
+                    </TrafficHeader>
 
                     {totalEvents === 0 ? (
-                        <div style={{
-                            textAlign: 'center',
-                            marginTop: 20,
-                            fontSize: '0.8em',
-                            opacity: 0.7,
-                            color: 'var(--vscode-descriptionForeground)'
-                        }}>
+                        <EmptyTraffic>
                             {serverConfig.mode === 'off'
                                 ? 'Select a mode and start the server to capture traffic.'
                                 : isRunning
                                     ? 'Waiting for requests...'
                                     : 'Start the server to capture traffic.'}
-                        </div>
+                        </EmptyTraffic>
                     ) : (
                         <>
                             {/* Interleave proxy and mock events by timestamp */}
@@ -480,115 +653,79 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                                 .sort((a, b) => b.timestamp - a.timestamp)
                                 .map((item, i) => (
                                     item.type === 'proxy' ? (
-                                        <ServiceItem
+                                        <TrafficItem
                                             key={`proxy-${i}`}
-                                            style={{
-                                                paddingLeft: 5,
-                                                paddingRight: 5,
-                                                backgroundColor: (item.event as WatcherEvent).id === selectedEventId
-                                                    ? 'var(--vscode-list-activeSelectionBackground)'
-                                                    : undefined,
-                                                color: (item.event as WatcherEvent).id === selectedEventId
-                                                    ? 'var(--vscode-list-activeSelectionForeground)'
-                                                    : undefined
-                                            }}
+                                            $selected={(item.event as WatcherEvent).id === selectedEventId}
                                             onClick={() => onSelectProxyEvent(item.event as WatcherEvent)}
                                         >
-                                            <div style={{ flex: 1, fontSize: '0.85em', overflow: 'hidden' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontWeight: 'bold' }}>{(item.event as WatcherEvent).method}</span>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                        <span style={{ color: 'var(--vscode-charts-blue)', fontSize: '0.8em' }}>PROXY</span>
-                                                        <span style={{ opacity: 0.7 }}>{(item.event as WatcherEvent).status}</span>
-                                                    </div>
-                                                </div>
-                                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={(item.event as WatcherEvent).url}>
+                                            <TrafficContent>
+                                                <TrafficRow>
+                                                    <TrafficMethod>{(item.event as WatcherEvent).method}</TrafficMethod>
+                                                    <TrafficMeta>
+                                                        <ProxyBadge>PROXY</ProxyBadge>
+                                                        <TrafficStatus>{(item.event as WatcherEvent).status}</TrafficStatus>
+                                                    </TrafficMeta>
+                                                </TrafficRow>
+                                                <TrafficUrl title={(item.event as WatcherEvent).url}>
                                                     {(item.event as WatcherEvent).url}
-                                                </div>
-                                            </div>
+                                                </TrafficUrl>
+                                            </TrafficContent>
                                             {onAddMockRule && (
-                                                <button
+                                                <CreateRuleButton
                                                     onClick={(e) => handleCreateMockFromEvent(e, item.event as WatcherEvent)}
                                                     title="Create Mock Rule"
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        color: 'inherit',
-                                                        opacity: (item.event as WatcherEvent).id === selectedEventId ? 1 : 0.5,
-                                                        padding: 4,
-                                                        display: 'flex',
-                                                        alignItems: 'center'
-                                                    }}
+                                                    $selected={(item.event as WatcherEvent).id === selectedEventId}
                                                 >
                                                     <PlusSquare size={14} />
-                                                </button>
+                                                </CreateRuleButton>
                                             )}
-                                        </ServiceItem>
+                                        </TrafficItem>
                                     ) : (
-                                        <ServiceItem
+                                        <TrafficItem
                                             key={`mock-${i}`}
-                                            style={{
-                                                paddingLeft: 5,
-                                                paddingRight: 5,
-                                                backgroundColor: (item.event as MockEvent).id === selectedEventId
-                                                    ? 'var(--vscode-list-activeSelectionBackground)'
-                                                    : undefined,
-                                                color: (item.event as MockEvent).id === selectedEventId
-                                                    ? 'var(--vscode-list-activeSelectionForeground)'
-                                                    : undefined
-                                            }}
+                                            $selected={(item.event as MockEvent).id === selectedEventId}
                                             onClick={() => onSelectMockEvent(item.event as MockEvent)}
                                         >
-                                            <div style={{ flex: 1, fontSize: '0.85em', overflow: 'hidden' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontWeight: 'bold' }}>{(item.event as MockEvent).method}</span>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <TrafficContent>
+                                                <TrafficRow>
+                                                    <TrafficMethod>{(item.event as MockEvent).method}</TrafficMethod>
+                                                    <TrafficMeta>
                                                         {(item.event as MockEvent).matchedRule && (
-                                                            <span style={{ color: 'var(--vscode-charts-green)', fontSize: '0.8em' }}>MOXY</span>
+                                                            <MoxyBadge>MOXY</MoxyBadge>
                                                         )}
                                                         {(item.event as MockEvent).passthrough && (
-                                                            <span style={{ color: 'var(--vscode-charts-blue)', fontSize: '0.8em', display: 'flex', alignItems: 'center' }}>
+                                                            <ForwardBadge>
                                                                 <ArrowRight size={10} /> FWD
-                                                            </span>
+                                                            </ForwardBadge>
                                                         )}
-                                                        <span style={{ opacity: 0.7 }}>{(item.event as MockEvent).status}</span>
-                                                    </div>
-                                                </div>
-                                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={(item.event as MockEvent).url}>
+                                                        <TrafficStatus>{(item.event as MockEvent).status}</TrafficStatus>
+                                                    </TrafficMeta>
+                                                </TrafficRow>
+                                                <TrafficUrl title={(item.event as MockEvent).url}>
                                                     {(item.event as MockEvent).url}
-                                                </div>
+                                                </TrafficUrl>
                                                 {(item.event as MockEvent).matchedRule && (
-                                                    <div style={{ fontSize: '0.75em', opacity: 0.7, color: 'var(--vscode-charts-green)' }}>
+                                                    <RuleBadge>
                                                         Rule: {(item.event as MockEvent).matchedRule}
-                                                    </div>
+                                                    </RuleBadge>
                                                 )}
-                                            </div>
+                                            </TrafficContent>
                                             {onAddMockRule && (
-                                                <button
+                                                <CreateRuleButton
                                                     onClick={(e) => handleCreateMockFromEvent(e, item.event as MockEvent)}
                                                     title="Create Mock Rule"
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        color: 'inherit',
-                                                        opacity: (item.event as MockEvent).id === selectedEventId ? 1 : 0.5,
-                                                        padding: 4,
-                                                        display: 'flex',
-                                                        alignItems: 'center'
-                                                    }}
+                                                    $selected={(item.event as MockEvent).id === selectedEventId}
                                                 >
                                                     <PlusSquare size={14} />
-                                                </button>
+                                                </CreateRuleButton>
                                             )}
-                                        </ServiceItem>
+                                        </TrafficItem>
                                     )
                                 ))}
                         </>
                     )}
-                </div>
-            </div>
+                </TrafficSection>
+            </Content>
 
             {/* Modals */}
             <MockRuleModal
@@ -603,6 +740,6 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                 onClose={() => setBreakpointModal({ open: false })}
                 onSave={handleSaveBreakpoint}
             />
-        </div>
+        </SidebarContainer>
     );
 };

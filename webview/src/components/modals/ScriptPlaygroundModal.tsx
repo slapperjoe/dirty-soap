@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import Editor from '@monaco-editor/react';
 import { X, Play, Loader2, HelpCircle } from 'lucide-react';
 import { bridge } from '../../utils/bridge';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const Overlay = styled.div`
     position: fixed;
@@ -41,9 +42,10 @@ const Header = styled.div`
 const CloseButton = styled.button`
     background: transparent;
     border: none;
-    color: var(--vscode-foreground);
+    color: var(--vscode-icon-foreground);
     cursor: pointer;
-    &:hover { color: var(--vscode-errorForeground); }
+    border-radius: 4px;
+    &:hover { background: var(--vscode-toolbar-hoverBackground); }
 `;
 
 const Content = styled.div`
@@ -200,6 +202,7 @@ export const ScriptPlaygroundModal: React.FC<ScriptPlaygroundModalProps> = ({ on
     const [result, setResult] = useState<any>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
+    const { monacoTheme } = useTheme();
 
     const handleRun = () => {
         setIsRunning(true);
@@ -292,7 +295,7 @@ export const ScriptPlaygroundModal: React.FC<ScriptPlaygroundModalProps> = ({ on
                             <Editor
                                 height="100%"
                                 defaultLanguage="xml"
-                                theme="vs-dark"
+                                theme={monacoTheme}
                                 value={responseBody}
                                 onChange={(v) => setResponseBody(v || '')}
                                 options={{ minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 12 }}
@@ -329,7 +332,7 @@ export const ScriptPlaygroundModal: React.FC<ScriptPlaygroundModalProps> = ({ on
                             <Editor
                                 height="100%"
                                 defaultLanguage="json"
-                                theme="vs-dark"
+                                theme={monacoTheme}
                                 value={variables}
                                 onChange={(v) => setVariables(v || '')}
                                 options={{ minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 12 }}
@@ -343,7 +346,7 @@ export const ScriptPlaygroundModal: React.FC<ScriptPlaygroundModalProps> = ({ on
                             <Editor
                                 height="100%"
                                 defaultLanguage="javascript"
-                                theme="vs-dark"
+                                theme={monacoTheme}
                                 value={script}
                                 onChange={(v) => setScript(v || '')}
                                 options={{

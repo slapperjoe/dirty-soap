@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Play, Plus, Trash2, ChevronDown, ChevronRight, FlaskConical, FolderOpen, ListChecks, Edit2, Clock, FileCode, ArrowRight, FileText } from 'lucide-react';
 import { ApinoxProject, TestSuite } from '@shared/models';
-import { HeaderButton, OperationItem, RequestItem } from './shared/SidebarStyles';
+import { HeaderButton, OperationItem, RequestItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
+import { EmptyState } from '../common/EmptyState';
 
 const StepItem = styled(RequestItem)`
     padding-left: 52px !important;
@@ -12,6 +13,151 @@ const StepItem = styled(RequestItem)`
     &:hover {
         opacity: 1;
     }
+`;
+
+const TestsContainer = styled(SidebarContainer)``;
+
+const TestsContent = styled(SidebarContent)``;
+
+const HeaderActions = styled.div`
+    position: relative;
+`;
+
+const HeaderButtonSmall = styled(HeaderButton)`
+    padding: 2px;
+`;
+
+const HeaderButtonAdd = styled(HeaderButton)`
+    padding: 4px;
+`;
+
+const HeaderButtonSmallDanger = styled(HeaderButtonSmall)<{ $danger?: boolean }>`
+    color: ${props => props.$danger ? 'var(--vscode-testing-iconFailed)' : 'var(--vscode-icon-foreground)'};
+`;
+
+const AddSuiteMenu = styled.div`
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: var(--vscode-dropdown-background);
+    border: 1px solid var(--vscode-dropdown-border);
+    border-radius: 4px;
+    z-index: 100;
+    min-width: 180px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+`;
+
+const AddSuiteMenuTitle = styled.div`
+    padding: 8px 10px;
+    font-size: 0.8em;
+    opacity: 0.7;
+    border-bottom: 1px solid var(--vscode-panel-border);
+`;
+
+const AddSuiteMenuEmpty = styled.div`
+    padding: 10px;
+    font-size: 0.85em;
+    opacity: 0.6;
+`;
+
+const AddSuiteMenuItem = styled.div<{ $disabled?: boolean }>`
+    padding: 8px 12px;
+    cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: ${props => props.$disabled ? 0.5 : 1};
+
+    &:hover {
+        background: ${props => props.$disabled ? 'transparent' : 'var(--vscode-list-hoverBackground)'};
+    }
+`;
+
+
+const SuiteOperationItem = styled(OperationItem)`
+    padding-left: 8px;
+`;
+
+const SuiteToggle = styled.span`
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+`;
+
+const SuiteIcon = styled.span`
+    margin-left: 4px;
+    display: flex;
+    align-items: center;
+`;
+
+const SuiteName = styled.span`
+    flex: 1;
+    margin-left: 6px;
+    font-weight: bold;
+`;
+
+const SuiteCount = styled.span`
+    font-size: 0.8em;
+    opacity: 0.6;
+    margin-right: 6px;
+`;
+
+const CaseRequestItem = styled(RequestItem)`
+    padding-left: 35px;
+`;
+
+const CaseToggle = styled.span`
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    margin-right: 4px;
+    width: 14px;
+`;
+
+const RenameInput = styled.input`
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+    color: var(--vscode-input-foreground);
+    padding: 2px 4px;
+    flex: 1;
+    font-size: 12px;
+    outline: none;
+`;
+
+const CaseName = styled.span`
+    flex: 1;
+`;
+
+const CaseCount = styled.span`
+    font-size: 0.75em;
+    opacity: 0.6;
+    margin-right: 6px;
+`;
+
+const StepRenameInput = styled.input`
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+    color: var(--vscode-input-foreground);
+    padding: 1px 3px;
+    flex: 1;
+    font-size: 0.9em;
+    outline: none;
+    margin-left: 4px;
+`;
+
+const StepTypeIcon = styled.span`
+    display: flex;
+    align-items: center;
+    margin-right: 6px;
+    opacity: 0.7;
+`;
+
+const StepName = styled.span`
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 export interface TestsUiProps {
@@ -44,35 +190,20 @@ const ContextMenuOverlay = styled.div`
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 1000;
+    z-index: 1500;
 `;
 
 const ContextMenuDropdown = styled.div<{ x: number; y: number }>`
     position: fixed;
     top: ${props => props.y}px;
     left: ${props => props.x}px;
-    background: var(--vscode-menu-background);
+    background-color: var(--vscode-menu-background);
+    color: var(--vscode-menu-foreground);
     border: 1px solid var(--vscode-menu-border);
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    z-index: 1001;
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    z-index: 2000;
     min-width: 150px;
     padding: 4px 0;
-`;
-
-const ContextMenuItem = styled.div`
-    padding: 6px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--vscode-menu-foreground);
-    
-    &:hover {
-        background: var(--vscode-menu-selectionBackground);
-        color: var(--vscode-menu-selectionForeground);
-    }
 `;
 
 export const TestsUi: React.FC<TestsUiProps> = ({
@@ -157,83 +288,63 @@ export const TestsUi: React.FC<TestsUiProps> = ({
 
     return (
         <>
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <div style={{ flex: 1, overflow: 'auto', padding: 10 }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--vscode-sideBarTitle-foreground)', flex: 1 }}>
-                            Test Suites ({allSuites.length})
-                        </div>
-                        <div style={{ position: 'relative' }}>
-                            <HeaderButton
+            <TestsContainer>
+                {/* Header */}
+                <SidebarHeader>
+                    <SidebarHeaderTitle>
+                        Test Suites ({allSuites.length})
+                    </SidebarHeaderTitle>
+                    <SidebarHeaderActions>
+                        <HeaderActions>
+                            <HeaderButtonAdd
                                 onClick={() => setShowAddSuiteMenu(!showAddSuiteMenu)}
                                 title="Add Test Suite"
-                                style={{ padding: 4 }}
                             >
                                 <Plus size={16} />
-                            </HeaderButton>
+                            </HeaderButtonAdd>
 
                             {/* Project Selection Dropdown */}
                             {showAddSuiteMenu && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '100%',
-                                    right: 0,
-                                    marginTop: 5,
-                                    background: 'var(--vscode-dropdown-background)',
-                                    border: '1px solid var(--vscode-dropdown-border)',
-                                    borderRadius: 4,
-                                    zIndex: 100,
-                                    minWidth: 180,
-                                    boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-                                }}>
-                                    <div style={{ padding: '8px 10px', fontSize: '0.8em', opacity: 0.7, borderBottom: '1px solid var(--vscode-panel-border)' }}>
+                                <AddSuiteMenu>
+                                    <AddSuiteMenuTitle>
                                         Add suite to project:
-                                    </div>
+                                    </AddSuiteMenuTitle>
                                     {projects.length === 0 ? (
-                                        <div style={{ padding: '10px', fontSize: '0.85em', opacity: 0.6 }}>
+                                        <AddSuiteMenuEmpty>
                                             No projects loaded
-                                        </div>
+                                        </AddSuiteMenuEmpty>
                                     ) : (
                                         projects.map(p => (
-                                            <div
+                                            <AddSuiteMenuItem
                                                 key={p.name}
                                                 onClick={() => {
                                                     if (p.readOnly) return; // Disable for read-only projects
                                                     onAddSuite(p.name);
                                                     setShowAddSuiteMenu(false);
                                                 }}
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    cursor: p.readOnly ? 'not-allowed' : 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 6,
-                                                    opacity: p.readOnly ? 0.5 : 1
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--vscode-list-hoverBackground)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                $disabled={p.readOnly}
                                                 title={p.readOnly ? 'Workspace is read-only; cannot add suites.' : undefined}
                                             >
                                                 <FolderOpen size={14} />
                                                 {p.name}
-                                            </div>
+                                            </AddSuiteMenuItem>
                                         ))
                                     )}
-                                </div>
+                                </AddSuiteMenu>
                             )}
-                        </div>
-                    </div>
+                        </HeaderActions>
+                    </SidebarHeaderActions>
+                </SidebarHeader>
+
+                <TestsContent>
 
                     {/* Empty State */}
                     {allSuites.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: 30, opacity: 0.6 }}>
-                            <FlaskConical size={40} style={{ marginBottom: 10 }} />
-                            <div>No test suites yet.</div>
-                            <div style={{ fontSize: '0.85em', marginTop: 5 }}>
-                                Click + to add a test suite.
-                            </div>
-                        </div>
+                        <EmptyState
+                            icon={FlaskConical}
+                            title="No test suites yet."
+                            description="Click + to add a test suite."
+                        />
                     )}
 
                     {/* Unique Test Suites List (Deduplicated) */}
@@ -242,7 +353,7 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                         return (
                             <div key={suite.id}>
                                 {/* Suite Header */}
-                                <OperationItem
+                                <SuiteOperationItem
                                     $active={isSuiteSelected}
                                     onClick={() => {
                                         // Toggle suite selection and notify parent
@@ -254,44 +365,44 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                             onSelectSuite(suite.id); // Notify parent
                                         }
                                     }}
-                                    style={{ paddingLeft: 8 }}
                                 >
-                                    <span
+                                    <SuiteToggle
                                         onClick={(e) => { e.stopPropagation(); onToggleSuiteExpand(suite.id); }}
-                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                     >
                                         {suite.expanded !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                    </span>
-                                    <ListChecks size={14} style={{ marginLeft: 4 }} />
-                                    <span style={{ flex: 1, marginLeft: 6, fontWeight: 'bold' }}>{suite.name}</span>
-                                    <span style={{ fontSize: '0.8em', opacity: 0.6, marginRight: 6 }}>
+                                    </SuiteToggle>
+                                    <SuiteIcon>
+                                        <ListChecks size={14} />
+                                    </SuiteIcon>
+                                    <SuiteName>{suite.name}</SuiteName>
+                                    <SuiteCount>
                                         ({suite.testCases?.length || 0})
-                                    </span>
+                                    </SuiteCount>
                                     {isSuiteSelected && (
                                         <>
-                                            <HeaderButton onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }} title="Run Suite" style={{ padding: 2 }}>
+                                            <HeaderButtonSmall onClick={(e) => { e.stopPropagation(); onRunSuite(suite.id); }} title="Run Suite">
                                                 <Play size={12} />
-                                            </HeaderButton>
-                                            <HeaderButton onClick={(e) => { e.stopPropagation(); onAddTestCase(suite.id); }} title="Add Test Case" style={{ padding: 2 }}>
+                                            </HeaderButtonSmall>
+                                            <HeaderButtonSmall onClick={(e) => { e.stopPropagation(); onAddTestCase(suite.id); }} title="Add Test Case">
                                                 <Plus size={12} />
-                                            </HeaderButton>
-                                            <HeaderButton
+                                            </HeaderButtonSmall>
+                                            <HeaderButtonSmallDanger
                                                 onClick={(e) => { e.stopPropagation(); onDeleteSuite(suite.id); }}
                                                 title={deleteConfirm === suite.id ? 'Click again to confirm' : 'Delete Suite'}
-                                                style={{ padding: 2, color: deleteConfirm === suite.id ? 'var(--vscode-testing-iconFailed)' : undefined }}
+                                                $danger={deleteConfirm === suite.id}
                                             >
                                                 <Trash2 size={12} />
-                                            </HeaderButton>
+                                            </HeaderButtonSmallDanger>
                                         </>
                                     )}
-                                </OperationItem>
+                                </SuiteOperationItem>
 
                                 {/* Test Cases */}
                                 {suite.expanded !== false && (suite.testCases || []).map(tc => {
                                     const isSelected = selectedCaseId === tc.id;
                                     return (
                                         <React.Fragment key={tc.id}>
-                                            <RequestItem
+                                            <CaseRequestItem
                                                 $active={isSelected}
                                                 onClick={() => {
                                                     // Select case and notify parent
@@ -304,17 +415,17 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                                     }
                                                 }}
                                                 onContextMenu={(e) => handleContextMenu(e, tc.id, tc.name, 'case')}
-                                                style={{ paddingLeft: 35 }}
                                             >
-                                                <span
+                                                <CaseToggle
                                                     onClick={(e) => { e.stopPropagation(); onToggleCaseExpand(tc.id); }}
-                                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', marginRight: 4, width: 14 }}
                                                 >
                                                     {tc.expanded !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                                </span>
+                                                </CaseToggle>
                                                 {renameId === tc.id ? (
-                                                    <input
+                                                    <RenameInput
                                                         type="text"
+                                                        title="Rename test case"
+                                                        placeholder="Rename"
                                                         value={renameName}
                                                         onChange={(e) => setRenameName(e.target.value)}
                                                         onBlur={submitRename}
@@ -324,37 +435,28 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                                         }}
                                                         onClick={(e) => e.stopPropagation()}
                                                         autoFocus
-                                                        style={{
-                                                            background: 'var(--vscode-input-background)',
-                                                            border: '1px solid var(--vscode-input-border)',
-                                                            color: 'var(--vscode-input-foreground)',
-                                                            padding: '2px 4px',
-                                                            flex: 1,
-                                                            fontSize: '12px',
-                                                            outline: 'none'
-                                                        }}
                                                     />
                                                 ) : (
-                                                    <span style={{ flex: 1 }} title="Right-click to rename">{tc.name}</span>
+                                                    <CaseName title="Right-click to rename">{tc.name}</CaseName>
                                                 )}
-                                                <span style={{ fontSize: '0.75em', opacity: 0.6, marginRight: 6 }}>
+                                                <CaseCount>
                                                     {tc.steps?.length || 0}
-                                                </span>
+                                                </CaseCount>
                                                 {isSelected && (
                                                     <>
-                                                        <HeaderButton onClick={(e) => { e.stopPropagation(); onRunCase(tc.id); }} title="Run Test Case" style={{ padding: 2 }}>
+                                                        <HeaderButtonSmall onClick={(e) => { e.stopPropagation(); onRunCase(tc.id); }} title="Run Test Case">
                                                             <Play size={12} />
-                                                        </HeaderButton>
-                                                        <HeaderButton
+                                                        </HeaderButtonSmall>
+                                                        <HeaderButtonSmallDanger
                                                             onClick={(e) => { e.stopPropagation(); onDeleteTestCase(tc.id); }}
                                                             title={deleteConfirm === tc.id ? 'Click again to confirm' : 'Delete Case'}
-                                                            style={{ padding: 2, color: deleteConfirm === tc.id ? 'var(--vscode-testing-iconFailed)' : undefined }}
+                                                            $danger={deleteConfirm === tc.id}
                                                         >
                                                             <Trash2 size={12} />
-                                                        </HeaderButton>
+                                                        </HeaderButtonSmallDanger>
                                                     </>
                                                 )}
-                                            </RequestItem>
+                                            </CaseRequestItem>
 
                                             {/* Test Steps */}
                                             {tc.expanded !== false && (tc.steps || []).map(step => (
@@ -369,11 +471,12 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                                         if (onSelectTestStep) onSelectTestStep(tc.id, step.id);
                                                     }}
                                                     onContextMenu={(e) => handleContextMenu(e, tc.id, step.name, 'step', step.id)}
-                                                    style={{ cursor: 'pointer' }}
                                                 >
                                                     {renameId === step.id ? (
-                                                        <input
+                                                        <StepRenameInput
                                                             type="text"
+                                                            title="Rename test step"
+                                                            placeholder="Rename"
                                                             value={renameName}
                                                             onChange={(e) => setRenameName(e.target.value)}
                                                             onBlur={submitRename}
@@ -383,20 +486,10 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                                             }}
                                                             onClick={(e) => e.stopPropagation()}
                                                             autoFocus
-                                                            style={{
-                                                                background: 'var(--vscode-input-background)',
-                                                                border: '1px solid var(--vscode-input-border)',
-                                                                color: 'var(--vscode-input-foreground)',
-                                                                padding: '1px 3px',
-                                                                flex: 1,
-                                                                fontSize: '0.9em',
-                                                                outline: 'none',
-                                                                marginLeft: 4
-                                                            }}
                                                         />
                                                     ) : (
                                                         <>
-                                                            <span style={{ display: 'flex', alignItems: 'center', marginRight: 6, opacity: 0.7 }}>
+                                                            <StepTypeIcon>
                                                                 {(() => {
                                                                     switch (step.type) {
                                                                         case 'delay': return <Clock size={12} />;
@@ -406,10 +499,10 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                                                         default: return <FileText size={12} />;
                                                                     }
                                                                 })()}
-                                                            </span>
-                                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title="Right-click to rename">
+                                                            </StepTypeIcon>
+                                                            <StepName title="Right-click to rename">
                                                                 {step.name}
-                                                            </span>
+                                                            </StepName>
                                                         </>
                                                     )}
                                                 </StepItem>
@@ -420,8 +513,8 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                             </div>
                         );
                     })}
-                </div>
-            </div>
+                </TestsContent>
+            </TestsContainer>
 
             {/* Context Menu */}
             {contextMenu && (

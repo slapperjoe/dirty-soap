@@ -6,33 +6,16 @@ import {
     Clock
 } from 'lucide-react';
 import { RequestHistoryEntry } from '@shared/models';
+import { EmptyState } from '../common/EmptyState';
+import { SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderTitle } from './shared/SidebarStyles';
 
-const Container = styled.div`
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 10px;
+const Container = styled(SidebarContainer)`
+    padding: 0;
 `;
 
-const SearchBar = styled.input`
-    width: 100%;
-    padding: 8px 12px;
-    margin-bottom: 10px;
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 13px;
-
-    &:focus {
-        outline: none;
-        border-color: var(--vscode-focusBorder);
-    }
-
-    &::placeholder {
-        color: var(--vscode-input-placeholderForeground);
-    }
+const Content = styled(SidebarContent)`
+    display: flex;
+    flex-direction: column;
 `;
 
 const Section = styled.div`
@@ -51,6 +34,18 @@ const SectionTitle = styled.div`
 const HistoryList = styled.div`
     flex: 1;
     overflow-y: auto;
+`;
+
+const SearchBar = styled.input`
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    &:focus {
+        outline: 1px solid var(--vscode-focusBorder);
+    }
 `;
 
 const HistoryItem = styled.div<{ $success?: boolean }>`
@@ -126,20 +121,6 @@ const IconButton = styled.button`
     }
 `;
 
-const EmptyState = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-    text-align: center;
-    opacity: 0.6;
-`;
-
-const EmptyIcon = styled.div`
-    margin-bottom: 10px;
-    opacity: 0.4;
-`;
 
 interface HistorySidebarProps {
     history: RequestHistoryEntry[];
@@ -148,12 +129,12 @@ interface HistorySidebarProps {
     onDelete?: (id: string) => void;
 }
 
-export const HistorySidebar: React.FC<HistorySidebarProps> = ({
+export default function HistorySidebar({
     history,
     onReplay,
     onToggleStar,
     onDelete
-}) => {
+}: HistorySidebarProps) {
     const [searchTerm, setSearchTerm] = useState('');
 
     // Filter history based on search
@@ -265,64 +246,77 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     if (history.length === 0) {
         return (
             <Container>
-                <EmptyState>
-                    <EmptyIcon>
-                        <Clock size={48} />
-                    </EmptyIcon>
-                    <div style={{ marginBottom: 8, fontWeight: 500 }}>No request history yet</div>
-                    <div style={{ fontSize: 12 }}>
-                        Execute a manual request to see it appear here
-                    </div>
-                </EmptyState>
+                <SidebarHeader>
+                    <SidebarHeaderTitle>
+                        <Clock size={14} /> History
+                    </SidebarHeaderTitle>
+                </SidebarHeader>
+                <Content>
+                    <EmptyState
+                        icon={Clock}
+                        title="No request history yet"
+                        description="Execute a manual request to see it appear here"
+                    />
+                </Content>
             </Container>
         );
     }
 
     return (
         <Container>
-            <SearchBar
-                type="text"
-                placeholder="Search history..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <SidebarHeader>
+                <SidebarHeaderTitle>
+                    <Clock size={14} /> History
+                </SidebarHeaderTitle>
+            </SidebarHeader>
 
-            <HistoryList>
-                {groupedHistory.starred.length > 0 && (
-                    <Section>
-                        <SectionTitle>⭐ Favorites</SectionTitle>
-                        {groupedHistory.starred.map(renderHistoryItem)}
-                    </Section>
-                )}
+            <Content>
+                <SearchBar
+                    type="text"
+                    placeholder="Search history..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
 
-                {groupedHistory.today.length > 0 && (
-                    <Section>
-                        <SectionTitle>Today</SectionTitle>
-                        {groupedHistory.today.map(renderHistoryItem)}
-                    </Section>
-                )}
+                <HistoryList>
+                    {groupedHistory.starred.length > 0 && (
+                        <Section>
+                            <SectionTitle>⭐ Favorites</SectionTitle>
+                            {groupedHistory.starred.map(renderHistoryItem)}
+                        </Section>
+                    )}
 
-                {groupedHistory.yesterday.length > 0 && (
-                    <Section>
-                        <SectionTitle>Yesterday</SectionTitle>
-                        {groupedHistory.yesterday.map(renderHistoryItem)}
-                    </Section>
-                )}
+                    {groupedHistory.today.length > 0 && (
+                        <Section>
+                            <SectionTitle>Today</SectionTitle>
+                            {groupedHistory.today.map(renderHistoryItem)}
+                        </Section>
+                    )}
 
-                {groupedHistory.thisWeek.length > 0 && (
-                    <Section>
-                        <SectionTitle>This Week</SectionTitle>
-                        {groupedHistory.thisWeek.map(renderHistoryItem)}
-                    </Section>
-                )}
+                    {groupedHistory.yesterday.length > 0 && (
+                        <Section>
+                            <SectionTitle>Yesterday</SectionTitle>
+                            {groupedHistory.yesterday.map(renderHistoryItem)}
+                        </Section>
+                    )}
 
-                {groupedHistory.older.length > 0 && (
-                    <Section>
-                        <SectionTitle>Older</SectionTitle>
-                        {groupedHistory.older.map(renderHistoryItem)}
-                    </Section>
-                )}
-            </HistoryList>
+                    {groupedHistory.thisWeek.length > 0 && (
+                        <Section>
+                            <SectionTitle>This Week</SectionTitle>
+                            {groupedHistory.thisWeek.map(renderHistoryItem)}
+                        </Section>
+                    )}
+
+                    {groupedHistory.older.length > 0 && (
+                        <Section>
+                            <SectionTitle>Older</SectionTitle>
+                            {groupedHistory.older.map(renderHistoryItem)}
+                        </Section>
+                    )}
+                </HistoryList>
+            </Content>
         </Container>
     );
-};
+}
+
+

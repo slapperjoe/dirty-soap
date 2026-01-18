@@ -83,7 +83,13 @@ export class ServiceContainer {
 
         this.scheduleService = new ScheduleService(this.performanceService);
 
-        const configDir = (this.settingsManager as any)['configDir'] || '';
+        // Initialize performance data from settings
+        const config = this.settingsManager.getConfig();
+        this.performanceService.setSuites(config.performanceSuites || []);
+        this.performanceService.setHistory(config.performanceHistory || []);
+        this.scheduleService.loadSchedules(config.performanceSchedules || []);
+
+        const configDir = this.settingsManager.getConfigDir();
         this.historyService = new RequestHistoryService(configDir);
 
         console.log('[Sidecar] All services initialized');

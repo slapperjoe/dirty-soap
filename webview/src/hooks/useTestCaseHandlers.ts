@@ -18,7 +18,8 @@ import {
     RequestExtractor,
     SidebarView
 } from '@shared/models';
-import { bridge } from '../utils/bridge';
+import { bridge, isTauri } from '../utils/bridge';
+import { BackendCommand, FrontendCommand } from '@shared/messages';
 import { getInitialXml } from '@shared/utils/xmlUtils';
 
 interface UseTestCaseHandlersParams {
@@ -370,6 +371,55 @@ export function useTestCaseHandlers({
 
         // Send runTestCase command to backend (matches RunTestCaseCommand in TestCommands.ts)
         console.log('[handleRunTestCaseWrapper] Sending runTestCase to backend for:', testCase.name);
+
+        if (isTauri()) {
+            (async () => {
+                try {
+                    const start = await bridge.sendMessageAsync<{ runId: string }>({
+                        command: FrontendCommand.RunTestCase,
+                        caseId,
+                        testCase,
+                        fallbackEndpoint: testCase.steps[0]?.config?.request?.endpoint || '',
+                        stream: true
+                    });
+
+                    const runId = start?.runId;
+                    if (!runId) return;
+
+                    let fromIndex = 0;
+                    let done = false;
+                    while (!done) {
+                        const batch = await bridge.sendMessageAsync<{ updates: any[]; nextIndex: number; done: boolean; error?: string }>({
+                            command: FrontendCommand.GetTestRunUpdates,
+                            runId,
+                            fromIndex
+                        });
+
+                        if (batch?.updates?.length) {
+                            batch.updates.forEach(update => {
+                                bridge.emit({ command: BackendCommand.TestRunnerUpdate, update });
+                            });
+                            fromIndex = batch.nextIndex;
+                        }
+
+                        if (batch?.error) {
+                            console.error('[handleRunTestCaseWrapper] Test run error:', batch.error);
+                            done = true;
+                            break;
+                        }
+
+                        done = !!batch?.done;
+                        if (!done) {
+                            await new Promise(resolve => setTimeout(resolve, 250));
+                        }
+                    }
+                } catch (error) {
+                    console.error('[handleRunTestCaseWrapper] Tauri run failed', error);
+                }
+            })();
+            return;
+        }
+
         bridge.sendMessage({
             command: 'runTestCase',
             caseId,

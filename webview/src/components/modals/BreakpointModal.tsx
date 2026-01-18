@@ -132,7 +132,7 @@ export const BreakpointModal: React.FC<BreakpointModalProps> = ({
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
-                            color: 'var(--vscode-foreground)',
+                            color: 'var(--vscode-icon-foreground)',
                             padding: 4
                         }}
                     >

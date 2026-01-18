@@ -4,6 +4,7 @@ import { Clock, AlertTriangle, CheckCircle, XCircle, BarChart3, Activity, Downlo
 import { PerformanceRun, PerformanceStats } from '@shared/models';
 import { ResponseTimeChart, statsToChartData } from './ResponseTimeChart';
 import { generateMarkdownReport, downloadMarkdownReport } from '../../utils/reportGenerator';
+import { EmptyState } from '../common/EmptyState';
 
 const Container = styled.div`
     padding: 20px;
@@ -30,6 +31,62 @@ const SectionHeader = styled.h3`
     gap: 8px;
     border-bottom: 1px solid var(--vscode-panel-border);
     padding-bottom: 8px;
+`;
+
+const RunMetaRow = styled.div`
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    opacity: 0.7;
+    display: flex;
+    gap: 15px;
+`;
+
+const ExportButtons = styled.div`
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+`;
+
+const ExportButton = styled.button`
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+`;
+
+const TrendContainer = styled.div`
+    margin-bottom: 20px;
+`;
+
+const HistoryItemContent = styled.div`
+    flex: 1;
+`;
+
+const HistoryItemTitle = styled.div`
+    font-weight: 500;
+`;
+
+const HistoryItemMeta = styled.div`
+    font-size: 0.85em;
+    opacity: 0.7;
+`;
+
+const HistoryItemStats = styled.div`
+    text-align: right;
+`;
+
+const HistoryItemStatTitle = styled.div`
+    font-weight: 500;
+`;
+
+const HistoryItemStatMeta = styled.div`
+    font-size: 0.85em;
+    opacity: 0.7;
 `;
 
 const StatsGrid = styled.div`
@@ -253,48 +310,26 @@ export const PerformanceResultsPanel: React.FC<PerformanceResultsPanelProps> = (
                         {latestRun.status === 'aborted' && <AlertTriangle size={14} color="var(--vscode-charts-orange)" />}
                         {latestRun.status === 'failed' && <XCircle size={14} color="var(--vscode-testing-iconFailed)" />}
                     </SectionHeader>
-                    <div style={{ marginBottom: 15, fontSize: '0.9em', opacity: 0.7, display: 'flex', gap: 15 }}>
+                    <RunMetaRow>
                         <span><Clock size={12} /> {formatTime(latestRun.startTime)}</span>
                         <span>Duration: {formatDuration(latestRun.endTime - latestRun.startTime)}</span>
-                    </div>
+                    </RunMetaRow>
                     {onExport && (
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 15 }}>
-                            <button
+                        <ExportButtons>
+                            <ExportButton
                                 onClick={() => onExport(latestRun.id)}
-                                style={{
-                                    background: 'var(--vscode-button-secondaryBackground)',
-                                    color: 'var(--vscode-button-secondaryForeground)',
-                                    border: 'none',
-                                    padding: '6px 12px',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 5
-                                }}
                             >
                                 <Download size={14} /> Export CSV
-                            </button>
-                            <button
+                            </ExportButton>
+                            <ExportButton
                                 onClick={() => {
                                     const report = generateMarkdownReport(latestRun);
                                     downloadMarkdownReport(report, `${latestRun.suiteName}_report`);
                                 }}
-                                style={{
-                                    background: 'var(--vscode-button-secondaryBackground)',
-                                    color: 'var(--vscode-button-secondaryForeground)',
-                                    border: 'none',
-                                    padding: '6px 12px',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 5
-                                }}
                             >
                                 <FileText size={14} /> Export Report
-                            </button>
-                        </div>
+                            </ExportButton>
+                        </ExportButtons>
                     )}
                     {renderStats(latestRun.summary)}
 
@@ -350,7 +385,7 @@ export const PerformanceResultsPanel: React.FC<PerformanceResultsPanelProps> = (
                     </SectionHeader>
 
                     {/* Response Time Trend Chart */}
-                    <div style={{ marginBottom: 20 }}>
+                    <TrendContainer>
                         <ResponseTimeChart
                             data={statsToChartData(runs.slice(-10))} // Last 10 runs
                             title="Response Time Trend (Last 10 Runs)"
@@ -358,33 +393,33 @@ export const PerformanceResultsPanel: React.FC<PerformanceResultsPanelProps> = (
                             showP95={true}
                             showP99={false}
                         />
-                    </div>
+                    </TrendContainer>
 
                     {runs.slice(0, -1).reverse().map(run => (
                         <HistoryItem key={run.id} status={run.status}>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 500 }}>{run.suiteName}</div>
-                                <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                            <HistoryItemContent>
+                                <HistoryItemTitle>{run.suiteName}</HistoryItemTitle>
+                                <HistoryItemMeta>
                                     {formatTime(run.startTime)} • {formatDuration(run.endTime - run.startTime)}
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontWeight: 500 }}>{formatDuration(run.summary.avgResponseTime)} avg</div>
-                                <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                                </HistoryItemMeta>
+                            </HistoryItemContent>
+                            <HistoryItemStats>
+                                <HistoryItemStatTitle>{formatDuration(run.summary.avgResponseTime)} avg</HistoryItemStatTitle>
+                                <HistoryItemStatMeta>
                                     {(run.summary.successRate * 100).toFixed(0)}% success
-                                </div>
-                            </div>
+                                </HistoryItemStatMeta>
+                            </HistoryItemStats>
                         </HistoryItem>
                     ))}
                 </Section>
             )}
 
             {runs.length === 0 && !isRunning && (
-                <div style={{ textAlign: 'center', padding: 40, opacity: 0.6 }}>
-                    <BarChart3 size={48} style={{ marginBottom: 15, opacity: 0.5 }} />
-                    <div>No performance runs yet.</div>
-                    <div style={{ fontSize: '0.9em', marginTop: 5 }}>Run a suite to see results here.</div>
-                </div>
+                <EmptyState
+                    icon={BarChart3}
+                    title="No performance runs yet."
+                    description="Run a suite to see results here."
+                />
             )}
         </Container>
     );

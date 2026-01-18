@@ -5,24 +5,26 @@ import { Modal, Button } from '../modals/Modal';
 import { MonacoResponseViewer } from '../MonacoResponseViewer';
 import { generateCode } from '../../utils/codeGenerator';
 
-const LanguageTabs = styled.div`
+const TabContainer = styled.div`
     display: flex;
-    gap: 2px;
-    background: var(--vscode-editor-groupHeader-tabsBackground);
-    padding: 0 10px;
-    border-bottom: 1px solid var(--vscode-editorGroup-border);
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-sideBar-background);
 `;
 
 const Tab = styled.div<{ active: boolean }>`
     padding: 8px 16px;
     cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid transparent;
+    border-right: 1px solid var(--vscode-panel-border);
     background: ${props => props.active ? 'var(--vscode-editor-background)' : 'transparent'};
     color: ${props => props.active ? 'var(--vscode-tab-activeForeground)' : 'var(--vscode-tab-inactiveForeground)'};
-    border-top: 1px solid ${props => props.active ? 'var(--vscode-tab-activeBorderTop)' : 'transparent'};
-    font-size: 12px;
-    
+
     &:hover {
-        background: ${props => !props.active && 'var(--vscode-tab-hoverBackground)'};
+        color: var(--vscode-tab-activeForeground);
     }
 `;
 
@@ -55,12 +57,12 @@ export const CodeSnippetModal: React.FC<CodeSnippetModalProps> = ({ isOpen, onCl
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Generate Code" width={800}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '60vh' }}>
-                <LanguageTabs>
+                <TabContainer>
                     <Tab active={language === 'curl'} onClick={() => setLanguage('curl')}>cURL</Tab>
                     <Tab active={language === 'node'} onClick={() => setLanguage('node')}>Node.js</Tab>
                     <Tab active={language === 'python'} onClick={() => setLanguage('python')}>Python</Tab>
                     <Tab active={language === 'csharp'} onClick={() => setLanguage('csharp')}>C#</Tab>
-                </LanguageTabs>
+                </TabContainer>
 
                 <div style={{ position: 'relative', flex: 1, border: '1px solid var(--vscode-panel-border)', borderTop: 'none' }}>
                     <MonacoResponseViewer

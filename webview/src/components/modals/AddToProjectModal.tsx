@@ -52,7 +52,7 @@ const CloseButton = styled.button`
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--vscode-foreground);
+    color: var(--vscode-icon-foreground);
     opacity: 0.7;
     &:hover { opacity: 1; }
 `;

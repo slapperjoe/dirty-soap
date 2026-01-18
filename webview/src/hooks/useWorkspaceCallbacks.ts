@@ -7,7 +7,7 @@
 
 import { useCallback } from 'react';
 import { ApinoxProject, TestStep, TestCase, TestStepType, RequestExtractor } from '@shared/models';
-import { bridge } from '../utils/bridge';
+import { bridge, isVsCode } from '../utils/bridge';
 
 interface UseWorkspaceCallbacksParams {
     // Test case state
@@ -38,6 +38,7 @@ interface UseWorkspaceCallbacksParams {
 
     // Modal state
     setExtractorModal: React.Dispatch<React.SetStateAction<any>>;
+    onPickRequestForTestCase?: (caseId: string) => void;
 }
 
 interface UseWorkspaceCallbacksReturn {
@@ -76,7 +77,8 @@ export function useWorkspaceCallbacks({
     setProxyHistory,
     setWatcherHistory,
     config,
-    setExtractorModal
+    setExtractorModal,
+    onPickRequestForTestCase
 }: UseWorkspaceCallbacksParams): UseWorkspaceCallbacksReturn {
 
     const handleSelectStep = useCallback((step: TestStep | null) => {
@@ -278,7 +280,11 @@ export function useWorkspaceCallbacks({
                 return updatedProject;
             }));
         } else if (type === 'request') {
-            bridge.sendMessage({ command: 'pickOperationForTestCase', caseId });
+            if (isVsCode()) {
+                bridge.sendMessage({ command: 'pickOperationForTestCase', caseId });
+            } else {
+                onPickRequestForTestCase?.(caseId);
+            }
         }
     }, [setProjects, saveProject]);
 
