@@ -149,10 +149,17 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
             command: BackendCommand.HistoryLoaded,
             entries: data || []
         }),
+        [FrontendCommand.GetWatcherHistory]: (data) => ({
+            command: BackendCommand.WatcherUpdate,
+            history: data || []
+        }),
         [FrontendCommand.GetSettings]: (data) => ({
             command: BackendCommand.SettingsUpdate,
             // Frontend expects 'config' not 'settings'
-            config: data
+            config: data?.config ?? data,
+            raw: data?.raw,
+            configDir: data?.configDir,
+            configPath: data?.configPath
         }),
         [FrontendCommand.SaveProject]: (data) => ({
             command: BackendCommand.ProjectSaved,
@@ -161,7 +168,9 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
         [FrontendCommand.SaveSettings]: (data) => ({
             command: BackendCommand.SettingsUpdate,
             config: data?.config,
-            raw: data?.raw
+            raw: data?.raw,
+            configDir: data?.configDir,
+            configPath: data?.configPath
         }),
         [FrontendCommand.SaveUiState]: (data) => ({
             command: BackendCommand.SettingsUpdate,

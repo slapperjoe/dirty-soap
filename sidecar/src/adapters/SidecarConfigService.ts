@@ -15,7 +15,11 @@ export class SidecarConfigService implements IConfigService {
     private configPath: string;
 
     constructor() {
-        this.configPath = path.join(os.homedir(), '.apinox', 'config.json');
+        const envConfigDir = process.env.APINOX_CONFIG_DIR;
+        const baseDir = envConfigDir && envConfigDir.trim().length > 0
+            ? envConfigDir
+            : path.join(os.homedir(), '.apinox');
+        this.configPath = path.join(baseDir, 'config.json');
         this.loadConfig();
     }
 

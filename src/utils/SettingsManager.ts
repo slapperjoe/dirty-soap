@@ -93,13 +93,16 @@ export class SettingsManager {
     public scriptsDir: string;
 
     constructor() {
-        this.configDir = path.join(os.homedir(), '.apinox');
+        const envConfigDir = process.env.APINOX_CONFIG_DIR;
+        // Fallback to home directory if not set
+        this.configDir = (envConfigDir && envConfigDir.trim().length > 0)
+            ? envConfigDir
+            : path.join(os.homedir(), '.apinox');
         this.configPath = path.join(this.configDir, 'config.jsonc');
         this.autosavePath = path.join(this.configDir, 'autosave.xml');
         this.scriptsDir = path.join(this.configDir, 'scripts');
         this.ensureConfigDir();
         this.ensureScriptsDir();
-        console.log(`SettingsManager initialized. Config Path: ${this.configPath}`);
     }
 
     private ensureConfigDir() {
@@ -116,6 +119,10 @@ export class SettingsManager {
 
     public getConfigDir(): string {
         return this.configDir;
+    }
+
+    public getConfigPath(): string {
+        return this.configPath;
     }
 
     public getConfig(): ApinoxConfig {
@@ -150,14 +157,20 @@ export class SettingsManager {
     }
 
     public getRawConfig(): string {
+        console.log(`[SettingsManager.getRawConfig] Checking if config exists: ${this.configPath}`);
         if (!fs.existsSync(this.configPath)) {
+            console.log('[SettingsManager.getRawConfig] Config file not found, saving defaults');
             this.saveConfig(DEFAULT_CONFIG);
         }
         const content = fs.readFileSync(this.configPath, 'utf8');
+        console.log(`[SettingsManager.getRawConfig] Read file, length: ${content.length}, first 100 chars: ${content.substring(0, 100)}`);
         if (!content || content.trim().length === 0) {
             // File exists but is empty/corrupt. Re-write defaults.
+            console.log('[SettingsManager.getRawConfig] Content empty, updating with defaults');
             this.updateConfigPath([], DEFAULT_CONFIG); // Use updateConfigPath to get nice formatting with comments if possible
-            return fs.readFileSync(this.configPath, 'utf8');
+            const newContent = fs.readFileSync(this.configPath, 'utf8');
+            console.log(`[SettingsManager.getRawConfig] After update, length: ${newContent.length}`);
+            return newContent;
         }
         return content;
     }

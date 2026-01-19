@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { ExternalLink, Check, AlertCircle, Loader2, FolderOpen } from 'lucide-react';
 import styled, { keyframes } from 'styled-components';
 import {
     ApinoxConfig,
@@ -17,6 +17,8 @@ import {
     SectionHeader,
     PrimaryButton,
 } from './SettingsTypes';
+import { bridge, isTauri } from '../../../utils/bridge';
+import { FrontendCommand } from '@shared/messages';
 
 const spin = keyframes`
     from { transform: rotate(0deg); }
@@ -49,6 +51,27 @@ const HelpText = styled.div`
     margin-top: 4px;
 `;
 
+const PickerRow = styled.div`
+    display: flex;
+    gap: 8px;
+    align-items: center;
+`;
+
+const IconButton = styled.button`
+    background: transparent;
+    border: 1px solid var(--vscode-input-border);
+    color: var(--vscode-icon-foreground);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &:hover {
+        background: var(--vscode-toolbar-hoverBackground);
+    }
+`;
+
 interface AzureDevOpsProject {
     id: string;
     name: string;
@@ -73,6 +96,34 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
     const azureDevOps = config.azureDevOps || {};
+    const fileWatcher = config.fileWatcher || {};
+    const tauriMode = isTauri();
+
+    const updateFileWatcher = (next: { requestPath?: string; responsePath?: string }) => {
+        onConfigChange('fileWatcher', next);
+        if (tauriMode) {
+            bridge.sendMessageAsync({
+                command: FrontendCommand.SaveSettings,
+                config: { fileWatcher: next }
+            }).then(async () => {
+                const data: any = await bridge.sendMessageAsync({
+                    command: FrontendCommand.GetSettings
+                });
+                bridge.emit({
+                    command: 'settingsUpdate',
+                    config: data?.config ?? data ?? { fileWatcher: next },
+                    raw: data?.raw,
+                    configDir: data?.configDir,
+                    configPath: data?.configPath
+                } as any);
+            }).catch(() => {
+                sendMessage({
+                    command: FrontendCommand.SaveSettings,
+                    config: { fileWatcher: next }
+                });
+            });
+        }
+    };
 
     // Check if PAT exists on mount
     useEffect(() => {
@@ -148,6 +199,29 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
 
     const handleProjectChange = (value: string) => {
         onConfigChange('azureDevOps', { ...azureDevOps, project: value });
+    };
+
+    const pickFile = async (kind: 'request' | 'response') => {
+        if (tauriMode) {
+            const dialog = await import('@tauri-apps/plugin-dialog');
+            const selected = await dialog.open({
+                multiple: false,
+                filters: [{ name: 'XML Files', extensions: ['xml'] }]
+            });
+            if (typeof selected === 'string') {
+                updateFileWatcher({
+                    ...fileWatcher,
+                    [kind === 'request' ? 'requestPath' : 'responsePath']: selected
+                });
+            }
+            return;
+        }
+
+        sendMessage({
+            command: kind === 'request'
+                ? FrontendCommand.SelectWatcherRequestFile
+                : FrontendCommand.SelectWatcherResponseFile
+        });
     };
 
     return (
@@ -235,6 +309,7 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                 </FormGroup>
             )}
 
+
             {hasPat && azureDevOps.orgUrl && (
                 <FormGroup>
                     <PrimaryButton onClick={handleTestConnection} disabled={loading}>
@@ -266,6 +341,47 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                     <li>Enter a Work Item ID to add the request/response as a comment</li>
                 </ol>
             </div>
+
+            
+            <SectionHeader style={{ marginTop: 24 }}>File Watcher</SectionHeader>
+
+            <FormGroup>
+                <Label>Request XML Path</Label>
+                <PickerRow>
+                    <Input
+                        type="text"
+                        value={fileWatcher.requestPath || ''}
+                        onChange={e => updateFileWatcher({ ...fileWatcher, requestPath: e.target.value })}
+                        placeholder="Request File"
+                        style={{ flex: 1 }}
+                    />
+                    <IconButton onClick={() => pickFile('request')} title="Browse">
+                        <FolderOpen size={14} />
+                    </IconButton>
+                </PickerRow>
+                <HelpText>
+                    Full path to the request XML file to watch.
+                </HelpText>
+            </FormGroup>
+
+            <FormGroup>
+                <Label>Response XML Path</Label>
+                <PickerRow>
+                    <Input
+                        type="text"
+                        value={fileWatcher.responsePath || ''}
+                        onChange={e => updateFileWatcher({ ...fileWatcher, responsePath: e.target.value })}
+                        placeholder="Response File"
+                        style={{ flex: 1 }}
+                    />
+                    <IconButton onClick={() => pickFile('response')} title="Browse">
+                        <FolderOpen size={14} />
+                    </IconButton>
+                </PickerRow>
+                <HelpText>
+                    Full path to the response XML file to watch.
+                </HelpText>
+            </FormGroup>
         </ScrollableForm>
     );
 };

@@ -22,6 +22,8 @@ export enum FrontendCommand {
     GetWatcherHistory = 'getWatcherHistory',
     ClearWatcherHistory = 'clearWatcherHistory',
     SelectConfigFile = 'selectConfigFile',
+    SelectWatcherRequestFile = 'selectWatcherRequestFile',
+    SelectWatcherResponseFile = 'selectWatcherResponseFile',
 
     // Commands
     DownloadWsdl = 'downloadWsdl',

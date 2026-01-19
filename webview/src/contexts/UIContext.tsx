@@ -110,6 +110,10 @@ interface UIContextValue {
     /** Path to current config file */
     configPath: string | null;
     setConfigPath: React.Dispatch<React.SetStateAction<string | null>>;
+
+    /** Settings directory (backend) */
+    configDir: string | null;
+    setConfigDir: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 // =============================================================================
@@ -163,6 +167,7 @@ export function UIProvider({ children }: UIProviderProps) {
     const [config, setConfig] = useState<ApinoxConfig | null>(null);
     const [rawConfig, setRawConfig] = useState<string>('');
     const [configPath, setConfigPath] = useState<string | null>(null);
+    const [configDir, setConfigDir] = useState<string | null>(null);
 
     // -------------------------------------------------------------------------
     // ACTIONS
@@ -250,7 +255,9 @@ export function UIProvider({ children }: UIProviderProps) {
         rawConfig,
         setRawConfig,
         configPath,
-        setConfigPath
+        setConfigPath,
+        configDir,
+        setConfigDir
     };
 
     return (

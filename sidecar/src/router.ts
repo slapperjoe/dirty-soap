@@ -502,7 +502,29 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
 
         // ===== Settings =====
         [FrontendCommand.GetSettings]: async () => {
-            return services.settingsManager.getConfig();
+            const configPath = services.settingsManager.getConfigPath();
+            const configDir = services.settingsManager.getConfigDir();
+            
+            let raw = '';
+            let readError: string | null = null;
+            let exists = false;
+            
+            try {
+                const fs = await import('fs');
+                exists = fs.existsSync(configPath);
+                raw = services.settingsManager.getRawConfig();
+            } catch (e: any) {
+                readError = e?.message || String(e);
+            }
+
+            const config = services.settingsManager.getConfig();
+
+            return {
+                config,
+                raw,
+                configDir,
+                configPath
+            };
         },
 
         [FrontendCommand.SaveSettings]: async (payload) => {
@@ -514,13 +536,12 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
                 services.settingsManager.saveRawConfig(payload.content);
             }
             const updatedConfig = services.settingsManager.getConfig();
+            services.fileWatcherService.reloadConfiguration();
             services.performanceService.setSuites(updatedConfig.performanceSuites || []);
             services.performanceService.setHistory(updatedConfig.performanceHistory || []);
             services.scheduleService.loadSchedules(updatedConfig.performanceSchedules || []);
             return {
-                saved: true,
-                config: updatedConfig,
-                raw: services.settingsManager.getRawConfig()
+                success: true
             };
         },
 
@@ -733,7 +754,19 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
 
     return {
         async handle(command: string, payload: any): Promise<any> {
-            const handler = handlers[command];
+            let handler = handlers[command];
+            
+            // Fallback: Try case-insensitive or enum value lookup
+            if (!handler) {
+                // Try lowercase first letter (GetSettings -> getSettings)
+                const lowerCaseCommand = command.charAt(0).toLowerCase() + command.slice(1);
+                const fallbackHandler = handlers[lowerCaseCommand];
+                
+                if (fallbackHandler) {
+                    console.log(`[Router] Command '${command}' not found, using '${lowerCaseCommand}' instead`);
+                    handler = fallbackHandler;
+                }
+            }
 
             if (!handler) {
                 console.warn(`[Router] Unknown command: ${command}`);

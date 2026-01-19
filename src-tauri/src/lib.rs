@@ -1,12 +1,19 @@
+use std::fs;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Mutex;
 use std::thread;
+use tauri::Manager;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 // Global sidecar state
 static SIDECAR_PORT: AtomicU16 = AtomicU16::new(0);
 static SIDECAR_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+static CONFIG_DIR: Mutex<Option<String>> = Mutex::new(None);
 
 #[tauri::command]
 fn get_sidecar_port() -> u16 {
@@ -18,44 +25,112 @@ fn is_sidecar_ready() -> bool {
     SIDECAR_PORT.load(Ordering::Relaxed) > 0
 }
 
+#[tauri::command]
+fn get_config_dir() -> Option<String> {
+    CONFIG_DIR.lock().ok().and_then(|dir| dir.clone())
+}
+
 /// Spawn the Node.js sidecar process
-fn spawn_sidecar(_app_handle: &tauri::AppHandle) -> Result<(), String> {
+fn spawn_sidecar(app_handle: &tauri::AppHandle) -> Result<(), String> {
     // Get path to sidecar
     // In development, cwd is src-tauri, so we need to go up one level
     // In production, we'd use a bundled binary
 
-    // Get the project root (parent of src-tauri)
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|p| p.to_path_buf()))
+        .or_else(|| app_handle.path().executable_dir().ok())
+        .ok_or_else(|| "Failed to resolve executable dir".to_string())?;
+    let preferred_dir = exe_dir.join(".apinox-config");
+
+    let config_dir = match fs::create_dir_all(&preferred_dir) {
+        Ok(_) => preferred_dir,
+        Err(e) => {
+            log::warn!("Failed to create .apinox-config next to exe: {}. Falling back to app config dir.", e);
+            let fallback = app_handle
+                .path()
+                .app_config_dir()
+                .or_else(|_| app_handle.path().app_data_dir())
+                .map_err(|err| format!("Failed to resolve fallback config dir: {}", err))?;
+            fs::create_dir_all(&fallback)
+                .map_err(|err| format!("Failed to create fallback config dir: {}", err))?;
+            fallback
+        }
+    };
+
+    if let Ok(mut guard) = CONFIG_DIR.lock() {
+        *guard = Some(config_dir.to_string_lossy().to_string());
+    }
+
     let current_dir =
         std::env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
 
-    // Check if we're in src-tauri and need to go up
-    let project_root = if current_dir.ends_with("src-tauri") {
-        current_dir.parent().unwrap().to_path_buf()
-    } else {
-        current_dir
+    let exe_dir_clone = exe_dir.clone();
+    let sidecar_candidates = [current_dir, exe_dir];
+
+    let find_sidecar_script = |start: &PathBuf| -> Option<(PathBuf, PathBuf)> {
+        let mut cursor = start.clone();
+        for _ in 0..6 {
+            let candidate = cursor
+                .join("sidecar")
+                .join("dist")
+                .join("sidecar")
+                .join("src")
+                .join("index.js");
+            if candidate.exists() {
+                return Some((candidate, cursor));
+            }
+            if let Some(parent) = cursor.parent() {
+                cursor = parent.to_path_buf();
+            } else {
+                break;
+            }
+        }
+        None
     };
 
-    let sidecar_script = project_root
-        .join("sidecar")
-        .join("dist")
-        .join("sidecar")
-        .join("src")
-        .join("index.js");
-
-    if !sidecar_script.exists() {
-        return Err(format!(
-            "Sidecar not found at {:?}. Run 'npm run build:sidecar' first.",
-            sidecar_script
-        ));
+    let mut sidecar_script: Option<PathBuf> = None;
+    let mut project_root: Option<PathBuf> = None;
+    for start in sidecar_candidates.iter() {
+        if let Some((script, root)) = find_sidecar_script(start) {
+            sidecar_script = Some(script);
+            project_root = Some(root);
+            break;
+        }
     }
 
-    log::info!("Starting sidecar: node {:?}", sidecar_script);
+    let sidecar_script = sidecar_script.ok_or_else(|| {
+        "Sidecar not found. Run 'npm run build:sidecar' first.".to_string()
+    })?;
+    let project_root = project_root.ok_or_else(|| "Failed to resolve project root".to_string())?;
 
-    let mut child = Command::new("node")
+    let config_dir_str = config_dir.to_string_lossy().to_string();
+    log::info!("Starting sidecar: node {:?}", sidecar_script);
+    log::info!("Config dir: {}", config_dir_str);
+
+    // Write config dir to a file that sidecar can read
+    let config_dir_file = exe_dir_clone.join(".apinox-sidecar-config");
+    if let Err(e) = fs::write(&config_dir_file, &config_dir_str) {
+        log::warn!("Failed to write sidecar config file: {}", e);
+    }
+
+    let mut command = Command::new("node");
+    command
         .arg(&sidecar_script)
+        .arg("--config-dir")
+        .arg(&config_dir_str)
         .current_dir(&project_root)
+        .env("APINOX_CONFIG_DIR", &config_dir_str)
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    #[cfg(windows)]
+    {
+        // CREATE_NO_WINDOW
+        command.creation_flags(0x08000000);
+    }
+
+    let mut child = command
         .spawn()
         .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 
@@ -110,7 +185,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![get_sidecar_port, is_sidecar_ready])
+        .invoke_handler(tauri::generate_handler![get_sidecar_port, is_sidecar_ready, get_config_dir])
         .setup(|app| {
             // Initialize logging in debug mode
             if cfg!(debug_assertions) {

@@ -33,8 +33,47 @@ export const useAppLifecycle = ({
 
     // Initial Load & Backend Sync
     useEffect(() => {
+        const loadSettings = async () => {
+            if (!isTauri()) {
+                bridge.sendMessage({ command: 'getSettings' });
+                return;
+            }
+
+            const { invoke } = await import('@tauri-apps/api/core');
+
+            const waitForSidecar = async () => {
+                const maxAttempts = 40;
+                for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+                    try {
+                        const ready = await invoke<boolean>('is_sidecar_ready');
+                        if (ready) return true;
+                    } catch (e) {
+                        // ignore and retry
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                }
+                return false;
+            };
+
+            const ready = await waitForSidecar();
+            if (!ready) return;
+
+            try {
+                const data: any = await bridge.sendMessageAsync({ command: FrontendCommand.GetSettings });
+                bridge.emit({
+                    command: 'settingsUpdate',
+                    config: data?.config ?? data,
+                    raw: data?.raw,
+                    configDir: data?.configDir,
+                    configPath: data?.configPath
+                } as any);
+            } catch (e) {
+                // ignore; no settings available
+            }
+        };
+
         // Request settings on load
-        bridge.sendMessage({ command: 'getSettings' });
+        loadSettings();
         bridge.sendMessage({ command: 'getAutosave' });
         bridge.sendMessage({ command: 'getWatcherHistory' });
         bridge.sendMessage({ command: FrontendCommand.GetHistory });

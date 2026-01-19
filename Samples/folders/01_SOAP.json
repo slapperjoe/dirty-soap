@@ -1,0 +1,20 @@
+{
+  "id": "samples-folder-soap",
+  "name": "SOAP",
+  "requests": [
+    {
+      "id": "sample-soap-calc-add",
+      "readOnly": true,
+      "name": "Calculator - Add",
+      "endpoint": "http://www.dneonline.com/calculator.asmx",
+      "method": "POST",
+      "requestType": "soap",
+      "contentType": "text/xml; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/xml; charset=utf-8",
+        "SOAPAction": "http://tempuri.org/Add"
+      },
+      "request": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <Add xmlns=\"http://tempuri.org/\">\n      <intA>5</intA>\n      <intB>7</intB>\n    </Add>\n  </soap:Body>\n</soap:Envelope>"
+    }
+  ]
+}

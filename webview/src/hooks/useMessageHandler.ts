@@ -52,6 +52,7 @@ export interface MessageHandlerState {
     // setCoordinatorStatus: React.Dispatch<React.SetStateAction<any>>; // Moved to PerformanceContext
     configPath?: string | null;
     setConfigPath: React.Dispatch<React.SetStateAction<string | null>>;
+    setConfigDir: React.Dispatch<React.SetStateAction<string | null>>;
     // setProxyConfig: React.Dispatch<React.SetStateAction<any>>; // Moved to MockProxyContext
     setSelectedProjectName: React.Dispatch<React.SetStateAction<string | null>>;
     setWsdlUrl: React.Dispatch<React.SetStateAction<string>>;
@@ -110,6 +111,7 @@ export function useMessageHandler(state: MessageHandlerState) {
         setSplitRatio,
         setInlineElementValues,
         setConfigPath,
+        setConfigDir,
         // setProxyConfig,
         setSelectedProjectName,
         setWsdlUrl,
@@ -522,6 +524,14 @@ export function useMessageHandler(state: MessageHandlerState) {
 
                     if (message.config.lastConfigPath) {
                         setConfigPath(message.config.lastConfigPath);
+                    }
+                    if (message.configDir) {
+                        setConfigDir(message.configDir);
+                    } else if (message.configPath) {
+                        const derivedDir = message.configPath.replace(/[\\/][^\\/]+$/, '');
+                        if (derivedDir) {
+                            setConfigDir(derivedDir);
+                        }
                     }
                     // Mock/Proxy config handled in MockProxyContext
                     break;

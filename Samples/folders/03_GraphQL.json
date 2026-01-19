@@ -1,0 +1,20 @@
+{
+  "id": "samples-folder-graphql",
+  "name": "GraphQL",
+  "requests": [
+    {
+      "id": "sample-graphql-spacex",
+      "readOnly": true,
+      "name": "SpaceX - Get Launches",
+      "endpoint": "https://spacex-production.up.railway.app/",
+      "method": "POST",
+      "requestType": "graphql",
+      "bodyType": "graphql",
+      "contentType": "application/json",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "request": "query GetLaunches {\n  launchesPast(limit: 5) {\n    mission_name\n    launch_date_local\n    rocket {\n      rocket_name\n    }\n  }\n}"
+    }
+  ]
+}

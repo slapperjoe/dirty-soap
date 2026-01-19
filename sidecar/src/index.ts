@@ -11,6 +11,57 @@ import cors from 'cors';
 import { createCommandRouter } from './router';
 import { ServiceContainer } from './services';
 
+// Log buffer for diagnostics
+const logBuffer: Array<{ timestamp: string; level: string; message: string }> = [];
+const MAX_LOGS = 500;
+
+function addLog(level: string, ...args: any[]) {
+    const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+    ).join(' ');
+    
+    logBuffer.push({
+        timestamp: new Date().toISOString(),
+        level,
+        message
+    });
+    
+    if (logBuffer.length > MAX_LOGS) {
+        logBuffer.shift();
+    }
+}
+
+// Override console methods to capture logs
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = (...args: any[]) => {
+    addLog('info', ...args);
+    originalConsoleLog(...args);
+};
+
+console.error = (...args: any[]) => {
+    addLog('error', ...args);
+    originalConsoleError(...args);
+};
+
+console.warn = (...args: any[]) => {
+    addLog('warn', ...args);
+    originalConsoleWarn(...args);
+};
+
+// Parse command-line arguments for config dir
+const args = process.argv.slice(2);
+const configDirIndex = args.indexOf('--config-dir');
+if (configDirIndex !== -1 && args[configDirIndex + 1]) {
+    const configDir = args[configDirIndex + 1];
+    process.env.APINOX_CONFIG_DIR = configDir;
+    console.log(`[Sidecar] Config dir from CLI arg: ${configDir}`);
+} else {
+    console.log('[Sidecar] No --config-dir argument provided');
+}
+
 const app = express();
 
 // Middleware
@@ -26,6 +77,29 @@ const commandRouter = createCommandRouter(services);
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', version: '0.9.0' });
+});
+
+// Debug endpoint - minimal diagnostic info
+app.get('/debug', (_req: Request, res: Response) => {
+    res.json({
+        message: 'Sidecar is running',
+        configDir: services.settingsManager?.getConfigDir() || 'error'
+    });
+});
+
+// Logs endpoint - show captured console logs
+app.get('/logs', (_req: Request, res: Response) => {
+    res.json({
+        logs: logBuffer,
+        count: logBuffer.length,
+        maxSize: MAX_LOGS
+    });
+});
+
+// Clear logs endpoint
+app.post('/logs/clear', (_req: Request, res: Response) => {
+    logBuffer.length = 0;
+    res.json({ success: true, message: 'Logs cleared' });
 });
 
 // Main command endpoint

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Play, Square, Shield, Trash2, FolderOpen, Network, FileCode, FileDown, Bug, Plus, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { WatcherEvent } from '@shared/models';
+/* eslint-disable react/no-inline-styles, react/jsx-no-inline-styles */
 import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { formatXml } from '@shared/utils/xmlFormatter';
 import { BreakpointModal, Breakpoint } from '../modals/BreakpointModal';

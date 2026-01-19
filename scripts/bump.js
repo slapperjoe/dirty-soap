@@ -27,6 +27,13 @@ try {
     fs.writeFileSync(webviewPackagePath, JSON.stringify(webviewPackageJson, null, 4) + '\n');
     console.log(`Synced webview/package.json to v${newVersion}`);
 
+    // 2b. Sync src-tauri/tauri.conf.json version
+    const tauriConfigPath = path.join(__dirname, '../src-tauri/tauri.conf.json');
+    const tauriConfig = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf8'));
+    tauriConfig.version = newVersion;
+    fs.writeFileSync(tauriConfigPath, JSON.stringify(tauriConfig, null, 2) + '\n');
+    console.log(`Synced src-tauri/tauri.conf.json to v${newVersion}`);
+
     // 2. Update Changelog
     console.log('Updating Changelog...');
     // We can call update_changelog.js or inline it. Calling it ensures code reuse if we kept it.

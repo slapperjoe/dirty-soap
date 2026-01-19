@@ -311,7 +311,8 @@ export function MainContent() {
         rawConfig,
         setRawConfig,
         configPath,
-        setConfigPath
+        setConfigPath,
+        setConfigDir
     } = useUI();
 
     // View Isolation Logic - Prevent leaking requests between contexts
@@ -978,6 +979,7 @@ export function MainContent() {
         setSplitRatio,
         setInlineElementValues,
         setConfigPath,
+        setConfigDir,
         // setProxyConfig, // Handled in MockProxyContext
         setSelectedProjectName,
         setWsdlUrl,
@@ -1294,10 +1296,10 @@ export function MainContent() {
                         bridge.sendMessage({ command: 'setServerMode', mode });
                     },
                     onStart: () => {
-                        bridge.sendMessage({ command: 'startProxy' });
+                        _handleStartProxy();
                     },
                     onStop: () => {
-                        bridge.sendMessage({ command: 'stopProxy' });
+                        _handleStopProxy();
                     },
                     onOpenSettings: () => openSettings('server'),
                     proxyHistory,
@@ -1511,10 +1513,33 @@ export function MainContent() {
                             setShowSettings(false);
                             setInitialSettingsTab(null);
                         }}
-                        onSave={(content, config) => {
+                        onSave={async (content, config) => {
+                            if (isTauri()) {
+                                try {
+                                    await bridge.sendMessageAsync({
+                                        command: FrontendCommand.SaveSettings,
+                                        raw: !config,
+                                        content,
+                                        config
+                                    });
+                                    const data: any = await bridge.sendMessageAsync({
+                                        command: FrontendCommand.GetSettings
+                                    });
+                                    bridge.emit({
+                                        command: BackendCommand.SettingsUpdate,
+                                        config: data?.config ?? data ?? null,
+                                        raw: data?.raw,
+                                        configDir: data?.configDir,
+                                        configPath: data?.configPath
+                                    } as any);
+                                } catch (e) {
+                                    // fallback to fire-and-forget
+                                    bridge.sendMessage({ command: FrontendCommand.SaveSettings, raw: !config, content, config });
+                                }
+                                return;
+                            }
+
                             bridge.sendMessage({ command: 'saveSettings', raw: !config, content, config });
-                            setShowSettings(false);
-                            setInitialSettingsTab(null);
                         }}
                         initialTab={initialSettingsTab}
                     />

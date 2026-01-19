@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { Play, Square, Trash2, Settings, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield } from 'lucide-react';
+import { Play, Square, Trash2, Settings, ArrowRight, Plus, Edit2, ToggleLeft, ToggleRight, Radio, Bug, PlusSquare, Shield, Car } from 'lucide-react';
 import { WatcherEvent, MockEvent, ServerMode, ServerConfig, MockRule } from '@shared/models';
 import { HeaderButton, ServiceItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { MockRuleModal } from '../modals/MockRuleModal';
@@ -114,6 +114,10 @@ const ModeButton = styled.button<{ $active: boolean; $activeColor?: string; $dis
     color: ${props => props.$active
         ? 'var(--vscode-button-foreground)'
         : 'var(--vscode-input-foreground)'};
+    font-weight: ${props => props.$active ? 600 : 500};
+    box-shadow: ${props => props.$active
+        ? 'inset 0 0 0 1px var(--vscode-focusBorder)'
+        : 'inset 0 0 0 0 transparent'};
     cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
     transition: all 0.15s ease;
 `;
@@ -331,9 +335,9 @@ const CreateRuleButton = styled.button<{ $selected: boolean }>`
 
 const MODE_OPTIONS: { value: ServerMode; label: string; color?: string }[] = [
     { value: 'off', label: 'Off' },
-    { value: 'mock', label: 'Moxy', color: 'var(--vscode-charts-green)' },
-    { value: 'proxy', label: 'Proxy', color: 'var(--vscode-charts-blue)' },
-    { value: 'both', label: 'Both', color: 'var(--vscode-charts-purple)' },
+    { value: 'mock', label: 'Moxy', color: 'var(--vscode-charts-green, var(--vscode-button-background))' },
+    { value: 'proxy', label: 'Proxy', color: 'var(--vscode-charts-orange, var(--vscode-button-background))' },
+    { value: 'both', label: 'Both', color: 'var(--vscode-charts-purple, var(--vscode-button-background))' },
 ];
 
 export const ServerUi: React.FC<ServerUiProps> = ({
@@ -629,7 +633,11 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                 {/* Traffic History */}
                 <TrafficSection>
                     <TrafficHeader>
-                        <TrafficTitle>Traffic ({totalEvents})</TrafficTitle>
+                        
+                        <TrafficTitle>
+                            <Car size={14} />
+                            Traffic ({totalEvents})
+                        </TrafficTitle>
                         {totalEvents > 0 && (
                             <SmallHeaderButton onClick={onClearHistory} title="Clear History">
                                 <Trash2 size={14} />

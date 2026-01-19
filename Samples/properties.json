@@ -1,0 +1,6 @@
+{
+  "name": "Samples",
+  "description": "A collection of read-only sample requests (SOAP, REST, GraphQL)",
+  "id": "samples-project-read-only",
+  "format": "dirty-soap-v1"
+}

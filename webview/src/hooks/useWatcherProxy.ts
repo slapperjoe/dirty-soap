@@ -5,9 +5,11 @@
  * Extracted from App.tsx to reduce complexity.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { WatcherEvent, ApiRequest, ApiOperation, ApiInterface, SidebarView, MockEvent, MockConfig } from '@shared/models';
 import { formatXml } from '@shared/utils/xmlFormatter';
+import { bridge, isTauri } from '../utils/bridge';
+import { FrontendCommand } from '@shared/messages';
 
 interface UseWatcherProxyParams {
     // UI State
@@ -90,6 +92,23 @@ export function useWatcherProxy({
 
     // Unified Server Mode (controlled by UI, not derived from running states)
     const [serverMode, setServerMode] = useState<'off' | 'proxy' | 'mock' | 'both'>('off');
+
+    useEffect(() => {
+        if (!isTauri()) return;
+
+        let timer: NodeJS.Timeout | undefined;
+
+        if (watcherRunning) {
+            bridge.sendMessage({ command: FrontendCommand.GetWatcherHistory });
+            timer = setInterval(() => {
+                bridge.sendMessage({ command: FrontendCommand.GetWatcherHistory });
+            }, 1000);
+        }
+
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [watcherRunning]);
 
     const handleSelectWatcherEvent = useCallback((event: WatcherEvent) => {
         let requestBody = event.formattedBody;

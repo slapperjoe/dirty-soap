@@ -348,6 +348,7 @@ export class WebviewController {
                     this._settingsManager.updateConfigFromObject(message.config);
                 }
                 this.sendSettingsToWebview();
+                this._fileWatcherService.reloadConfiguration();
                 // Sync replace rules and breakpoints to proxy service
                 const rules = this._settingsManager.getConfig().replaceRules || [];
                 this._proxyService.setReplaceRules(rules);
@@ -410,6 +411,50 @@ export class WebviewController {
                     this.sendSettingsToWebview();
                 }
                 break;
+            case FrontendCommand.SelectWatcherRequestFile: {
+                const options: vscode.OpenDialogOptions = {
+                    canSelectMany: false,
+                    openLabel: 'Select Request XML',
+                    filters: {
+                        'XML Files': ['xml'],
+                        'All Files': ['*']
+                    },
+                    title: 'Select Request XML File'
+                };
+                const fileUri = await vscode.window.showOpenDialog(options);
+                if (fileUri && fileUri[0]) {
+                    const current = this._settingsManager.getConfig().fileWatcher || {};
+                    this._settingsManager.updateFileWatcherConfig({
+                        ...current,
+                        requestPath: fileUri[0].fsPath
+                    });
+                    this._fileWatcherService.reloadConfiguration();
+                    this.sendSettingsToWebview();
+                }
+                break;
+            }
+            case FrontendCommand.SelectWatcherResponseFile: {
+                const options: vscode.OpenDialogOptions = {
+                    canSelectMany: false,
+                    openLabel: 'Select Response XML',
+                    filters: {
+                        'XML Files': ['xml'],
+                        'All Files': ['*']
+                    },
+                    title: 'Select Response XML File'
+                };
+                const fileUri = await vscode.window.showOpenDialog(options);
+                if (fileUri && fileUri[0]) {
+                    const current = this._settingsManager.getConfig().fileWatcher || {};
+                    this._settingsManager.updateFileWatcherConfig({
+                        ...current,
+                        responsePath: fileUri[0].fsPath
+                    });
+                    this._fileWatcherService.reloadConfiguration();
+                    this.sendSettingsToWebview();
+                }
+                break;
+            }
 
             // Azure DevOps Integration
             case FrontendCommand.AdoStorePat:
@@ -718,8 +763,10 @@ export class WebviewController {
         if (this._panel) {
             const config = this._settingsManager.getConfig();
             const raw = this._settingsManager.getRawConfig();
+            const configDir = this._settingsManager.getConfigDir();
+            const configPath = this._settingsManager.getConfigPath();
             this.sendChangelogToWebview(); // Piggyback changelog
-            this._postMessage({ command: BackendCommand.SettingsUpdate, config, raw });
+            this._postMessage({ command: BackendCommand.SettingsUpdate, config, raw, configDir, configPath });
             // Sync replace rules and breakpoints to proxy service on config load
             this._proxyService.setReplaceRules(config.replaceRules || []);
             this._proxyService.setBreakpoints(config.breakpoints || []);

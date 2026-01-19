@@ -4,7 +4,7 @@
  * Network and UI settings for the Settings modal.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ApinoxConfig,
     ScrollableForm,
@@ -17,6 +17,9 @@ import {
 } from './SettingsTypes';
 import { ProxyRulesEditor } from './ProxyRulesEditor';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useUI } from '../../../contexts/UIContext';
+import { bridge } from '../../../utils/bridge';
+import { FrontendCommand } from '@shared/messages';
 
 interface GeneralTabProps {
     config: ApinoxConfig;
@@ -25,6 +28,60 @@ interface GeneralTabProps {
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
     const { theme, setTheme, isTauriMode } = useTheme();
+    const { configDir } = useUI();
+    const [tauriConfigDir, setTauriConfigDir] = useState<string | null>(null);
+    const [sidecarReady, setSidecarReady] = useState<boolean | null>(null);
+    const [sidecarPort, setSidecarPort] = useState<number | null>(null);
+    const [logs, setLogs] = useState<Array<{ timestamp: string; level: string; message: string }>>([]);
+    const [showLogs, setShowLogs] = useState(false);
+
+    useEffect(() => {
+        if (!isTauriMode) return;
+        const loadTauriInfo = async () => {
+            try {
+                const { invoke } = await import('@tauri-apps/api/core');
+                const dir = await invoke<string | null>('get_config_dir');
+                if (dir) setTauriConfigDir(dir);
+                const ready = await invoke<boolean>('is_sidecar_ready');
+                setSidecarReady(ready);
+                const port = await invoke<number>('get_sidecar_port');
+                setSidecarPort(port);
+            } catch (e) {
+                setSidecarReady(false);
+            }
+        };
+
+        loadTauriInfo();
+    }, [isTauriMode]);
+
+    useEffect(() => {
+        if (!sidecarPort) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:${sidecarPort}/logs`);
+            const data = await response.json();
+            setLogs(data.logs || []);
+        } catch (e) {
+            console.error('Failed to load logs:', e);
+        }
+    };
+
+    const clearLogs = async () => {
+        if (!sidecarPort) return;
+        try {
+            await fetch(`http://127.0.0.1:${sidecarPort}/logs/clear`, { method: 'POST' });
+            setLogs([]);
+        } catch (e) {
+            console.error('Failed to clear logs:', e);
+        }
+    };
+
+    useEffect(() => {
+        if (showLogs && sidecarPort) {
+            loadLogs();
+            const interval = setInterval(loadLogs, 2000); // Auto-refresh every 2s
+            return () => clearInterval(interval);
+        }
+    }, [showLogs, sidecarPort]);
 
     return (
         <ScrollableForm>
@@ -155,6 +212,92 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
                                 }}
                                 style={{ flex: 1 }}
                             />
+                        </div>
+                    </FormGroup>
+
+                    <FormGroup>
+                        <Label>Settings Location</Label>
+                        <span style={{ fontSize: '0.85em'}}>{configDir || tauriConfigDir || 'Unknown'}</span>
+                        {isTauriMode && (
+                            <div style={{ fontSize: '0.75em', color: 'var(--vscode-descriptionForeground)', marginTop: 4 }}>
+                                <div>
+                                    Sidecar status: {sidecarReady === null ? 'Checking…' : (sidecarReady ? `Ready (port ${sidecarPort || '?'})` : 'Not ready')}
+                                </div>
+                                {sidecarPort && (
+                                    <div>
+                                        Debug endpoint: <a href={`http://127.0.0.1:${sidecarPort}/debug`} target="_blank" rel="noopener noreferrer">
+                                            http://127.0.0.1:{sidecarPort}/debug
+                                        </a>
+                                    </div>
+                                )}
+                                {settingsDebug && (
+                                    <div style={{ marginTop: 4 }}>
+                                        <div>Config file: {settingsDebug.configPath || 'Unknown'}</div>
+                                        <div>File exists: {settingsDebug.exists ? 'Yes' : 'No'} | Raw length: {settingsDebug.rawLength ?? 0}</div>
+                                        <div>APINOX_CONFIG_DIR env: {settingsDebug.envVar || 'not set'}</div>
+                                        <div>APINOX_CONFIG_FILE env: {settingsDebug.envFile || 'not set'}</div>
+                                        {settingsDebug.readError && <div style={{ color: 'var(--vscode-errorForeground)' }}>Error: {settingsDebug.readError}</div>}
+                                    </div>
+                                )}
+                                {fetchError && (
+                                    <div style={{ marginTop: 8, padding: 8, background: 'var(--vscode-inputValidation-errorBackground)', border: '1px solid var(--vscode-inputValidation-errorBorder)' }}>
+                                        <strong>Fetch Error:</strong>
+                                        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.85em', marginTop: 4 }}>{fetchError}</pre>
+                                    </div>
+                                )}
+                                {sidecarPort && (
+                                    <div style={{ marginTop: 8 }}>
+                                        <button 
+                                            onClick={() => setShowLogs(!showLogs)}
+                                            style={{
+                                                padding: '4px 8px',
+                                                    <strong>Sidecar Console Logs ({logs.length})</strong>
+                                                    <button 
+                                                        onClick={clearLogs}
+                                                        style={{
+                                                            padding: '2px 6px',
+                                                            fontSize: '0.9em',
+                                                            cursor: 'pointer',
+                                                            background: 'var(--vscode-button-secondaryBackground)',
+                                                            color: 'var(--vscode-button-secondaryForeground)',
+                                                            border: 'none',
+                                                            borderRadius: 2
+                                                        }}
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </div>
+                                                {logs.length === 0 ? (
+                                                    <div style={{ color: 'var(--vscode-descriptionForeground)' }}>No logs</div>
+                                                ) : (
+                                                    logs.slice().reverse().map((log, i) => (
+                                                        <div key={i} style={{ 
+                                                            marginBottom: 4, 
+                                                            paddingBottom: 4, 
+                                                            borderBottom: '1px solid var(--vscode-widget-border)',
+                                                            color: log.level === 'error' ? 'var(--vscode-errorForeground)' : 
+                                                                   log.level === 'warn' ? 'var(--vscode-editorWarning-foreground)' : 
+                                                                   'var(--vscode-foreground)'
+                                                        }}>
+                                                            <span style={{ opacity: 0.6 }}>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                                            {' '}
+                                                            <span style={{ fontWeight: 'bold' }}>[{log.level.toUpperCase()}]</span>
+                                                            {' '}
+                                                            <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{log.message}</span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {rawConfigPreview && (
+                                    <details style={{ marginTop: 8, fontSize: '0.7em', color: 'var(--vscode-descriptionForeground)' }}>
+                                        <summary style={{ cursor: 'pointer', userSelect: 'none' }}>File Content Preview (first 500 chars)</summary>
+                            Settings are stored in a single config.jsonc file within this folder.
+                            Local storage (Tauri) caches: theme (apinox-theme), UI state (apinox_state),
+                            window bounds (apinox_window_state), request history cache (apinox_history_cache),
+                            and last response per request (apinox:lastResponse:&lt;id&gt;).
                         </div>
                     </FormGroup>
                 </div>
