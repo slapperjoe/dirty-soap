@@ -127,6 +127,7 @@ tauri::Builder::default()
 - Test Tauri builds: `npm run tauri:build`
 - Test VS Code extension in debug mode (F5)
 - Verify webview functionality in both platforms
+- Tests can be fixed in the pull requests they originated from.  No need for addtional PRs.
 
 ## Common Commands
 ```bash
