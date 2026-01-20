@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { GeneralTab } from './GeneralTab';
-import { ThemeProvider } from '../../../contexts/ThemeContext';
 import * as bridge from '../../../utils/bridge';
 
 // Mock the bridge module
@@ -39,7 +38,7 @@ describe('GeneralTab - Debug Screen', () => {
             strictSSL: true,
             proxyRules: [],
         },
-    };
+    }; 
 
     const mockOnChange = vi.fn();
 
