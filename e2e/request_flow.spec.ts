@@ -9,9 +9,9 @@ test.describe('Request Flow Tests', () => {
     // Post projectLoaded message here
     await page.waitForTimeout(500); // Key addition
     // Existing test logic
-    expect(await page.isVisible('E2E Project'), { timeout: 10000 }).toBeTruthy();
-    expect(await page.isVisible('TestService'), { timeout: 10000 }).toBeTruthy();
-    expect(await page.isVisible('HelloRequest'), { timeout: 10000 }).toBeTruthy();
+    await expect(page.getByText('E2E Project')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('TestService')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('HelloRequest')).toBeVisible({ timeout: 10000 });
     // Further existing test logic for request execution flow and response verification
   });
 });
