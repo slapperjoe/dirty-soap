@@ -34,6 +34,13 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
 - **Project Structure**: Organize work into Projects -> Interfaces -> Operations -> Requests.
 - **Context Actions**: Clone, Delete, and Rename requests easily via context menus.
 - **Settings**: Persistent configuration with a built-in JSONC editor and contextual **Help Panel**.
+- **Debug & Diagnostics** (Tauri Mode):
+    - **Debug Modal**: Press **Ctrl+Shift+D** to open comprehensive diagnostics.
+    - **Sidecar Logs**: View real-time Node.js backend logs with auto-refresh.
+    - **Frontend Logs**: Captured browser console logs for React/UI debugging.
+    - **System Info**: View configuration state and system diagnostics.
+    - **Connection Test**: Test frontend-backend communication with latency display.
+    - **Debug Indicator**: Optional red square overlay for advanced debugging (hidden by default).
 - **VS Code Integration**: 
     - Status bar button for quick access.
     - Seamless theming and sidebar integration.
@@ -61,6 +68,11 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
     - Save button appears on dirty projects/requests.
     - Use **Ctrl+S** to save all dirty projects at once.
     - Use the **Close** (❌) icon to close projects.
+7. **Debug & Diagnostics** (Tauri Mode Only):
+    - Press **Ctrl+Shift+D** to open the debug modal.
+    - View sidecar logs, frontend logs, and system diagnostics.
+    - Test connection to backend.
+    - Toggle debug indicator visibility if needed.
 
 ## Roadmap & Planned Features
 
