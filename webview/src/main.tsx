@@ -27,7 +27,7 @@ window.addEventListener('load', () => {
         console.log('Clicked:', target);
     });
 
-    document.addEventListener('mousemove', () => {
+    document.addEventListener('mousemove', (_) => {
         // Visualize mouse pos to ensure verify we get events
         // debug.textContent = `MOUSE: ${e.clientX},${e.clientY}`;
     });
