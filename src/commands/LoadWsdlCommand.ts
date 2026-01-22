@@ -8,12 +8,28 @@ import * as path from 'path';
 import * as os from 'os';
 
 export class LoadWsdlCommand implements ICommand {
+    private _abortController: AbortController | null = null;
+
     constructor(
         private readonly _panel: vscode.WebviewPanel,
         private readonly _soapClient: SoapClient
     ) { }
 
+    cancel(): void {
+        if (this._abortController) {
+            this._abortController.abort();
+            this._abortController = null;
+            this._soapClient.log('WSDL load cancelled by user');
+            this._panel.webview.postMessage({ 
+                command: 'wsdlLoadCancelled',
+                message: 'WSDL load cancelled' 
+            });
+        }
+    }
+
     async execute(message: any): Promise<void> {
+        // Create new abort controller for this load operation
+        this._abortController = new AbortController();
         try {
             this._soapClient.log('Parsing WSDL...');
 
@@ -63,8 +79,16 @@ export class LoadWsdlCommand implements ICommand {
             } else {
                 // Fallback to WSDL
                 this._soapClient.log('Using WSDL parser...');
+                
+                // If loading from a local file, pass the directory for local XSD resolution
+                let localWsdlDir: string | undefined = undefined;
+                if (source === 'file' && fs.existsSync(localPath)) {
+                    localWsdlDir = path.dirname(localPath);
+                    this._soapClient.log(`Local WSDL directory: ${localWsdlDir}`);
+                }
+                
                 // Use the centralized soapClient to parse, which handles settings/proxies correctly
-                parsed = await this._soapClient.parseWsdl(url);
+                parsed = await this._soapClient.parseWsdl(url, localWsdlDir);
             }
 
             this._panel.webview.postMessage({
@@ -82,8 +106,14 @@ export class LoadWsdlCommand implements ICommand {
             }
 
         } catch (error: any) {
+            if (error.name === 'AbortError') {
+                this._soapClient.log('WSDL load was aborted');
+                return;
+            }
             this._soapClient.log(`WSDL Parse Error: ${error.message}`);
             this._panel.webview.postMessage({ command: 'error', message: `Failed to parse WSDL: ${error.message}` });
+        } finally {
+            this._abortController = null;
         }
     }
 }

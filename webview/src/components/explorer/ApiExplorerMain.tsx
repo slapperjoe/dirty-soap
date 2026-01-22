@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import {
-    Upload, ArrowRight, Loader2
+    Upload, ArrowRight, Loader2, X
 } from 'lucide-react';
 import { ApiInterface, ApiOperation } from '@shared/models';
 import { isTauri } from '../../utils/bridge';
+import { bridge } from '../../utils/bridge';
 
 interface ApiExplorerMainProps {
     // Props for loading API
@@ -96,6 +97,10 @@ export const ApiExplorerMain: React.FC<ApiExplorerMainProps> = ({
 
     const handleLoad = () => {
         loadWsdl(wsdlUrl, inputType);
+    };
+
+    const handleCancel = () => {
+        bridge.sendMessage({ command: 'cancelWsdlLoad' });
     };
 
     // If something is selected, show details
@@ -224,7 +229,8 @@ export const ApiExplorerMain: React.FC<ApiExplorerMainProps> = ({
                                 placeholder={inputType === 'url' ? "Enter WSDL/OpenAPI URL..." : "Select File..."}
                                 value={wsdlUrl}
                                 onChange={(e) => setWsdlUrl(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleLoad()}
+                                onKeyDown={(e) => e.key === 'Enter' && downloadStatus !== 'loading' && handleLoad()}
+                                disabled={downloadStatus === 'loading'}
                                 style={{
                                     width: '100%',
                                     padding: '10px 12px',
@@ -233,29 +239,51 @@ export const ApiExplorerMain: React.FC<ApiExplorerMainProps> = ({
                                     border: '1px solid var(--vscode-input-border)',
                                     borderRadius: 4,
                                     outline: 'none',
-                                    fontSize: 13
+                                    fontSize: 13,
+                                    opacity: downloadStatus === 'loading' ? 0.6 : 1,
+                                    cursor: downloadStatus === 'loading' ? 'not-allowed' : 'text'
                                 }}
                             />
                         </div>
-                        <button
-                            onClick={handleLoad}
-                            disabled={!wsdlUrl || downloadStatus === 'loading'}
-                            style={{
-                                padding: '0 20px',
-                                height: 38,
-                                backgroundColor: 'var(--vscode-button-background)',
-                                color: 'var(--vscode-button-foreground)',
-                                border: 'none',
-                                borderRadius: 4,
-                                cursor: !wsdlUrl ? 'not-allowed' : 'pointer',
-                                fontWeight: 500,
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                opacity: !wsdlUrl ? 0.6 : 1
-                            }}
-                        >
-                            {downloadStatus === 'loading' ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
-                            Load API
-                        </button>
+                        {downloadStatus === 'loading' ? (
+                            <button
+                                onClick={handleCancel}
+                                style={{
+                                    padding: '0 20px',
+                                    height: 38,
+                                    backgroundColor: 'var(--vscode-button-secondaryBackground)',
+                                    color: 'var(--vscode-button-secondaryForeground)',
+                                    border: '1px solid var(--vscode-button-border)',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                    fontWeight: 500,
+                                    display: 'flex', alignItems: 'center', gap: 8
+                                }}
+                            >
+                                <X size={16} />
+                                Cancel
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleLoad}
+                                disabled={!wsdlUrl}
+                                style={{
+                                    padding: '0 20px',
+                                    height: 38,
+                                    backgroundColor: 'var(--vscode-button-background)',
+                                    color: 'var(--vscode-button-foreground)',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    cursor: !wsdlUrl ? 'not-allowed' : 'pointer',
+                                    fontWeight: 500,
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    opacity: !wsdlUrl ? 0.6 : 1
+                                }}
+                            >
+                                <ArrowRight size={16} />
+                                Load API
+                            </button>
+                        )}
                     </div>
                 </div>
 

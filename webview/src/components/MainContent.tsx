@@ -1481,6 +1481,9 @@ export function MainContent() {
                     wsdlUrl,
                     setWsdlUrl,
                     loadWsdl: async (url, type) => {
+                        // Set loading status immediately
+                        setDownloadStatus(['Loading...']);
+                        
                         // Ensure state is updated (react batches updates, so we might need to rely on the args or just assume state sync)
                         // But since existing loadWsdl uses state, we should probably update state and call it.
                         // However, calling setWsdlUrl here might not update state immediately for loadWsdl to see it if called synchronously.

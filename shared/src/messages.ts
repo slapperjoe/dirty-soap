@@ -28,6 +28,7 @@ export enum FrontendCommand {
     // Commands
     DownloadWsdl = 'downloadWsdl',
     LoadWsdl = 'loadWsdl',
+    CancelWsdlLoad = 'cancelWsdlLoad',
     GetLocalWsdls = 'getLocalWsdls',
     SelectLocalWsdl = 'selectLocalWsdl',
     CloseProject = 'closeProject',
@@ -144,6 +145,7 @@ export enum BackendCommand {
     ProjectSaved = 'projectSaved',
     WorkspaceSaved = 'workspaceSaved',
     WsdlParsed = 'wsdlParsed',
+    WsdlLoadCancelled = 'wsdlLoadCancelled',
     Response = 'response',
     Error = 'error',
     DownloadComplete = 'downloadComplete',

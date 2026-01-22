@@ -226,6 +226,23 @@ export const bridge = {
      * In Tauri mode, responses are converted to backend messages for listeners
      */
     sendMessage: (message: BridgeMessage): void => {
+        // Pre-process loadWsdl command for Tauri to add localWsdlDir
+        if (isTauri() && message.command === 'loadWsdl' && message.isLocal && message.url) {
+            // Extract directory from the file path for local XSD resolution
+            const lastSlash = Math.max(message.url.lastIndexOf('/'), message.url.lastIndexOf('\\'));
+            console.log('[Bridge] loadWsdl pre-processing:', {
+                url: message.url,
+                lastSlash,
+                isLocal: message.isLocal
+            });
+            if (lastSlash > 0) {
+                message.localWsdlDir = message.url.substring(0, lastSlash);
+                console.log('[Bridge] Extracted localWsdlDir:', message.localWsdlDir);
+            } else {
+                console.warn('[Bridge] Could not extract directory from path:', message.url);
+            }
+        }
+        
         if (isVsCode() && vscodeApi) {
             vscodeApi.postMessage(message);
         } else if (isTauri()) {

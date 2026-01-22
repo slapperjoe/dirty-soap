@@ -24,6 +24,7 @@ import { ExportNativeCommand } from '../commands/ExportNativeCommand';
 import { LoadProjectCommand } from '../commands/LoadProjectCommand';
 import { DownloadWsdlCommand } from '../commands/DownloadWsdlCommand';
 import { LoadWsdlCommand } from '../commands/LoadWsdlCommand';
+import { CancelWsdlLoadCommand } from '../commands/CancelWsdlLoadCommand';
 import { GetLocalWsdlsCommand } from '../commands/GetLocalWsdlsCommand';
 import { SelectLocalWsdlCommand } from '../commands/SelectLocalWsdlCommand';
 import { BackendCommand, FrontendCommand } from '../../shared/src/messages';
@@ -144,7 +145,11 @@ export class WebviewController {
             this._extensionUri.fsPath,
             this._settingsManager
         ));
-        this._commands.set(FrontendCommand.LoadWsdl, new LoadWsdlCommand(this._panel, this._soapClient));
+        
+        const loadWsdlCommand = new LoadWsdlCommand(this._panel, this._soapClient);
+        this._commands.set(FrontendCommand.LoadWsdl, loadWsdlCommand);
+        this._commands.set(FrontendCommand.CancelWsdlLoad, new CancelWsdlLoadCommand(loadWsdlCommand));
+        
         this._commands.set(FrontendCommand.GetLocalWsdls, new GetLocalWsdlsCommand(this._panel, this._soapClient, this._extensionUri.fsPath));
         this._commands.set(FrontendCommand.SelectLocalWsdl, new SelectLocalWsdlCommand(this._panel, this._soapClient));
         this._commands.set(FrontendCommand.UpdateTestStep, new UpdateTestStepCommand(

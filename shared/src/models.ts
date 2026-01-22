@@ -7,6 +7,7 @@ export interface ServiceOperation {
     expanded?: boolean;
     portName?: string;
     originalEndpoint?: string;
+    fullSchema?: SchemaNode | null; // Deep complex type tree for XML generation
 }
 
 export interface WsdlDiff {
@@ -45,6 +46,8 @@ export interface SchemaNode {
     children?: SchemaNode[];
     options?: string[]; // Enums
     isOptional?: boolean;
+    isChoice?: boolean; // Mark elements that are part of a choice group
+    choiceGroup?: number; // Group ID to identify which choice alternatives belong together
 }
 
 // ============================================================================
@@ -207,6 +210,7 @@ export interface ApiOperation {
     targetNamespace?: string;
     originalEndpoint?: string;
     id?: string;
+    fullSchema?: SchemaNode | null; // Deep complex type tree for XML generation
 }
 
 export interface ApiInterface {

@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import { bridge, isTauri } from '../utils/bridge';
-import { getInitialXml } from '../utils/soapUtils';
+import { generateInitialXmlForOperation } from '../utils/soapUtils';
 import { BackendCommand, FrontendCommand } from '@shared/messages';
 import {
     ApiInterface,
@@ -168,6 +168,11 @@ export function useMessageHandler(state: MessageHandlerState) {
             debugLog(`Received: ${message.command}`, { hasData: !!message.data || !!message.result });
 
             switch (message.command) {
+                case BackendCommand.WsdlLoadCancelled:
+                    debugLog('wsdlLoadCancelled');
+                    setDownloadStatus(null);
+                    break;
+
                 case BackendCommand.WsdlParsed:
                     const data = message.services;
                     debugLog('wsdlParsed Raw Data', {
@@ -208,6 +213,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                         name: op.name,
                                         action: '',
                                         input: op.input,
+                                        fullSchema: op.fullSchema, // Pass through the full schema
                                         targetNamespace: op.targetNamespace || svc.targetNamespace,
                                         originalEndpoint: op.originalEndpoint,
                                         requests: [{
@@ -217,9 +223,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                             headers: {
                                                 'Content-Type': portName.includes('12') ? 'application/soap+xml' : 'text/xml'
                                             },
-                                            request: portName.includes('12')
-                                                ? `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="${op.targetNamespace || svc.targetNamespace || 'http://tempuri.org/'}">\n   <soap:Header/>\n   <soap:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soap:Body>\n</soap:Envelope>`
-                                                : `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${op.targetNamespace || svc.targetNamespace || 'http://tempuri.org/'}">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soapenv:Body>\n</soapenv:Envelope>`
+                                            request: generateInitialXmlForOperation(op)
                                         }]
                                     }))
                                 });
@@ -236,6 +240,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     setExploredInterfaces(uniqueInterfaces);
                     setExplorerExpanded(true);
                     setActiveView(SidebarView.EXPLORER);
+                    setDownloadStatus(null); // Clear loading status
                     break;
 
                 case BackendCommand.Response:
@@ -322,6 +327,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                 case BackendCommand.Error:
                     debugLog('error', { message: message.message });
                     setLoading(false);
+                    setDownloadStatus(null); // Clear loading status on any error
                     if (
                         message.originalCommand === FrontendCommand.SaveProject ||
                         message.originalCommand === FrontendCommand.SyncProjects ||
@@ -396,7 +402,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                                                 id: `req-${Date.now()}`,
                                                 name: op.name,
                                                 endpoint: (op as any).originalEndpoint,
-                                                request: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${op.targetNamespace || 'http://tempuri.org/'}">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <tem:${op.name}>\n         <!--Optional:-->\n         ${getInitialXml(op.input)}\n      </tem:${op.name}>\n   </soapenv:Body>\n</soapenv:Envelope>`,
+                                                request: generateInitialXmlForOperation(op),
                                                 assertions: []
                                             }
                                         }

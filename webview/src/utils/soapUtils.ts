@@ -71,6 +71,83 @@ ${bodyContent}
 };
 
 /**
+ * Generates a full SOAP Envelope XML from a SchemaNode tree (deep complex types).
+ * This is used when operation.fullSchema is available from WsdlParser.getOperationSchema().
+ */
+export const generateXmlFromSchemaNode = (operationName: string, schemaNode: any, targetNamespace: string): string => {
+    // Helper to recursively build XML from SchemaNode tree
+    const buildFromNode = (node: any, indent: string = ''): string => {
+        if (!node) return '';
+
+        // Simple type - just placeholder
+        if (node.kind === 'simple') {
+            return `${indent}<!--Optional:-->\n${indent}?`;
+        }
+
+        // Complex type - recursively build children
+        if (node.kind === 'complex' && node.children && node.children.length > 0) {
+            const childLines: string[] = [];
+            let lastChoiceGroup: number | undefined = undefined;
+            let currentChoiceGroupElements: string[] = [];
+            
+            node.children.forEach((child: any, index: number) => {
+                const childName = child.name;
+                const childIndent = indent + '   ';
+                const optional = child.minOccurs === '0' || child.minOccurs === 0;
+                
+                // Handle choice group comment
+                if (child.isChoice && child.choiceGroup !== lastChoiceGroup) {
+                    // Count how many elements in this choice group
+                    const choiceElements = node.children.filter((c: any) => c.isChoice && c.choiceGroup === child.choiceGroup);
+                    if (choiceElements.length > 1) {
+                        childLines.push(`${indent}<!--You have a CHOICE of the next ${choiceElements.length} items at this level-->`);
+                    }
+                    lastChoiceGroup = child.choiceGroup;
+                }
+                
+                if (optional && !child.isChoice) {
+                    childLines.push(`${indent}<!--Optional:-->`);
+                }
+                
+                if (child.kind === 'complex' && child.children && child.children.length > 0) {
+                    // Complex child with nested elements
+                    childLines.push(`${indent}<${childName}>`);
+                    const nestedContent = buildFromNode(child, childIndent);
+                    if (nestedContent) {
+                        childLines.push(nestedContent);
+                    }
+                    childLines.push(`${indent}</${childName}>`);
+                } else {
+                    // Simple child
+                    childLines.push(`${indent}<${childName}>?</${childName}>`);
+                }
+            });
+            
+            return childLines.join('\n');
+        }
+
+        return `${indent}?`;
+    };
+
+    // Build the body content from the schema node
+    let bodyContent = '';
+    if (schemaNode && schemaNode.children) {
+        bodyContent = buildFromNode(schemaNode, '         ');
+    }
+
+    const namespaceDeclaration = targetNamespace ? ` xmlns:web="${targetNamespace}"` : '';
+
+    return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"${namespaceDeclaration}>
+   <soapenv:Header/>
+   <soapenv:Body>
+      <web:${operationName}>
+${bodyContent}
+      </web:${operationName}>
+   </soapenv:Body>
+</soapenv:Envelope>`;
+};
+
+/**
  * Generate XML parameter elements from WSDL operation input schema
  * Used to populate the body of sample SOAP requests
  * @param input - The input schema object from the WSDL parser (e.g., { intA: 'xsd:int', intB: 'xsd:int' })
@@ -135,4 +212,37 @@ export const getInitialXml = (input: any, indent: string = '         '): string 
 
     buildXml(input, indent);
     return lines.join('\n');
+};
+
+/**
+ * Generates initial XML for an operation, automatically choosing the best method.
+ * Prefers fullSchema (deep complex types) if available, falls back to simple input schema.
+ * 
+ * @param operation - The operation with name, input, fullSchema, and targetNamespace
+ * @returns Complete SOAP envelope with generated XML
+ */
+export const generateInitialXmlForOperation = (operation: any): string => {
+    const targetNs = operation.targetNamespace || 'http://tempuri.org/';
+    
+    // Prefer fullSchema (deep complex types) if available
+    if (operation.fullSchema) {
+        // Use the schema node's name (e.g., "GetOrganisationRequest") not operation name (e.g., "GetOrganisation")
+        const elementName = operation.fullSchema.name || operation.name;
+        return generateXmlFromSchemaNode(elementName, operation.fullSchema, targetNs);
+    }
+    
+    // Fallback to simple schema if available
+    if (operation.input && typeof operation.input === 'object') {
+        return generateXmlFromSchema(operation.name, operation.input, targetNs);
+    }
+    
+    // Final fallback: empty template
+    return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="${targetNs}">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <web:${operation.name}>
+         <!--Optional:-->
+      </web:${operation.name}>
+   </soapenv:Body>
+</soapenv:Envelope>`;
 };

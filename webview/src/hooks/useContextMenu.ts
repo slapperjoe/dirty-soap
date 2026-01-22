@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react';
 import { ApinoxProject, ApiInterface, ApiOperation, ApiRequest } from '@shared/models';
 import { bridge } from '../utils/bridge';
-import { generateXmlFromSchema } from '../utils/soapUtils';
+import { generateInitialXmlForOperation } from '../utils/soapUtils';
 
 interface ContextMenuState {
     x: number;
@@ -164,18 +164,13 @@ export function useContextMenu({
         if (op) {
             const newReqName = `Request ${op.requests.length + 1}`;
 
-            // Try to clone first request or create blank
+            // Try to clone first request or create from schema
             let newReqContent = '';
             if (op.requests.length > 0) {
                 newReqContent = op.requests[0].request;
-            } else if (op.input && typeof op.input === 'object') {
-                // Use schema generator
-                const targetNs = op.targetNamespace || 'http://tempuri.org/';
-                newReqContent = generateXmlFromSchema(op.name, op.input, targetNs);
             } else {
-                // Fallback for empty/string input
-                const targetNs = op.targetNamespace || (typeof op.input === 'string' ? op.input : 'http://tempuri.org/');
-                newReqContent = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="${targetNs}">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <web:${op.name}>\n         <!--Optional:-->\n      </web:${op.name}>\n   </soapenv:Body>\n</soapenv:Envelope>`;
+                // Generate initial XML using best available schema
+                newReqContent = generateInitialXmlForOperation(op);
             }
 
             const newRequest: ApiRequest = {
