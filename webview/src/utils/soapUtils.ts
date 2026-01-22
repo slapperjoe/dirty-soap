@@ -6,6 +6,9 @@
  * Generates a full SOAP Envelope XML from an operation's input schema.
  */
 export const generateXmlFromSchema = (operationName: string, inputSchema: any, targetNamespace: string): string => {
+    // Metadata fields to skip (added by node-soap)
+    const METADATA_FIELDS = ['targetNSAlias', 'targetNamespace'];
+
     // Helper to recursively build body content
     const buildBody = (node: any, indent: string = ''): string => {
         if (!node) return '';
@@ -24,11 +27,25 @@ export const generateXmlFromSchema = (operationName: string, inputSchema: any, t
         }
 
         if (typeof node === 'object') {
-            const entries = Object.entries(node);
+            const entries = Object.entries(node).filter(([key]) => 
+                !key.startsWith('$') && !METADATA_FIELDS.includes(key)
+            );
+            
             return entries.map(([key, value]) => {
+                // Check if this is an array notation (e.g., "tLanguage[]")
+                if (key.endsWith('[]')) {
+                    const elementName = key.slice(0, -2);
+                    if (typeof value === 'object' && value !== null) {
+                        const childContent = buildBody(value, indent + '   ');
+                        return `${indent}<${elementName}>\n${childContent}\n${indent}</${elementName}>`;
+                    } else {
+                        return `${indent}<${elementName}>?</${elementName}>`;
+                    }
+                }
+                
                 const childContent = buildBody(value, indent + '   ');
                 // Check if value suggests it's a simple type or complex
-                if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
+                if (typeof value === 'object' && value !== null && Object.keys(value).filter(k => !k.startsWith('$') && !METADATA_FIELDS.includes(k)).length > 0) {
                     return `${indent}<${key}>\n${childContent}\n${indent}</${key}>`;
                 } else {
                     return `${indent}<${key}>?</${key}>`;
@@ -67,19 +84,48 @@ export const getInitialXml = (input: any, indent: string = '         '): string 
 
     const lines: string[] = [];
 
+    // Metadata fields to skip (added by node-soap)
+    const METADATA_FIELDS = ['targetNSAlias', 'targetNamespace'];
+
     // Recursively build XML for each parameter
     const buildXml = (obj: any, currentIndent: string): void => {
         for (const [key, value] of Object.entries(obj)) {
-            // Skip special properties that start with $
-            if (key.startsWith('$')) {
+            // Skip special properties that start with $ or are metadata fields
+            if (key.startsWith('$') || METADATA_FIELDS.includes(key)) {
+                continue;
+            }
+
+            // Check if this is an array notation (e.g., "tLanguage[]")
+            if (key.endsWith('[]')) {
+                // Extract the element name without the []
+                const elementName = key.slice(0, -2);
+                
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    // Array of complex types - generate one sample element
+                    lines.push(`${currentIndent}<tem:${elementName}>`);
+                    buildXml(value, currentIndent + '   ');
+                    lines.push(`${currentIndent}</tem:${elementName}>`);
+                } else {
+                    // Array of simple types - generate one sample element
+                    lines.push(`${currentIndent}<tem:${elementName}>?</tem:${elementName}>`);
+                }
                 continue;
             }
 
             if (value && typeof value === 'object' && !Array.isArray(value)) {
-                // Complex type - create element with nested children
-                lines.push(`${currentIndent}<tem:${key}>`);
-                buildXml(value, currentIndent + '   ');
-                lines.push(`${currentIndent}</tem:${key}>`);
+                // Check if this object only contains array notation or metadata
+                const childKeys = Object.keys(value).filter(k => !k.startsWith('$') && !METADATA_FIELDS.includes(k));
+                const hasOnlyArrayChild = childKeys.length === 1 && childKeys[0].endsWith('[]');
+                
+                if (hasOnlyArrayChild) {
+                    // Don't create wrapper element, just process the array child directly
+                    buildXml(value, currentIndent);
+                } else {
+                    // Complex type - create element with nested children
+                    lines.push(`${currentIndent}<tem:${key}>`);
+                    buildXml(value, currentIndent + '   ');
+                    lines.push(`${currentIndent}</tem:${key}>`);
+                }
             } else {
                 // Simple type - create element with placeholder value
                 lines.push(`${currentIndent}<tem:${key}>?</tem:${key}>`);

@@ -3,6 +3,7 @@ import {
     Upload, ArrowRight, Loader2
 } from 'lucide-react';
 import { ApiInterface, ApiOperation } from '@shared/models';
+import { isTauri } from '../../utils/bridge';
 
 interface ApiExplorerMainProps {
     // Props for loading API
@@ -33,38 +34,63 @@ export const ApiExplorerMain: React.FC<ApiExplorerMainProps> = ({
     selectedOperation
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [dragActive, setDragActive] = useState(false);
 
-    const handleDrag = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.type === "dragenter" || e.type === "dragover") {
-            setDragActive(true);
-        } else if (e.type === "dragleave") {
-            setDragActive(false);
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        // In Tauri mode, use Tauri's file dialog to get the full path
+        if (isTauri()) {
+            try {
+                const { open } = await import('@tauri-apps/plugin-dialog');
+                const selectedPath = await open({
+                    multiple: false,
+                    filters: [{
+                        name: 'WSDL/API Files',
+                        extensions: ['wsdl', 'xml', 'json', 'yaml', 'yml']
+                    }]
+                });
+                
+                if (selectedPath) {
+                    setWsdlUrl(selectedPath as string);
+                    loadWsdl(selectedPath as string, 'file');
+                }
+            } catch (error) {
+                console.error('Error opening file dialog:', error);
+            }
+            return;
         }
-    };
-
-    const handleDrop = async (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragActive(false);
-
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const file = e.dataTransfer.files[0];
-            const path = (file as any).path || file.name;
-            setWsdlUrl(path);
-            setInputType('file');
-            loadWsdl(path, 'file');
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        
+        // Fallback for VS Code mode / standalone (browser)
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             const path = (file as any).path || file.name;
             setWsdlUrl(path);
             loadWsdl(path, 'file');
+        }
+    };
+
+    const handleImportFile = async () => {
+        if (isTauri()) {
+            // Use Tauri's file dialog
+            try {
+                const { open } = await import('@tauri-apps/plugin-dialog');
+                const selectedPath = await open({
+                    multiple: false,
+                    filters: [{
+                        name: 'WSDL/API Files',
+                        extensions: ['wsdl', 'xml', 'json', 'yaml', 'yml']
+                    }]
+                });
+                
+                if (selectedPath) {
+                    setWsdlUrl(selectedPath as string);
+                    setInputType('file');
+                    loadWsdl(selectedPath as string, 'file');
+                }
+            } catch (error) {
+                console.error('Error opening file dialog:', error);
+            }
+        } else {
+            // Trigger hidden file input for VS Code/browser mode
+            fileInputRef.current?.click();
         }
     };
 
@@ -318,23 +344,23 @@ export const ApiExplorerMain: React.FC<ApiExplorerMainProps> = ({
                     </div>
                 </div>
 
-                {/* Drop Zone */}
-                <div
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
+                {/* Import File Button */}
+                <button
+                    onClick={handleImportFile}
                     style={{
                         border: '2px dashed var(--vscode-widget-border)',
                         borderRadius: 8,
                         padding: 40,
                         textAlign: 'center',
                         cursor: 'pointer',
-                        backgroundColor: dragActive ? 'var(--vscode-list-hoverBackground)' : 'transparent',
+                        backgroundColor: 'transparent',
                         transition: 'all 0.2s ease',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                        width: '100%',
+                        color: 'var(--vscode-foreground)'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                     <input
                         ref={fileInputRef}
@@ -344,13 +370,13 @@ export const ApiExplorerMain: React.FC<ApiExplorerMainProps> = ({
                         accept=".wsdl,.xml,.json,.yaml,.yml"
                     />
                     <Upload size={32} color="var(--vscode-descriptionForeground)" />
-                    <div style={{ color: 'var(--vscode-foreground)', fontWeight: 500 }}>
-                        Drag & Drop File
+                    <div style={{ fontWeight: 500 }}>
+                        Import File
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--vscode-descriptionForeground)' }}>
                         Support for WSDL, OpenAPI (JSON/YAML)
                     </div>
-                </div>
+                </button>
 
             </div>
         </div>

@@ -1,12 +1,12 @@
 {
   "name": "apinox-sidecar",
-  "version": "0.13.2",
+  "version": "0.13.3",
   "description": "APInox Node.js sidecar for Tauri desktop application",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "bundle": "npm run build && esbuild dist/sidecar/src/index.js --bundle --platform=node --outfile=bundle.js --external:node:* --external:fsevents --external:jsonc-parser --packages=bundle",
-    "binary": "npm run bundle && pkg bundle.js --targets node18-macos-arm64 --output apinox-sidecar --compress GZip",
+    "binary": "npm run bundle && node build-binary.js",
     "binary:all": "npm run bundle && pkg bundle.js --targets node18-macos-arm64,node18-macos-x64,node18-win-x64,node18-linux-x64 --output apinox-sidecar --compress GZip",
     "dev": "ts-node src/index.ts"
   },
@@ -24,8 +24,6 @@
     "typescript": "^5.3.0"
   },
   "pkg": {
-    "ignore": [
-      "mod"
-    ]
+    "scripts": []
   }
 }

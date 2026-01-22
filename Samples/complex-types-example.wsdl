@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="TestComplexTypes"
+             targetNamespace="http://apinox.test/complextypes"
+             xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://apinox.test/complextypes"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    
+    <types>
+        <xsd:schema targetNamespace="http://apinox.test/complextypes">
+            
+            <!-- Address complex type -->
+            <xsd:complexType name="Address">
+                <xsd:sequence>
+                    <xsd:element name="Street" type="xsd:string"/>
+                    <xsd:element name="City" type="xsd:string"/>
+                    <xsd:element name="State" type="xsd:string"/>
+                    <xsd:element name="ZipCode" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- PhoneNumber complex type -->
+            <xsd:complexType name="PhoneNumber">
+                <xsd:sequence>
+                    <xsd:element name="Type" type="xsd:string"/>
+                    <xsd:element name="Number" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- Customer complex type with nested Address and array of PhoneNumbers -->
+            <xsd:complexType name="Customer">
+                <xsd:sequence>
+                    <xsd:element name="FirstName" type="xsd:string"/>
+                    <xsd:element name="LastName" type="xsd:string"/>
+                    <xsd:element name="Address" type="tns:Address"/>
+                    <xsd:element name="PhoneNumbers" type="tns:ArrayOfPhoneNumber"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- Array of PhoneNumbers -->
+            <xsd:complexType name="ArrayOfPhoneNumber">
+                <xsd:sequence>
+                    <xsd:element name="PhoneNumber" type="tns:PhoneNumber" minOccurs="0" maxOccurs="unbounded"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- CreateCustomer Request -->
+            <xsd:element name="CreateCustomer">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="customer" type="tns:Customer"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <!-- CreateCustomer Response -->
+            <xsd:element name="CreateCustomerResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="CustomerId" type="xsd:string"/>
+                        <xsd:element name="Success" type="xsd:boolean"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+        </xsd:schema>
+    </types>
+    
+    <message name="CreateCustomerRequest">
+        <part name="parameters" element="tns:CreateCustomer"/>
+    </message>
+    
+    <message name="CreateCustomerResponse">
+        <part name="parameters" element="tns:CreateCustomerResponse"/>
+    </message>
+    
+    <portType name="CustomerServicePortType">
+        <operation name="CreateCustomer">
+            <input message="tns:CreateCustomerRequest"/>
+            <output message="tns:CreateCustomerResponse"/>
+        </operation>
+    </portType>
+    
+    <binding name="CustomerServiceBinding" type="tns:CustomerServicePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="CreateCustomer">
+            <soap:operation soapAction="http://apinox.test/complextypes/CreateCustomer"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+    
+    <service name="CustomerService">
+        <port name="CustomerServicePort" binding="tns:CustomerServiceBinding">
+            <soap:address location="http://localhost:8080/CustomerService"/>
+        </port>
+    </service>
+    
+</definitions>

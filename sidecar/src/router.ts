@@ -774,6 +774,7 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
                     path.join(__dirname, '../../../../CHANGELOG.md'), // Dev mode
                     path.join(__dirname, '../../../CHANGELOG.md'), // Bundled sidecar
                     path.join(__dirname, '../../CHANGELOG.md'), // Alternative bundled location
+                    path.join(execDir, 'CHANGELOG.md'), // Windows: next to exe
                     path.join(__dirname, '../Resources/CHANGELOG.md'), // Tauri bundle: MacOS -> Resources (won't work with pkg)
                     path.join(execDir, '../Resources/CHANGELOG.md'), // Tauri bundle: use execPath instead of __dirname
                     path.join(__dirname, 'CHANGELOG.md'), // Same directory as sidecar

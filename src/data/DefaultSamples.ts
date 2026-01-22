@@ -34,6 +34,48 @@ export const SAMPLES_PROJECT: ApinoxProject = {
     </Add>
   </soap:Body>
 </soap:Envelope>`
+                },
+                {
+                    id: 'sample-soap-country-info',
+                    readOnly: true,
+                    name: 'Country Info - Complex Types',
+                    endpoint: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso',
+                    method: 'POST',
+                    requestType: 'soap',
+                    contentType: 'text/xml; charset=utf-8',
+                    headers: {
+                        'Content-Type': 'text/xml; charset=utf-8',
+                        'SOAPAction': 'http://www.oorsprong.org/websamples.countryinfo/FullCountryInfo'
+                    },
+                    request: `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://www.oorsprong.org/websamples.countryinfo">
+  <soap:Body>
+    <web:FullCountryInfo>
+      <web:sCountryISOCode>US</web:sCountryISOCode>
+    </web:FullCountryInfo>
+  </soap:Body>
+</soap:Envelope>`
+                },
+                {
+                    id: 'sample-soap-isbn',
+                    readOnly: true,
+                    name: 'ISBN Validator',
+                    endpoint: 'http://webservices.daehosting.com/services/isbnservice.wso',
+                    method: 'POST',
+                    requestType: 'soap',
+                    contentType: 'text/xml; charset=utf-8',
+                    headers: {
+                        'Content-Type': 'text/xml; charset=utf-8',
+                        'SOAPAction': 'http://webservices.daehosting.com/ISBN/IsValidISBN10'
+                    },
+                    request: `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://webservices.daehosting.com/ISBN">
+  <soap:Body>
+    <web:IsValidISBN10>
+      <web:sISBN>0-19-852663-6</web:sISBN>
+    </web:IsValidISBN10>
+  </soap:Body>
+</soap:Envelope>`
                 }
             ]
         },

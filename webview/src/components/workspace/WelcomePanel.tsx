@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import ReactMarkdown from 'react-markdown';
 import { Logo, MarkdownContainer } from '../../styles/WorkspaceLayout.styles';
-import titleDark from '../../assets/app-title-dark.jpg';
+import titleDark from '../../assets/app-title-dark.png';
 import titleLight from '../../assets/app-title-light.jpg';
 
 interface WelcomePanelProps {

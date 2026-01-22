@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [0.13.4] - 2026-01-22
+### Auto-Generated Changes
+- Refactor code structure for improved readability and maintainability Fixes to WSDL imports
+
 ## [0.13.3] - 2026-01-21
 ### Auto-Generated Changes
 - feat: migrate from axios to native fetch API for standalone binary support  - Replaced axios with native Node.js fetch in ProxyService and other services - Updated ProxyService to handle HTTP requests and responses using fetch - Added NativeHttpClient utility for HTTP operations with error handling - Enhanced DebugModal to reflect changes in sidecar diagnostics - Updated WelcomePanel and styles for logo adjustments - Bumped webview version to 0.13.2 - Added comprehensive tests for NativeHttpClient - Documented standalone binary implementation and build process

@@ -8,8 +8,6 @@
 import styled, { keyframes, css } from 'styled-components';
 import { ChevronLeft } from 'lucide-react';
 
-
-
 export const Logo = styled.img`
     position: fixed;
     top: 50%;
@@ -17,24 +15,20 @@ export const Logo = styled.img`
     transform: translate(-50%, -50%);
     max-width: 800px;
     width: 60vw;
-    opacity: 0.15;
+    opacity: 0.1;
     pointer-events: none;
     z-index: 0;
-    filter: grayscale(0.4);
-`;
-
-export const EmptyStateImage = styled.img`
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 60vw;
-    height: 60vh;
-    object-fit: contain;
-    opacity: 0.12;
-    pointer-events: none;
-    z-index: 0;
-    mix-blend-mode: color-burn;
+    filter: grayscale(0.3);
+    
+    /* Blend dark logo with dark theme */
+    &.dark-only {
+        mix-blend-mode: lighten;
+    }
+    
+    /* Blend light logo with light theme */
+    &.light-only {
+        mix-blend-mode: multiply;
+    }
 `;
 
 export const Content = styled.div`

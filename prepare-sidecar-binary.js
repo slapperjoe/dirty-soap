@@ -39,7 +39,8 @@ fs.mkdirSync(targetDir, { recursive: true });
 // Copy the appropriate binary
 const sourceBinary = path.join(sidecarDir, binaryName);
 // Tauri expects binaries to be named with the target triple suffix
-const targetBinary = path.join(targetDir, `sidecar-${tauriTriple}`);
+const targetExt = platform === 'win32' ? '.exe' : '';
+const targetBinary = path.join(targetDir, `sidecar-${tauriTriple}${targetExt}`);
 
 if (!fs.existsSync(sourceBinary)) {
     console.error(`Binary not found: ${sourceBinary}`);
