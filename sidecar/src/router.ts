@@ -486,6 +486,63 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             return { deleted: true, config: services.settingsManager.getConfig() };
         },
 
+        [FrontendCommand.DeletePerformanceRequest]: async (payload) => {
+            const { suiteId, requestId } = payload;
+            const suite = services.performanceService.getSuite(suiteId);
+            if (suite) {
+                const updatedRequests = suite.requests.filter(r => r.id !== requestId);
+                services.performanceService.updateSuite(suiteId, { requests: updatedRequests });
+                services.settingsManager.updatePerformanceSuites(services.performanceService.getSuites());
+            }
+            return { deleted: true, config: services.settingsManager.getConfig() };
+        },
+
+        [FrontendCommand.UpdatePerformanceRequest]: async (payload) => {
+            const { suiteId, requestId, updates } = payload;
+            const suite = services.performanceService.getSuite(suiteId);
+            if (suite) {
+                const updatedRequests = suite.requests.map(r => 
+                    r.id === requestId ? { ...r, ...updates } : r
+                );
+                services.performanceService.updateSuite(suiteId, { requests: updatedRequests });
+                services.settingsManager.updatePerformanceSuites(services.performanceService.getSuites());
+            }
+            return { updated: true, config: services.settingsManager.getConfig() };
+        },
+
+        [FrontendCommand.AddPerformanceRequest]: async (payload) => {
+            const { suiteId, ...requestData } = payload;
+            const suite = services.performanceService.getSuite(suiteId);
+            if (suite) {
+                const newRequest = {
+                    id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    name: requestData.name || 'New Request',
+                    endpoint: requestData.endpoint || '',
+                    method: requestData.method || 'POST',
+                    soapAction: requestData.soapAction,
+                    interfaceName: requestData.interfaceName,
+                    operationName: requestData.operationName,
+                    requestBody: requestData.requestBody || '',
+                    headers: requestData.headers || {},
+                    extractors: requestData.extractors || [],
+                    order: suite.requests.length,
+                    requestType: requestData.requestType,
+                    bodyType: requestData.bodyType,
+                    restConfig: requestData.restConfig,
+                    graphqlConfig: requestData.graphqlConfig,
+                };
+                const updatedRequests = [...suite.requests, newRequest];
+                services.performanceService.updateSuite(suiteId, { requests: updatedRequests });
+                services.settingsManager.updatePerformanceSuites(services.performanceService.getSuites());
+            }
+            return { added: true, config: services.settingsManager.getConfig() };
+        },
+
+        [FrontendCommand.PickOperationForPerformance]: async (payload) => {
+            // This is handled by the frontend context, but we include it for completeness
+            return { acknowledged: true };
+        },
+
         // ===== Config Switcher =====
         [FrontendCommand.InjectProxy]: async (payload) => {
             const { filePath, proxyBaseUrl } = payload;

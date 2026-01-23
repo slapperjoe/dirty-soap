@@ -1,6 +1,6 @@
 # APInox
 
-A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
+A visual SOAP client desktop application, inspired by Bruno and SOAP-UI.
 
 ## Features
 
@@ -9,7 +9,7 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
     - Load WSDLs from URLs or local files.
     - Explore Services, Bindings, and Operations.
     - Selectively add interfaces to your active projects.
-- **Smart Proxy Support**: Automatically detects and uses your VS Code or System Proxy settings (supports HTTP/HTTPS proxies with Authentication).
+- **Smart Proxy Support**: Automatically detects and uses your System Proxy settings (supports HTTP/HTTPS proxies with Authentication).
 - **WCF/Enterprise Ready**:
     - **SSL Bypass**: Automatically handles self-signed certificates purely for WSDL loading and Request execution (useful for internal dev/test environments).
     - **Header Emulation**: Mimics browser headers to bypass strict WAFs.
@@ -34,21 +34,21 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
 - **Project Structure**: Organize work into Projects -> Interfaces -> Operations -> Requests.
 - **Context Actions**: Clone, Delete, and Rename requests easily via context menus.
 - **Settings**: Persistent configuration with a built-in JSONC editor and contextual **Help Panel**.
-- **Debug & Diagnostics** (Tauri Mode):
+- **Debug & Diagnostics**:
     - **Debug Modal**: Press **Ctrl+Shift+D** to open comprehensive diagnostics.
     - **Sidecar Logs**: View real-time Node.js backend logs with auto-refresh.
     - **Frontend Logs**: Captured browser console logs for React/UI debugging.
     - **System Info**: View configuration state and system diagnostics.
     - **Connection Test**: Test frontend-backend communication with latency display.
     - **Debug Indicator**: Optional red square overlay for advanced debugging (hidden by default).
-- **VS Code Integration**: 
-    - Status bar button for quick access.
-    - Seamless theming and sidebar integration.
+- **Cross-Platform**: 
+    - Runs on Windows, macOS, and Linux.
+    - Native desktop application built with Tauri.
     - **Ctrl+S** to save all dirty projects.
 
 ## Usage
 
-1. **Open APInox**: Click the **"🧪 APInox"** button in the status bar (bottom), or run command `APInox: Open Interface`.
+1. **Launch APInox**: Run the application from your desktop.
 2. **Load a WSDL**:
     - Use the **WSDL Explorer** section.
     - Select "URL" or "File" input mode.
@@ -68,7 +68,7 @@ A visual SOAP client for VS Code, inspired by Bruno and SOAP-UI.
     - Save button appears on dirty projects/requests.
     - Use **Ctrl+S** to save all dirty projects at once.
     - Use the **Close** (❌) icon to close projects.
-7. **Debug & Diagnostics** (Tauri Mode Only):
+7. **Debug & Diagnostics**:
     - Press **Ctrl+Shift+D** to open the debug modal.
     - View sidecar logs, frontend logs, and system diagnostics.
     - Test connection to backend.

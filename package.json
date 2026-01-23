@@ -1,65 +1,23 @@
 {
   "name": "apinox",
-  "publisher": "dev1",
   "displayName": "APInox",
-  "description": "Visual SOAP client for VS Code",
+  "description": "A visual SOAP client desktop application",
   "repository": {
     "type": "git",
     "url": "https://github.com/slapperjoe/apinox.git"
   },
-  "icon": "images/APInox_logo_dark.jpg",
   "license": "MIT",
-  "version": "0.14.33",
-  "engines": {
-    "vscode": "^1.80.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "main": "./out/src/extension.js",
+  "version": "0.14.41",
   "bin": {
     "apinox": "./out/src/cli/index.js"
   },
-  "contributes": {
-    "commands": [
-      {
-        "command": "apinox.openInterface",
-        "title": "Open Interface",
-        "category": "APInox",
-        "icon": "$(zap)"
-      },
-      {
-        "command": "apinox.resetConfiguration",
-        "title": "Reset Configuration (Hard Reset)",
-        "category": "APInox",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "apinox.exportToSoapUI",
-        "title": "Dirty Soap: Export to SoapUI"
-      },
-      {
-        "command": "apinox.exportDiagnostics",
-        "title": "Export Diagnostic Logs",
-        "category": "APInox",
-        "icon": "$(output)"
-      }
-    ]
-  },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "npm run compile-webview && tsc -p ./",
-    "compile-webview": "cd webview && npm install && npm run build:skip-check",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "compile": "tsc -p ./",
+    "compile-webview": "cd src-tauri/webview && npm install && npm run build:skip-check",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "dev:webview": "cd webview && npm run dev",
+    "dev:webview": "cd src-tauri/webview && npm run dev",
     "version-bump-major": "node scripts/bump.js major",
     "version-bump-minor": "node scripts/bump.js minor",
     "version-bump-patch": "node scripts/bump.js patch",
@@ -67,8 +25,6 @@
     "prepare": "npx simple-git-hooks",
     "build-cli": "tsc -p ./ && chmod +x ./out/src/cli/index.js 2>/dev/null || true",
     "cli": "node ./out/src/cli/index.js",
-    "build-binary": "npm run compile && pkg ./out/src/cli/index.js --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path ./bin",
-    "build-binary-win": "npm run compile && pkg ./out/src/cli/index.js --targets node18-win-x64 --out-path ./bin",
     "build:sidecar": "cd sidecar && npm run build",
     "increment-build": "node increment-build.js",
     "prepare:sidecar": "cd sidecar && npm run binary && cd .. && node prepare-sidecar-binary.js",
@@ -98,12 +54,10 @@
     "@types/selfsigned": "^2.0.4",
     "@types/swagger-parser": "^4.0.3",
     "@types/uuid": "^10.0.0",
-    "@types/vscode": "^1.80.0",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^5.59.8",
     "@typescript-eslint/parser": "^5.59.8",
     "@vitest/coverage-v8": "^4.0.16",
-    "@vscode/test-electron": "^2.3.2",
     "eslint": "^8.41.0",
     "glob": "^8.1.0",
     "jest": "^30.2.0",

@@ -21,11 +21,11 @@ try {
     const rootPackageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
     const newVersion = rootPackageJson.version;
 
-    const webviewPackagePath = path.join(__dirname, '../webview/package.json');
+    const webviewPackagePath = path.join(__dirname, '../src-tauri/webview/package.json');
     const webviewPackageJson = JSON.parse(fs.readFileSync(webviewPackagePath, 'utf8'));
     webviewPackageJson.version = newVersion;
     fs.writeFileSync(webviewPackagePath, JSON.stringify(webviewPackageJson, null, 4) + '\n');
-    console.log(`Synced webview/package.json to v${newVersion}`);
+    console.log(`Synced src-tauri/webview/package.json to v${newVersion}`);
 
     // 2b. Sync src-tauri/tauri.conf.json version
     const tauriConfigPath = path.join(__dirname, '../src-tauri/tauri.conf.json');

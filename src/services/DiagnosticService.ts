@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as vscode from 'vscode';
 
 export interface LogEntry {
     timestamp: string;
@@ -132,7 +131,7 @@ export class DiagnosticService {
     }
 
     // Deprecated but kept for compatibility with existing calls, now just returns current path
-    public async exportLogs(_context?: vscode.ExtensionContext): Promise<string> {
+    public async exportLogs(_context?: any): Promise<string> {
         return this.currentLogPath;
     }
 }

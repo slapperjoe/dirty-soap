@@ -1,6 +1,5 @@
 import * as soap from 'soap';
 import { ApiService, ServiceOperation, SchemaNode } from '../shared/src/models';
-import { HttpProxyAgent } from 'http-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -60,7 +59,7 @@ export class WsdlParser {
 
             agent = isHttps
                 ? new HttpsProxyAgent(proxyUrl, agentOptions)
-                : new HttpProxyAgent(proxyUrl);
+                : new HttpsProxyAgent(proxyUrl.replace('http://', 'https://'), agentOptions);
 
             // node-soap accepts http/https agents directly via wsdl_options
             soapOptions.wsdl_options = {

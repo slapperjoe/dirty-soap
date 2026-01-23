@@ -606,6 +606,14 @@ export interface PerformanceRequest {
     slaThreshold?: number;
     /** Order in the sequence */
     order: number;
+    /** Request type discriminator - defaults to 'soap' for backward compatibility */
+    requestType?: RequestType;
+    /** Body content type - defaults based on requestType */
+    bodyType?: BodyType;
+    /** REST-specific configuration (query params, path params, auth) */
+    restConfig?: RestConfig;
+    /** GraphQL-specific configuration (variables, operation name) */
+    graphqlConfig?: GraphQLConfig;
 }
 
 /** Result of a single performance run */

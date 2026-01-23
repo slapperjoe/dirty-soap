@@ -367,12 +367,12 @@ export class HttpClient {
 
     if (proxyUrl) {
       const { HttpsProxyAgent } = require("https-proxy-agent");
-      const { HttpProxyAgent } = require("http-proxy-agent");
 
       if (isHttps) {
         httpsAgent = new HttpsProxyAgent(proxyUrl, agentOptions);
       } else {
-        httpsAgent = new HttpProxyAgent(proxyUrl);
+        // For HTTP, also use HttpsProxyAgent (it handles both protocols)
+        httpsAgent = new HttpsProxyAgent(proxyUrl.replace('http://', 'https://'), agentOptions);
       }
       httpAgent = httpsAgent;
     }
