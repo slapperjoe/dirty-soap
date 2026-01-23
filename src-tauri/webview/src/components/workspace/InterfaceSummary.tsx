@@ -3,7 +3,7 @@ import { ContextHelpButton } from '../ContextHelpButton';
 import {
     InterfaceContainer, InfoCard, InfoGrid, LinkText, EndpointText,
     OperationsHeading, OperationsList, OperationItem, OperationRow,
-    OperationMeta, ChevronIconFaint
+    OperationMeta, ChevronIconFaint, InterfaceTitle
 } from '../../styles/WorkspaceLayout.styles';
 
 export const InterfaceSummary: React.FC<{ interface: import('@shared/models').ApiInterface; onSelectOperation?: (o: import('@shared/models').ApiOperation) => void }> = ({ interface: iface, onSelectOperation }) => {
@@ -13,7 +13,7 @@ export const InterfaceSummary: React.FC<{ interface: import('@shared/models').Ap
     return (
         <InterfaceContainer>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h1>Interface: {iface.name}</h1>
+                <InterfaceTitle>Interface: {iface.name}</InterfaceTitle>
                 <ContextHelpButton sectionId="interface" />
             </div>
             <InfoCard>

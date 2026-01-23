@@ -39,7 +39,7 @@ export interface SidebarProjectProps {
     onAddRequestToFolder?: (projectName: string, folderId: string) => void;
     onDeleteFolder?: (projectName: string, folderId: string) => void;
     onToggleFolderExpand?: (projectName: string, folderId: string) => void;
-    onRefreshInterface?: (projectName: string, interfaceName: string) => void;
+    onRefreshInterface?: (projectName: string, iface: ApiInterface) => void;
     onExportWorkspace?: () => void;
 }
 

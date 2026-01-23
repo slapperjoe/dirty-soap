@@ -379,16 +379,32 @@ export const PerformanceProvider = ({ children }: { children: ReactNode }) => {
                     interfaceName: newRequest.interfaceName,
                     operationName: newRequest.operationName,
                     order: (suite.requests?.length || 0) + 1,
-                    readOnly: false
+                    readOnly: false,
+                    // Explicitly preserve requestType and bodyType to prevent defaulting to soap
+                    requestType: newRequest.requestType || 'soap',
+                    bodyType: newRequest.bodyType,
+                    restConfig: newRequest.restConfig,
+                    graphqlConfig: newRequest.graphqlConfig
                 };
             } else if (perfOp) {
-                newRequest = {
-                    id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                    name: perfOp.name,
-                    endpoint: (perfOp as any).originalEndpoint || '',
-                    method: 'POST',
-                    soapAction: perfOp.soapAction,
-                    requestBody: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${perfOp.targetNamespace || 'http://tempuri.org/'}">
+                // Check if operation has existing requests (e.g., from OpenAPI)
+                if (perfOp.requests && perfOp.requests.length > 0) {
+                    const firstRequest = perfOp.requests[0];
+                    newRequest = {
+                        ...firstRequest,
+                        id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        order: (suite.requests?.length || 0) + 1,
+                        readOnly: false
+                    };
+                } else {
+                    // No requests - generate default SOAP XML
+                    newRequest = {
+                        id: `perf-req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        name: perfOp.name,
+                        endpoint: (perfOp as any).originalEndpoint || '',
+                        method: 'POST',
+                        soapAction: perfOp.soapAction,
+                        requestBody: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="${perfOp.targetNamespace || 'http://tempuri.org/'}">
     <soapenv:Header/>
     <soapenv:Body>
        <tem:${perfOp.name}>
@@ -397,12 +413,15 @@ export const PerformanceProvider = ({ children }: { children: ReactNode }) => {
        </tem:${perfOp.name}>
     </soapenv:Body>
 </soapenv:Envelope>`,
-                    headers: {},
-                    extractors: [],
-                    slaThreshold: 200,
-                    order: (suite.requests?.length || 0) + 1,
-                    readOnly: false
-                };
+                        headers: {},
+                        extractors: [],
+                        slaThreshold: 200,
+                        order: (suite.requests?.length || 0) + 1,
+                        readOnly: false,
+                        requestType: 'soap',
+                        bodyType: 'xml'
+                    };
+                }
             }
 
             if (newRequest) {

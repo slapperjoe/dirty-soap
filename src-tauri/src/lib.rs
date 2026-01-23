@@ -17,6 +17,24 @@ static CONFIG_DIR: Mutex<Option<String>> = Mutex::new(None);
 static STARTUP_ERROR: Mutex<Option<String>> = Mutex::new(None);
 static LOG_FILE_PATH: Mutex<Option<String>> = Mutex::new(None);
 
+/// Recursively copy a directory
+fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        
+        if ty.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn get_sidecar_port() -> u16 {
     SIDECAR_PORT.load(Ordering::Relaxed)
@@ -129,21 +147,69 @@ fn spawn_sidecar(app_handle: &tauri::AppHandle) -> Result<(), String> {
         log::info!("macOS Resources directory: {:?}", res_dir);
     }
     
-    let preferred_dir = exe_dir.join(".apinox-config");
-    log::info!("Preferred config directory: {:?}", preferred_dir);
-
-    let config_dir = match fs::create_dir_all(&preferred_dir) {
+    // Prioritize stable, user-specific directory to survive reinstalls
+    let user_config_dir = app_handle
+        .path()
+        .app_config_dir()
+        .or_else(|_| app_handle.path().app_data_dir())
+        .map_err(|err| format!("Failed to resolve user config dir: {}", err))?;
+    
+    log::info!("User config directory (stable): {:?}", user_config_dir);
+    
+    // Check for legacy exe-relative config directory (migration)
+    let legacy_dir = exe_dir.join(".apinox-config");
+    log::info!("Checking for legacy config directory: {:?}", legacy_dir);
+    
+    let config_dir = match fs::create_dir_all(&user_config_dir) {
         Ok(_) => {
-            log::info!("Successfully created/verified preferred config directory");
-            preferred_dir
+            log::info!("Successfully created/verified user config directory");
+            
+            // Migrate data from legacy location if it exists and user dir is empty
+            if legacy_dir.exists() {
+                let legacy_config = legacy_dir.join("config.jsonc");
+                let user_config = user_config_dir.join("config.jsonc");
+                
+                if legacy_config.exists() && !user_config.exists() {
+                    log::info!("Migrating config from legacy location...");
+                    if let Err(e) = fs::copy(&legacy_config, &user_config) {
+                        log::warn!("Failed to migrate config.jsonc: {}", e);
+                    } else {
+                        log::info!("✓ Migrated config.jsonc successfully");
+                    }
+                }
+                
+                // Migrate autosave.xml if it exists
+                let legacy_autosave = legacy_dir.join("autosave.xml");
+                let user_autosave = user_config_dir.join("autosave.xml");
+                
+                if legacy_autosave.exists() && !user_autosave.exists() {
+                    log::info!("Migrating autosave from legacy location...");
+                    if let Err(e) = fs::copy(&legacy_autosave, &user_autosave) {
+                        log::warn!("Failed to migrate autosave.xml: {}", e);
+                    } else {
+                        log::info!("✓ Migrated autosave.xml successfully");
+                    }
+                }
+                
+                // Migrate scripts directory if it exists
+                let legacy_scripts = legacy_dir.join("scripts");
+                let user_scripts = user_config_dir.join("scripts");
+                
+                if legacy_scripts.exists() && !user_scripts.exists() {
+                    log::info!("Migrating scripts directory...");
+                    if let Err(e) = copy_dir_recursive(&legacy_scripts, &user_scripts) {
+                        log::warn!("Failed to migrate scripts directory: {}", e);
+                    } else {
+                        log::info!("✓ Migrated scripts directory successfully");
+                    }
+                }
+            }
+            
+            user_config_dir
         },
         Err(e) => {
-            log::warn!("Failed to create .apinox-config next to exe: {}. Falling back to app config dir.", e);
-            let fallback = app_handle
-                .path()
-                .app_config_dir()
-                .or_else(|_| app_handle.path().app_data_dir())
-                .map_err(|err| format!("Failed to resolve fallback config dir: {}", err))?;
+            log::warn!("Failed to create user config dir: {}. Falling back to exe-relative dir.", e);
+            let fallback = exe_dir.join(".apinox-config");
             log::info!("Fallback config directory: {:?}", fallback);
             fs::create_dir_all(&fallback)
                 .map_err(|err| format!("Failed to create fallback config dir: {}", err))?;

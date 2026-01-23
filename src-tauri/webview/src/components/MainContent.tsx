@@ -943,11 +943,13 @@ export function MainContent() {
         }
     }, [requestHistory]);
 
-    const handleRefreshWsdl = useCallback((projectName: string, interfaceName: string) => {
+    const handleRefreshWsdl = useCallback((projectName: string, iface: ApiInterface) => {
         bridge.sendMessage({
             command: FrontendCommand.RefreshWsdl,
             projectId: projectName,
-            interfaceId: interfaceName
+            // Use interface ID if available, fallback to definition (WSDL URL) for matching
+            interfaceId: iface.id || iface.definition,
+            interfaceName: iface.name // Keep for backward compatibility
         });
     }, []);
 
@@ -1635,7 +1637,10 @@ export function MainContent() {
                             </>
                         )}
                         {(contextMenu.type === 'interface') && (
-                            <ContextMenuItem onClick={() => handleGenerateTestSuite(contextMenu.data)}>Generate Test Suite</ContextMenuItem>
+                            <>
+                                <ContextMenuItem onClick={handleRename}>Rename</ContextMenuItem>
+                                <ContextMenuItem onClick={() => handleGenerateTestSuite(contextMenu.data)}>Generate Test Suite</ContextMenuItem>
+                            </>
                         )}
                     </ContextMenu>
                 )
@@ -1703,7 +1708,13 @@ export function MainContent() {
                                 name: req.name,
                                 type: 'request',
                                 config: {
-                                    request: { ...req, id: `req - ${Date.now()} ` },
+                                    request: { 
+                                        ...req, 
+                                        id: `req - ${Date.now()} `,
+                                        // Explicitly preserve requestType and bodyType to prevent defaulting to soap
+                                        requestType: req.requestType || 'soap',
+                                        bodyType: req.bodyType
+                                    },
                                     requestId: undefined
                                 }
                             };

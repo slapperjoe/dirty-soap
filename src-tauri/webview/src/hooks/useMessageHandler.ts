@@ -223,7 +223,9 @@ export function useMessageHandler(state: MessageHandlerState) {
                                             headers: {
                                                 'Content-Type': portName.includes('12') ? 'application/soap+xml' : 'text/xml'
                                             },
-                                            request: generateInitialXmlForOperation(op)
+                                            request: generateInitialXmlForOperation(op),
+                                            requestType: 'soap', // Explicitly set for WSDL operations
+                                            bodyType: 'xml' // Explicitly set for WSDL operations
                                         }]
                                     }))
                                 });
@@ -391,22 +393,41 @@ export function useMessageHandler(state: MessageHandlerState) {
                                         }
                                     };
                                 } else {
-                                    // Created from WSDL Operation - Generate default
+                                    // Created from WSDL/OpenAPI Operation - Use first request if available
                                     const op = message.operation;
-                                    newStep = {
-                                        id: `step-${Date.now()}`,
-                                        name: op.name,
-                                        type: 'request',
-                                        config: {
-                                            request: {
-                                                id: `req-${Date.now()}`,
-                                                name: op.name,
-                                                endpoint: (op as any).originalEndpoint,
-                                                request: generateInitialXmlForOperation(op),
-                                                assertions: []
+                                    
+                                    // Check if operation has existing requests (e.g., from OpenAPI)
+                                    if (op.requests && op.requests.length > 0) {
+                                        const firstRequest = op.requests[0];
+                                        newStep = {
+                                            id: `step-${Date.now()}`,
+                                            name: op.name,
+                                            type: 'request',
+                                            config: {
+                                                request: {
+                                                    ...firstRequest,
+                                                    id: `req-${Date.now()}`,
+                                                    assertions: firstRequest.assertions || []
+                                                }
                                             }
-                                        }
-                                    };
+                                        };
+                                    } else {
+                                        // No requests - generate default SOAP XML
+                                        newStep = {
+                                            id: `step-${Date.now()}`,
+                                            name: op.name,
+                                            type: 'request',
+                                            config: {
+                                                request: {
+                                                    id: `req-${Date.now()}`,
+                                                    name: op.name,
+                                                    endpoint: (op as any).originalEndpoint,
+                                                    request: generateInitialXmlForOperation(op),
+                                                    assertions: []
+                                                }
+                                            }
+                                        };
+                                    }
                                 }
                                 return { ...tc, steps: [...tc.steps, newStep] };
                             })

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "APInox",
-  "version": "0.14.41",
+  "version": "0.14.53",
   "identifier": "app.apinox.dev1",
   "build": {
     "frontendDist": "webview/dist",
@@ -28,7 +28,8 @@
   "bundle": {
     "active": true,
     "targets": [
-      "nsis"
+      "nsis",
+      "dmg"
     ],
     "icon": [
       "icons/32x32.png",

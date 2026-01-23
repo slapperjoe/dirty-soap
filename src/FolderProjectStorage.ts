@@ -36,13 +36,21 @@ export class FolderProjectStorage {
 
         // 2. Save Interfaces
         const interfacesDir = path.join(dirPath, 'interfaces');
-        if (fs.existsSync(interfacesDir)) {
-            // Clean up? Ideally yes, to remove deleted stuff. But risky.
-            // For now, simpler to overwrite. Real syncing is harder.
-            // Let's assume we own this folder. To be safe, maybe don't delete yet.
-        } else {
+        if (!fs.existsSync(interfacesDir)) {
             fs.mkdirSync(interfacesDir);
         }
+
+        // Cleanup: Delete orphan interface directories
+        const currentInterfaceNames = new Set(project.interfaces.map(iface => this.sanitizeName(iface.name)));
+        const existingInterfaceDirs = fs.readdirSync(interfacesDir).filter(f =>
+            fs.statSync(path.join(interfacesDir, f)).isDirectory()
+        );
+        existingInterfaceDirs.forEach(dir => {
+            if (!currentInterfaceNames.has(dir)) {
+                this.log(`Removing orphaned interface: ${dir}`);
+                fs.rmSync(path.join(interfacesDir, dir), { recursive: true });
+            }
+        });
 
         for (const iface of project.interfaces) {
             const safeInterfaceName = this.sanitizeName(iface.name);
@@ -98,7 +106,15 @@ export class FolderProjectStorage {
                         contentType: req.contentType,
                         headers: req.headers,
                         assertions: req.assertions,
-                        id: req.id
+                        id: req.id,
+                        // REST/GraphQL Support - preserve these critical fields
+                        requestType: req.requestType,
+                        bodyType: req.bodyType,
+                        restConfig: req.restConfig,
+                        graphqlConfig: req.graphqlConfig,
+                        extractors: req.extractors,
+                        wsSecurity: req.wsSecurity,
+                        attachments: req.attachments
                     };
 
                     // Use ID for verification if possible, but folder name is readable.

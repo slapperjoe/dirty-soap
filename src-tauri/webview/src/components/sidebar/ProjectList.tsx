@@ -51,7 +51,7 @@ interface ProjectListProps {
 
     deleteConfirm: string | null;
     setDeleteConfirm: (id: string | null) => void;
-    onRefreshInterface?: (projectName: string, interfaceName: string) => void;
+    onRefreshInterface?: (projectName: string, iface: ApiInterface) => void;
 }
 
 const ProjectContainer = styled(SidebarContainer)`
@@ -467,13 +467,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                 // But we can find it in projects array.
                                 const iface = localContextMenu.data as ApiInterface;
                                 const proj = projects.find(p => p.interfaces.some(i => i.name === iface.name));
-                                // Note: Finding by interface name across projects is risky if duplicates exist.
-                                // Ideally we pass project name in context menu data or look up safer.
-                                // Wait, ServiceTree calls onContextMenu with (e, 'interface', iface).
-                                // We can pass project name into data when rendering ServiceTree?
-                                // Or just simpler:
+                                // Pass interface object instead of just name for better identification
                                 if (proj) {
-                                    onRefreshInterface(proj.name, iface.name);
+                                    onRefreshInterface(proj.name, iface);
                                 }
                                 closeLocalContextMenu();
                             }}>

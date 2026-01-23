@@ -7,7 +7,7 @@
     "url": "https://github.com/slapperjoe/apinox.git"
   },
   "license": "MIT",
-  "version": "0.14.41",
+  "version": "0.14.53",
   "bin": {
     "apinox": "./out/src/cli/index.js"
   },
@@ -25,11 +25,11 @@
     "prepare": "npx simple-git-hooks",
     "build-cli": "tsc -p ./ && chmod +x ./out/src/cli/index.js 2>/dev/null || true",
     "cli": "node ./out/src/cli/index.js",
-    "build:sidecar": "cd sidecar && npm run build",
+    "build:sidecar": "cd sidecar && npm install && npm run build",
     "increment-build": "node increment-build.js",
-    "prepare:sidecar": "cd sidecar && npm run binary && cd .. && node prepare-sidecar-binary.js",
-    "tauri:dev": "npm run build:sidecar && npx tauri dev",
-    "tauri:build": "npm run increment-build && npm run sync-version && npm run prepare:sidecar && npx tauri build"
+    "prepare:sidecar": "cd sidecar && npm install && npm run binary && cd .. && node prepare-sidecar-binary.js",
+    "tauri:dev": "npm run build:sidecar && cd src-tauri/webview && npm install && cd ../.. && npx tauri dev",
+    "tauri:build": "npm run increment-build && npm run sync-version && npm run prepare:sidecar && cd src-tauri/webview && npm install && cd ../.. && npx tauri build"
   },
   "pkg": {
     "scripts": [

@@ -602,6 +602,10 @@ export const InterfacesHeading = styled.h2`
     padding-bottom: 10px;
 `;
 
+export const InterfaceTitle = styled.h1`
+    margin: 0;
+`;
+
 export const SectionHeading = styled(InterfacesHeading)`
     margin-top: 40px;
 `;

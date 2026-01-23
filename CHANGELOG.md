@@ -1,6 +1,10 @@
 # Changelog
 
 
+## [Unreleased]
+### Fixed
+- **macOS**: Performance suites and settings now persist across reinstalls. Config directory moved from exe-relative location to stable user directory (`~/Library/Application Support/apinox/` on macOS). Automatic migration from legacy location included.
+
 ## [0.14.0] - 2026-01-22
 ### Auto-Generated Changes
 - feat: Implement WSDL loading cancellation and local XSD resolution - Added CancelWsdlLoadCommand to allow users to cancel ongoing WSDL loading operations. - Enhanced LoadWsdlCommand to support cancellation and local directory resolution for XSD files. - Updated WebviewController to integrate the new cancel command. - Modified the bridge utility to automatically extract local directory paths for WSDL files. - Improved XML generation logic to handle complex types using full schema when available. - Introduced a build number management system with .buildno file for versioning. - Created scripts to fix XSD import paths in WSDL/XSD files for local development.

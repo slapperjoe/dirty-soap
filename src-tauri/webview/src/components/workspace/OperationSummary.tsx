@@ -138,11 +138,13 @@ export const OperationSummary: React.FC<{ operation: import('@shared/models').Ap
             <Header>
                 <TitleGroup>
                     <Title>{operation.name}</Title>
-                    <ContextHelpButton sectionId="operation" />
                 </TitleGroup>
-                <ActionButton onClick={() => console.log('Run all requests (stub)')}>
-                    <Play size={14} /> Run All
-                </ActionButton>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <ActionButton onClick={() => console.log('Run all requests (stub)')}>
+                        <Play size={14} /> Run All
+                    </ActionButton>
+                    <ContextHelpButton sectionId="operation" />
+                </div>
             </Header>
 
             <StatsGrid>

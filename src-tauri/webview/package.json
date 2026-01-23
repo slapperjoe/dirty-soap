@@ -1,14 +1,14 @@
 {
   "name": "dirty-soap-webview",
   "private": true,
-  "version": "0.14.41",
+  "version": "0.14.53",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "build:skip-check": "vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "npx vite",
+    "build": "tsc && npx vite build",
+    "build:skip-check": "npx vite build",
+    "preview": "npx vite preview",
+    "test": "npx vitest run",
+    "test:watch": "npx vitest"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
