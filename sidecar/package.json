@@ -1,13 +1,14 @@
 {
   "name": "apinox-sidecar",
-  "version": "0.13.22",
+  "version": "0.14.33",
   "description": "APInox Node.js sidecar for Tauri desktop application",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "bundle": "npm run build && esbuild dist/sidecar/src/index.js --bundle --platform=node --outfile=bundle.js --external:node:* --external:fsevents --external:jsonc-parser --packages=bundle",
-    "binary": "npm run bundle && node build-binary.js",
-    "binary:all": "npm run bundle && pkg bundle.js --targets node18-macos-arm64,node18-macos-x64,node18-win-x64,node18-linux-x64 --output apinox-sidecar --compress GZip",
+    "bundle": "npm run build && esbuild dist/sidecar/src/index.js --bundle --platform=node --outfile=bundle.js --external:node:* --external:fsevents --external:jsonc-parser --packages=bundle --define:process.env.APINOX_VERSION='\"0.14.25\"'",
+    "icons": "node generate-icons.js",
+    "binary": "npm run icons && npm run bundle && node build-binary.js",
+    "binary:all": "npm run icons && npm run bundle && pkg bundle.js --targets node18-macos-arm64,node18-macos-x64,node18-win-x64,node18-linux-x64 --output apinox-sidecar --compress GZip",
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
@@ -20,10 +21,18 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.0",
     "esbuild": "^0.27.2",
+    "rcedit": "^4.0.1",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.0"
   },
   "pkg": {
-    "scripts": []
+    "scripts": [],
+    "assets": [
+      "icon.ico",
+      "icon.png"
+    ],
+    "outputPath": "."
   }
 }

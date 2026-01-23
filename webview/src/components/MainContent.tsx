@@ -20,6 +20,7 @@ import { AddToProjectModal } from './modals/AddToProjectModal';
 import { WsdlSyncModal } from './modals/WsdlSyncModal';
 import { DebugModal } from './modals/DebugModal';
 import { PickRequestModal, PickRequestItem } from './modals/PickRequestModal';
+import { ExportWorkspaceModal } from './modals/ExportWorkspaceModal';
 import { ApiRequest, TestCase, TestStep, SidebarView, ReplaceRule, RequestHistoryEntry, WsdlDiff } from '@shared/models';
 import { BackendCommand, FrontendCommand } from '@shared/messages';
 import { useMessageHandler } from '../hooks/useMessageHandler';
@@ -150,7 +151,9 @@ export function MainContent() {
         saveProject,
         toggleProjectExpand,
         toggleInterfaceExpand,
-        toggleOperationExpand
+        toggleOperationExpand,
+        expandAll,
+        collapseAll
     } = useProject();
 
     // ==========================================================================
@@ -864,6 +867,14 @@ export function MainContent() {
     const [addToTestCaseModal, setAddToTestCaseModal] = React.useState<{ open: boolean, request: ApiRequest | null }>({ open: false, request: null });
     const [pickRequestModal, setPickRequestModal] = React.useState<{ open: boolean, mode: 'testcase' | 'performance', caseId: string | null, suiteId: string | null }>({ open: false, mode: 'testcase', caseId: null, suiteId: null });
     const [sampleModal, setSampleModal] = React.useState<{ open: boolean, schema: any | null, operationName: string }>({ open: false, schema: null, operationName: '' });
+    const [exportWorkspaceModal, setExportWorkspaceModal] = React.useState(false);
+
+    const handleExportWorkspace = useCallback((projectPaths: string[]) => {
+        bridge.sendMessage({
+            command: FrontendCommand.ExportWorkspace,
+            projectPaths
+        });
+    }, []);
 
     const [replaceRuleModal, setReplaceRuleModal] = React.useState<{ open: boolean, xpath: string, matchText: string, target: 'request' | 'response' }>({ open: false, xpath: '', matchText: '', target: 'response' });
     const [importToPerformanceModal, setImportToPerformanceModal] = React.useState<{ open: boolean, suiteId: string | null }>({ open: false, suiteId: null });
@@ -1184,13 +1195,16 @@ export function MainContent() {
                     toggleProjectExpand,
                     toggleInterfaceExpand,
                     toggleOperationExpand,
+                    expandAll,
+                    collapseAll,
                     onDeleteInterface: handleDeleteInterface,
                     onDeleteOperation: handleDeleteOperation,
                     onAddFolder: handleAddFolder,
                     onAddRequestToFolder: handleAddRequestToFolder,
                     onDeleteFolder: handleDeleteFolder,
                     onToggleFolderExpand: handleToggleFolderExpand,
-                    onRefreshInterface: handleRefreshWsdl
+                    onRefreshInterface: handleRefreshWsdl,
+                    onExportWorkspace: () => setExportWorkspaceModal(true)
                 }}
                 explorerProps={{
                     exploredInterfaces,
@@ -1579,6 +1593,16 @@ export function MainContent() {
                     <DebugModal
                         isOpen={showDebugModal}
                         onClose={() => setShowDebugModal(false)}
+                    />
+                )
+            }
+            {
+                exportWorkspaceModal && (
+                    <ExportWorkspaceModal
+                        isOpen={exportWorkspaceModal}
+                        onClose={() => setExportWorkspaceModal(false)}
+                        projects={projects}
+                        onExport={handleExportWorkspace}
                     />
                 )
             }

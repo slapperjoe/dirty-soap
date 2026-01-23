@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Plus, FolderPlus, ChevronDown, ChevronRight, Trash2, Lock, Save } from 'lucide-react';
+import { Plus, FolderPlus, ChevronDown, ChevronRight, Trash2, Lock, Save, ChevronsDownUp, ChevronsUpDown, Download } from 'lucide-react';
 import { ApinoxProject, ApiInterface, ApiOperation, ApiRequest } from '@shared/models';
 import { HeaderButton, OperationItem, SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle } from './shared/SidebarStyles';
 import { ServiceTree } from './ServiceTree';
@@ -22,6 +22,8 @@ interface ProjectListProps {
     toggleProjectExpand: (name: string) => void;
     toggleInterfaceExpand: (projName: string, ifaceName: string) => void;
     toggleOperationExpand: (projName: string, ifaceName: string, opName: string) => void;
+    expandAll: () => void;
+    collapseAll: () => void;
 
     // Selection
     selectedProjectName: string | null;
@@ -40,6 +42,7 @@ interface ProjectListProps {
     onDeleteInterface?: (iface: ApiInterface) => void;
     onDeleteOperation?: (op: ApiOperation, iface: ApiInterface) => void;
     onDeleteRequest?: (req: ApiRequest) => void;
+    onExportWorkspace?: () => void;
     // Folder handlers
     onAddFolder?: (projectName: string, parentFolderId?: string) => void;
     onAddRequestToFolder?: (projectName: string, folderId: string) => void;
@@ -113,6 +116,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     toggleProjectExpand,
     toggleInterfaceExpand,
     toggleOperationExpand,
+    expandAll,
+    collapseAll,
     setSelectedProjectName,
     selectedProjectName,
     setSelectedInterface,
@@ -133,7 +138,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     onToggleFolderExpand,
     deleteConfirm, // Global delete confirm from Sidebar parent
     setDeleteConfirm,
-    onRefreshInterface
+    onRefreshInterface,
+    onExportWorkspace
 }) => {
     // Local state for folder selection
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -225,6 +231,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             <SidebarHeader>
                 <SidebarHeaderTitle>Workspace</SidebarHeaderTitle>
                 <SidebarHeaderActions>
+                    <HeaderButton onClick={collapseAll} title="Collapse All"><ChevronsUpDown size={16} /></HeaderButton>
+                    <HeaderButton onClick={expandAll} title="Expand All"><ChevronsDownUp size={16} /></HeaderButton>
+                    <HeaderButton onClick={onExportWorkspace} title="Export Workspace"><Download size={16} /></HeaderButton>
                     <HeaderButton onClick={onAddProject} title="New Project"><Plus size={16} /></HeaderButton>
                     <HeaderButton onClick={loadProject} title="Add Project"><FolderPlus size={16} /></HeaderButton>
                 </SidebarHeaderActions>

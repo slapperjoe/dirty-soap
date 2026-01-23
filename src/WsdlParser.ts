@@ -255,6 +255,21 @@ export class WsdlParser {
             // Only log essential error information
             this.log('CRITICAL ERROR parsing WSDL:', error.message || error);
             
+            // Check if this looks like a JSON/OpenAPI file being parsed as XML (fallback detection)
+            const errorMessage = error.message || String(error);
+            if (errorMessage.includes('Text data outside of root node') || 
+                errorMessage.includes('Unexpected token')) {
+                // Check if URL suggests it might be an OpenAPI spec
+                if (url.toLowerCase().match(/\.(json|yaml|yml)$/)) {
+                    const enhancedError = new Error(
+                        `Failed to parse as WSDL/XML. This appears to be a JSON/YAML file. ` +
+                        `If this is an OpenAPI/Swagger specification, please ensure it's being parsed correctly.`
+                    );
+                    this.log('Detected possible JSON/YAML file with XML parsing error:', url);
+                    throw enhancedError;
+                }
+            }
+            
             // If it's an axios error, log only the essential details
             if (error.code) {
                 this.log(`Error Code: ${error.code}`);

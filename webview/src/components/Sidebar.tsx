@@ -97,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onChangeEnvironment
 }) => {
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
-    const { projects, savedProjects, loadProject, saveProject, onUpdateProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, onDeleteInterface, onDeleteOperation, onAddFolder, onAddRequestToFolder, onDeleteFolder, onToggleFolderExpand, onRefreshInterface } = projectProps;
+    const { projects, savedProjects, loadProject, saveProject, onUpdateProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, expandAll, collapseAll, onDeleteInterface, onDeleteOperation, onAddFolder, onAddRequestToFolder, onDeleteFolder, onToggleFolderExpand, onRefreshInterface, onExportWorkspace } = projectProps;
     const { exploredInterfaces, addToProject, addAllToProject, clearExplorer, removeFromExplorer, toggleExploredInterface, toggleExploredOperation } = explorerProps;
 
     const {
@@ -215,6 +215,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         toggleProjectExpand={toggleProjectExpand}
                         toggleInterfaceExpand={toggleInterfaceExpand}
                         toggleOperationExpand={toggleOperationExpand}
+                        expandAll={expandAll}
+                        collapseAll={collapseAll}
 
                         selectedProjectName={selectedProjectName}
                         setSelectedProjectName={setSelectedProjectName}
@@ -238,6 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         deleteConfirm={deleteConfirm}
                         setDeleteConfirm={setDeleteConfirm}
                         onRefreshInterface={onRefreshInterface}
+                        onExportWorkspace={onExportWorkspace}
                     />
                 )}
 

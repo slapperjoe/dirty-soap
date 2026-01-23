@@ -9,7 +9,7 @@
   },
   "icon": "images/APInox_logo_dark.jpg",
   "license": "MIT",
-  "version": "0.14.0",
+  "version": "0.14.33",
   "engines": {
     "vscode": "^1.80.0"
   },

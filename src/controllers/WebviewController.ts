@@ -27,6 +27,7 @@ import { LoadWsdlCommand } from '../commands/LoadWsdlCommand';
 import { CancelWsdlLoadCommand } from '../commands/CancelWsdlLoadCommand';
 import { GetLocalWsdlsCommand } from '../commands/GetLocalWsdlsCommand';
 import { SelectLocalWsdlCommand } from '../commands/SelectLocalWsdlCommand';
+import { ExportWorkspaceCommand } from '../commands/ExportWorkspaceCommand';
 import { BackendCommand, FrontendCommand } from '../../shared/src/messages';
 import {
     StartProxyCommand,
@@ -152,6 +153,7 @@ export class WebviewController {
         
         this._commands.set(FrontendCommand.GetLocalWsdls, new GetLocalWsdlsCommand(this._panel, this._soapClient, this._extensionUri.fsPath));
         this._commands.set(FrontendCommand.SelectLocalWsdl, new SelectLocalWsdlCommand(this._panel, this._soapClient));
+        this._commands.set(FrontendCommand.ExportWorkspace, new ExportWorkspaceCommand(this._panel));
         this._commands.set(FrontendCommand.UpdateTestStep, new UpdateTestStepCommand(
             this._panel,
             this._loadedProjects,
@@ -664,6 +666,17 @@ export class WebviewController {
                     },
                 };
                 this._postMessage({ command: 'debugInfoResponse', debugInfo });
+                break;
+
+            case FrontendCommand.OpenFile:
+                if (message.filePath) {
+                    try {
+                        await vscode.env.openExternal(vscode.Uri.file(message.filePath));
+                    } catch (error) {
+                        this._soapClient.log(`[OpenFile] Failed to open file: ${error}`);
+                        vscode.window.showErrorMessage(`Failed to open file: ${error}`);
+                    }
+                }
                 break;
 
         }

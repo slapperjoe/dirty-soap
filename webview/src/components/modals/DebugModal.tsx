@@ -560,7 +560,22 @@ export const DebugModal: React.FC<DebugModalProps> = ({ isOpen, onClose }) => {
                         {sidecarDiagnostics?.logFilePath && (
                             <div style={{ marginTop: '8px' }}>
                                 <span style={{ opacity: 0.7 }}>Log File:</span>{' '}
-                                <span style={{ fontSize: '0.85em', wordBreak: 'break-all' }}>
+                                <span 
+                                    style={{ 
+                                        fontSize: '0.85em', 
+                                        wordBreak: 'break-all',
+                                        color: 'var(--vscode-textLink-foreground)',
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline'
+                                    }}
+                                    onClick={() => {
+                                        bridge.sendMessage({ 
+                                            command: 'openFile', 
+                                            filePath: sidecarDiagnostics.logFilePath 
+                                        });
+                                    }}
+                                    title="Click to open log file"
+                                >
                                     {sidecarDiagnostics.logFilePath}
                                 </span>
                             </div>

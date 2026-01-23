@@ -87,6 +87,12 @@ interface ProjectContextValue {
     /** Toggles the expanded state of an operation within an interface */
     toggleOperationExpand: (projectName: string, interfaceName: string, operationName: string) => void;
 
+    /** Expands all projects, interfaces, and operations in the sidebar */
+    expandAll: () => void;
+
+    /** Collapses all projects, interfaces, and operations in the sidebar */
+    collapseAll: () => void;
+
     // -------------------------------------------------------------------------
     // UTILITIES
     // -------------------------------------------------------------------------
@@ -452,6 +458,42 @@ export function ProjectProvider({ children, initialProjects = [] }: ProjectProvi
         }));
     }, []);
 
+    /**
+     * Expands all projects, interfaces, and operations in the sidebar.
+     */
+    const expandAll = useCallback(() => {
+        setProjects(prev => prev.map(p => ({
+            ...p,
+            expanded: true,
+            interfaces: p.interfaces.map(i => ({
+                ...i,
+                expanded: true,
+                operations: i.operations.map(o => ({
+                    ...o,
+                    expanded: true
+                }))
+            }))
+        })));
+    }, []);
+
+    /**
+     * Collapses all projects, interfaces, and operations in the sidebar.
+     */
+    const collapseAll = useCallback(() => {
+        setProjects(prev => prev.map(p => ({
+            ...p,
+            expanded: false,
+            interfaces: p.interfaces.map(i => ({
+                ...i,
+                expanded: false,
+                operations: i.operations.map(o => ({
+                    ...o,
+                    expanded: false
+                }))
+            }))
+        })));
+    }, []);
+
     // -------------------------------------------------------------------------
     // UTILITIES
     // -------------------------------------------------------------------------
@@ -505,6 +547,8 @@ export function ProjectProvider({ children, initialProjects = [] }: ProjectProvi
         toggleProjectExpand,
         toggleInterfaceExpand,
         toggleOperationExpand,
+        expandAll,
+        collapseAll,
 
         // Utilities
         updateProject,

@@ -30,6 +30,8 @@ export interface SidebarProjectProps {
     toggleProjectExpand: (name: string) => void;
     toggleInterfaceExpand: (projName: string, ifaceName: string) => void;
     toggleOperationExpand: (projName: string, ifaceName: string, opName: string) => void;
+    expandAll: () => void;
+    collapseAll: () => void;
     onDeleteInterface?: (iface: ApiInterface) => void;
     onDeleteOperation?: (op: ApiOperation, iface: ApiInterface) => void;
     // Folder handlers
@@ -38,6 +40,7 @@ export interface SidebarProjectProps {
     onDeleteFolder?: (projectName: string, folderId: string) => void;
     onToggleFolderExpand?: (projectName: string, folderId: string) => void;
     onRefreshInterface?: (projectName: string, interfaceName: string) => void;
+    onExportWorkspace?: () => void;
 }
 
 export interface SidebarExplorerProps {

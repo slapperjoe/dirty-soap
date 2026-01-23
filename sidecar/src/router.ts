@@ -8,6 +8,7 @@
 import { FrontendCommand } from '../../shared/src/messages';
 import { RequestHistoryEntry } from '../../shared/src/models';
 import { ServiceContainer } from './services';
+import { SAMPLES_PROJECT } from './data/DefaultSamples';
 
 export interface CommandRouter {
     handle(command: string, payload: any): Promise<any>;
@@ -20,7 +21,22 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
         // ===== WSDL/SOAP Operations =====
         [FrontendCommand.LoadWsdl]: async (payload) => {
             const { url, localWsdlDir } = payload;
-            return await services.soapClient.parseWsdl(url, localWsdlDir);
+            
+            // Detection logic: Check if it's OpenAPI/Swagger by file extension
+            const isJson = url.toLowerCase().endsWith('.json') || 
+                          url.toLowerCase().endsWith('.yaml') || 
+                          url.toLowerCase().endsWith('.yml');
+            
+            if (isJson) {
+                services.soapClient.log('Detected OpenAPI/Swagger format (JSON/YAML)...');
+                const { OpenApiParser } = require('../../src/OpenApiParser');
+                const parser = new OpenApiParser(services.soapClient.getOutputChannel());
+                return await parser.parse(url);
+            } else {
+                // Fallback to WSDL
+                services.soapClient.log('Using WSDL parser...');
+                return await services.soapClient.parseWsdl(url, localWsdlDir);
+            }
         },
 
         [FrontendCommand.ExecuteRequest]: async (payload) => {
@@ -713,7 +729,7 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
                 timestamp: new Date().toISOString(),
                 sidecar: {
                     ready: true,
-                    version: require('../../../../package.json').version || 'unknown',
+                    version: process.env.APINOX_VERSION || 'unknown',
                 },
                 services: {
                     proxy: {
@@ -745,13 +761,42 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             return { debugInfo };
         },
 
+        [FrontendCommand.OpenFile]: async (message: any) => {
+            if (!message.filePath) {
+                throw new Error('No file path provided');
+            }
+            // Use platform-specific command to open file with default editor
+            const { exec } = require('child_process');
+            const platform = process.platform;
+            let command: string;
+            
+            if (platform === 'win32') {
+                command = `start "" "${message.filePath}"`;
+            } else if (platform === 'darwin') {
+                command = `open "${message.filePath}"`;
+            } else {
+                command = `xdg-open "${message.filePath}"`;
+            }
+            
+            return new Promise((resolve, reject) => {
+                exec(command, (error: any) => {
+                    if (error) {
+                        console.error('[Sidecar] Failed to open file:', error);
+                        reject(new Error(`Failed to open file: ${error.message}`));
+                    } else {
+                        resolve({ opened: true });
+                    }
+                });
+            });
+        },
+
         // ===== Webview Ready (initialization) =====
         ['webviewReady']: async () => {
             console.log('[Sidecar] Webview ready - sending initialization data');
 
             const result: any = {
                 acknowledged: true,
-                samplesProject: require('./data/DefaultSamples').SAMPLES_PROJECT
+                samplesProject: SAMPLES_PROJECT
             };
 
             // Load and send changelog

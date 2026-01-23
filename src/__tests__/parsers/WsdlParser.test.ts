@@ -101,6 +101,24 @@ describe('WsdlParser', () => {
                 .rejects.toThrow('Network error');
         });
 
+        it('should detect and provide helpful error for JSON files parsed as XML', async () => {
+            // This is a fallback - normally OpenAPI files are detected by extension before reaching WsdlParser
+            // But if they do reach here, provide a helpful error
+            const jsonParseError = new Error('Text data outside of root node.\nLine: 0\nColumn: 13843\nChar: }');
+            (soap.createClientAsync as any).mockRejectedValue(jsonParseError);
+
+            await expect(parser.parseWsdl('https://petstore.swagger.io/v2/swagger.json'))
+                .rejects.toThrow(/JSON\/YAML file/);
+        });
+
+        it('should detect and provide helpful error for YAML files parsed as XML', async () => {
+            const yamlParseError = new Error('Text data outside of root node');
+            (soap.createClientAsync as any).mockRejectedValue(yamlParseError);
+
+            await expect(parser.parseWsdl('https://example.com/api.yaml'))
+                .rejects.toThrow(/JSON\/YAML file/);
+        });
+
         it('should handle WSDL with multiple services and ports', async () => {
             const mockClient = {
                 describe: vi.fn(() => ({

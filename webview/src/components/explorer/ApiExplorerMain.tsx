@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
-    Upload, ArrowRight, Loader2, X
+    Upload, ArrowRight, X
 } from 'lucide-react';
 import { ApiInterface, ApiOperation } from '@shared/models';
 import { isTauri } from '../../utils/bridge';

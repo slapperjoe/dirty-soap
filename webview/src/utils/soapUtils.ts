@@ -88,9 +88,8 @@ export const generateXmlFromSchemaNode = (operationName: string, schemaNode: any
         if (node.kind === 'complex' && node.children && node.children.length > 0) {
             const childLines: string[] = [];
             let lastChoiceGroup: number | undefined = undefined;
-            let currentChoiceGroupElements: string[] = [];
             
-            node.children.forEach((child: any, index: number) => {
+            node.children.forEach((child: any) => {
                 const childName = child.name;
                 const childIndent = indent + '   ';
                 const optional = child.minOccurs === '0' || child.minOccurs === 0;
@@ -224,19 +223,42 @@ export const getInitialXml = (input: any, indent: string = '         '): string 
 export const generateInitialXmlForOperation = (operation: any): string => {
     const targetNs = operation.targetNamespace || 'http://tempuri.org/';
     
-    // Prefer fullSchema (deep complex types) if available
-    if (operation.fullSchema) {
+    // DEBUG: Log what we receive
+    console.log('[generateInitialXmlForOperation] Called with:', {
+        name: operation.name,
+        hasFullSchema: !!operation.fullSchema,
+        fullSchemaChildren: operation.fullSchema?.children?.length || 0,
+        hasInput: !!operation.input,
+        inputKeys: operation.input ? Object.keys(operation.input) : [],
+        targetNamespace: operation.targetNamespace
+    });
+    
+    // Prefer fullSchema (deep complex types) if available AND has children
+    if (operation.fullSchema && operation.fullSchema.children && operation.fullSchema.children.length > 0) {
+        console.log('[generateInitialXmlForOperation] Using fullSchema with children');
         // Use the schema node's name (e.g., "GetOrganisationRequest") not operation name (e.g., "GetOrganisation")
         const elementName = operation.fullSchema.name || operation.name;
         return generateXmlFromSchemaNode(elementName, operation.fullSchema, targetNs);
     }
     
-    // Fallback to simple schema if available
+    // Fallback to simple schema if available AND has meaningful content
+    // Check if input has any non-metadata keys (excluding $ prefixed and metadata fields)
+    const METADATA_FIELDS = ['targetNSAlias', 'targetNamespace'];
     if (operation.input && typeof operation.input === 'object') {
-        return generateXmlFromSchema(operation.name, operation.input, targetNs);
+        const meaningfulKeys = Object.keys(operation.input).filter(key => 
+            !key.startsWith('$') && !METADATA_FIELDS.includes(key)
+        );
+        
+        console.log('[generateInitialXmlForOperation] Checking input, meaningfulKeys:', meaningfulKeys);
+        
+        if (meaningfulKeys.length > 0) {
+            console.log('[generateInitialXmlForOperation] Using simple input schema');
+            return generateXmlFromSchema(operation.name, operation.input, targetNs);
+        }
     }
     
     // Final fallback: empty template
+    console.log('[generateInitialXmlForOperation] Using empty fallback template');
     return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="${targetNs}">
    <soapenv:Header/>
    <soapenv:Body>

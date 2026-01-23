@@ -119,6 +119,10 @@ export enum FrontendCommand {
     GetSidecarLogs = 'getSidecarLogs',
     ClearSidecarLogs = 'clearSidecarLogs',
     GetDebugInfo = 'getDebugInfo',
+    OpenFile = 'openFile',
+
+    // Workspace Export
+    ExportWorkspace = 'exportWorkspace',
 }
 
 export enum BackendCommand {
