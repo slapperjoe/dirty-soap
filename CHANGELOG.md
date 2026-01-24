@@ -1,7 +1,20 @@
 # Changelog
 
 
-## [Unreleased]
+## [0.15.0] - 2026-01-24
+### Added
+- **Encrypted Secrets**: Environment variables can now be marked as secret with AES-256-GCM encryption at rest
+  - Toggle any custom field between Plain/Secret with lock icon
+  - Masked display (••••••••) with show/hide eye icon
+  - Automatic encryption in `~/.apinox/secrets.enc`
+  - Variable resolution ({{fieldName}}) works transparently with encrypted values
+  - Export redacts secrets as [REDACTED]
+  - Import preserves existing secrets
+- **Variable Resolution**: Request execution now automatically resolves environment variables (including secrets) before sending
+  - Added `getActiveEnvironment()` and `getGlobalVariables()` helper methods to SettingsManager
+  - Frontend now passes active environment to backend for proper variable substitution
+  - Wildcard syntax highlighting for {{variables}} in Monaco editor
+
 ### Fixed
 - **macOS**: Performance suites and settings now persist across reinstalls. Config directory moved from exe-relative location to stable user directory (`~/Library/Application Support/apinox/` on macOS). Automatic migration from legacy location included.
 

@@ -43,15 +43,39 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             // Frontend sends: url, operation, xml, headers, contentType, etc.
             // Accept both naming conventions
             const startTime = Date.now();
-            const endpoint = payload.endpoint || payload.url;
+            let endpoint = payload.endpoint || payload.url;
             const operation = payload.operation;
-            const args = payload.args || payload.xml;
+            let args = payload.args || payload.xml;
             const headers = payload.headers || {};
             const requestType = payload.requestType || 'soap';
 
             // Apply content type if provided
             if (payload.contentType && !headers['Content-Type']) {
                 headers['Content-Type'] = payload.contentType;
+            }
+
+            // Resolve environment variables (including secrets) before execution
+            const environmentName = payload.environment || services.settingsManager.getActiveEnvironment();
+            let envVars: Record<string, string> = {};
+            if (environmentName) {
+                try {
+                    envVars = await services.settingsManager.getResolvedEnvironment(environmentName);
+                } catch (err: any) {
+                    console.error(`[Router] Failed to resolve environment '${environmentName}':`, err);
+                }
+            }
+
+            const globalVars = services.settingsManager.getGlobalVariables() || {};
+            const contextVars = payload.contextVariables || {};
+
+            // Process wildcards in request body and endpoint
+            if (args && typeof args === 'string') {
+                const WildcardProcessor = await import('../../src/utils/WildcardProcessor').then(m => m.WildcardProcessor);
+                args = WildcardProcessor.process(args, envVars, globalVars, undefined, contextVars);
+            }
+            if (endpoint) {
+                const WildcardProcessor = await import('../../src/utils/WildcardProcessor').then(m => m.WildcardProcessor);
+                endpoint = WildcardProcessor.process(endpoint, envVars, globalVars, undefined, contextVars);
             }
 
             try {

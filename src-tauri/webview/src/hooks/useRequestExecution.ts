@@ -160,6 +160,8 @@ export function useRequestExecution({
                 assertions: selectedRequest?.assertions,
                 headers: selectedRequest?.headers,
                 contextVariables,
+                // Environment for variable resolution
+                environment: config?.activeEnvironment,
                 // History context fields
                 projectName: selectedProjectName || undefined,
                 interfaceName: selectedInterface?.name || undefined,

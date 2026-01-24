@@ -213,6 +213,14 @@ export class SettingsManager {
         this.updateConfigPath(['activeEnvironment'], envName);
     }
 
+    public getActiveEnvironment(): string | undefined {
+        return this.getConfig().activeEnvironment;
+    }
+
+    public getGlobalVariables(): Record<string, string> {
+        return this.getConfig().globals || {};
+    }
+
     public updateLastConfigPath(path: string) {
         this.updateConfigPath(['lastConfigPath'], path);
     }
@@ -292,8 +300,13 @@ export class SettingsManager {
 
             // If secretManager is available and value is a secret reference, resolve it
             if (this.secretManager && typeof value === 'string' && value.startsWith('__SECRET__:')) {
-                const decrypted = await this.secretManager.resolveValue(value);
-                resolved[key] = decrypted || value;
+                try {
+                    const decrypted = await this.secretManager.resolveValue(value);
+                    resolved[key] = decrypted || value;
+                } catch (err: any) {
+                    console.error(`[SettingsManager] Failed to decrypt '${key}':`, err);
+                    resolved[key] = value;
+                }
             } else {
                 resolved[key] = value;
             }

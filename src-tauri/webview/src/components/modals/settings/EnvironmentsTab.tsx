@@ -160,28 +160,20 @@ export const EnvironmentsTab: React.FC<EnvironmentsTabProps> = ({
     const toggleSecretField = async (fieldName: string) => {
         if (!selectedEnvKey) return;
         
-        console.log('[Secrets] Toggle secret field:', fieldName, 'in env:', selectedEnvKey);
-        
         const env = environments[selectedEnvKey];
         const secretFields = Array.isArray(env._secretFields) ? env._secretFields : [];
         const isCurrentlySecret = secretFields.includes(fieldName);
         const currentFieldValue = customFields[selectedEnvKey]?.[fieldName] || '';
         
-        console.log('[Secrets] Current secret fields:', secretFields);
-        console.log('[Secrets] Is currently secret:', isCurrentlySecret);
-        console.log('[Secrets] Field value:', currentFieldValue);
-        
         if (isCurrentlySecret) {
             // Remove from secrets
             const updatedSecretFields = secretFields.filter(f => f !== fieldName);
-            console.log('[Secrets] Removing from secrets, new list:', updatedSecretFields);
             
             // Update _secretFields as array
             onEnvChange(selectedEnvKey, '_secretFields', updatedSecretFields as any);
             
             // Get decrypted value and use as plain value
             const decrypted = decryptedSecrets[`${selectedEnvKey}:${fieldName}`] || currentFieldValue;
-            console.log('[Secrets] Setting plain value:', decrypted);
             onEnvChange(selectedEnvKey, fieldName, decrypted);
             
             // Delete from secret storage via bridge
@@ -190,11 +182,9 @@ export const EnvironmentsTab: React.FC<EnvironmentsTabProps> = ({
                 envName: selectedEnvKey,
                 fieldName
             });
-            console.log('[Secrets] Sent delete command via bridge');
         } else {
             // Make it a secret
             const valueToEncrypt = currentFieldValue || '(empty)';
-            console.log('[Secrets] Making secret, value to encrypt:', valueToEncrypt);
             
             // Store encrypted via bridge
             bridge.sendMessage({
@@ -203,16 +193,13 @@ export const EnvironmentsTab: React.FC<EnvironmentsTabProps> = ({
                 fieldName,
                 value: valueToEncrypt
             });
-            console.log('[Secrets] Sent setEnvironmentSecret via bridge');
             
             // Update config with reference
             const reference = `__SECRET__:env:${selectedEnvKey}:${fieldName}`;
-            console.log('[Secrets] Setting reference:', reference);
             onEnvChange(selectedEnvKey, fieldName, reference);
             
             // Add to secret fields list
             const updatedSecretFields = [...secretFields, fieldName];
-            console.log('[Secrets] Adding to secrets, new list:', updatedSecretFields);
             onEnvChange(selectedEnvKey, '_secretFields', updatedSecretFields as any);
             
             // Cache decrypted value
