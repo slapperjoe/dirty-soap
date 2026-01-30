@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "APInox",
-  "version": "0.15.70",
+  "version": "0.15.74",
   "identifier": "app.apinox.dev1",
   "build": {
     "frontendDist": "webview/dist",

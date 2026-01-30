@@ -11,7 +11,7 @@ describe('FolderProjectStorage', () => {
 
     beforeEach(() => {
         storage = new FolderProjectStorage();
-        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dirty-soap-test-'));
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'APInox-test-'));
     });
 
     afterEach(() => {

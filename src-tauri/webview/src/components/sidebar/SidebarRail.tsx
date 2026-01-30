@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity, Home, Clock, GitBranch } from 'lucide-react';
+import { Settings, HelpCircle, Eye, Compass, FolderOpen as FolderIcon, FlaskConical, Network, Activity, Home, Clock, Workflow } from 'lucide-react';
 import { SidebarView } from '@shared/models';
 import { EnvironmentSelector } from './EnvironmentSelector';
 
@@ -87,7 +87,7 @@ export const SidebarRail: React.FC<SidebarRailProps> = ({
                 title="Tests"
             />
             <NavItem
-                icon={GitBranch}
+                icon={Workflow}
                 active={activeView === SidebarView.WORKFLOWS}
                 onClick={() => onChangeView(SidebarView.WORKFLOWS)}
                 title="Workflows"

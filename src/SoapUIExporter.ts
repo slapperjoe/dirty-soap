@@ -31,7 +31,7 @@ export class SoapUIExporter {
                 "@_name": project.name,
                 "@_soapui-version": "5.7.0",
                 "@_xmlns:con": "http://eviware.com/soapui/config",
-                "@_xmlns:dirty": "http://github.com/Dev1/dirty-soap",
+                "@_xmlns:dirty": "http://github.com/Dev1/APInox",
                 "con:interface": project.interfaces.map(iface => ({
                     "@_name": iface.name,
                     "@_type": iface.type || "wsdl",

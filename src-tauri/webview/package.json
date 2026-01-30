@@ -1,7 +1,7 @@
 {
-  "name": "dirty-soap-webview",
+  "name": "APInox-webview",
   "private": true,
-  "version": "0.15.70",
+  "version": "0.15.74",
   "scripts": {
     "dev": "npx vite",
     "build": "tsc && npx vite build",

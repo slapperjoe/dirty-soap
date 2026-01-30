@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { useTheme } from '../../contexts/ThemeContext';
 import { bridge } from '../../utils/bridge';
+import { DiagnosticsTab } from './DiagnosticsTab';
 
 interface DebugModalProps {
     isOpen: boolean;
@@ -59,6 +60,9 @@ console.error = (...args: any[]) => {
 
 export const DebugModal: React.FC<DebugModalProps> = ({ isOpen, onClose }) => {
     const { isTauriMode } = useTheme();
+
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'logs' | 'diagnostics'>('logs');
 
     // Debug screen state
     const [sidecarLogs, setSidecarLogs] = useState<string[]>([]);
@@ -371,6 +375,48 @@ export const DebugModal: React.FC<DebugModalProps> = ({ isOpen, onClose }) => {
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Debug & Diagnostics" width={900}>
+            {/* Tab Navigation */}
+            <div style={{ 
+                display: 'flex', 
+                borderBottom: '1px solid var(--vscode-panel-border)',
+                marginBottom: '20px'
+            }}>
+                <button
+                    onClick={() => setActiveTab('logs')}
+                    style={{
+                        padding: '10px 20px',
+                        background: activeTab === 'logs' ? 'var(--vscode-tab-activeBackground)' : 'transparent',
+                        color: activeTab === 'logs' ? 'var(--vscode-tab-activeForeground)' : 'var(--vscode-tab-inactiveForeground)',
+                        border: 'none',
+                        borderBottom: activeTab === 'logs' ? '2px solid var(--vscode-focusBorder)' : '2px solid transparent',
+                        cursor: 'pointer',
+                        fontSize: '0.95em',
+                        fontWeight: activeTab === 'logs' ? 600 : 400
+                    }}
+                >
+                    📋 Logs & System Info
+                </button>
+                <button
+                    onClick={() => setActiveTab('diagnostics')}
+                    style={{
+                        padding: '10px 20px',
+                        background: activeTab === 'diagnostics' ? 'var(--vscode-tab-activeBackground)' : 'transparent',
+                        color: activeTab === 'diagnostics' ? 'var(--vscode-tab-activeForeground)' : 'var(--vscode-tab-inactiveForeground)',
+                        border: 'none',
+                        borderBottom: activeTab === 'diagnostics' ? '2px solid var(--vscode-focusBorder)' : '2px solid transparent',
+                        cursor: 'pointer',
+                        fontSize: '0.95em',
+                        fontWeight: activeTab === 'diagnostics' ? 600 : 400
+                    }}
+                >
+                    🔧 Certificate & Proxy
+                </button>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'diagnostics' ? (
+                <DiagnosticsTab />
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
@@ -947,6 +993,7 @@ export const DebugModal: React.FC<DebugModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 )}
             </div>
+            )}
         </Modal>
     );
 };

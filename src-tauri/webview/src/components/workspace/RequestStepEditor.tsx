@@ -11,8 +11,10 @@ const Container = styled.div`
     flex-direction: column;
     gap: ${SPACING_MD};
     padding: ${SPACING_MD};
+    width: 100%;
     height: 100%;
     overflow-y: auto;
+    box-sizing: border-box;
 `;
 
 const Header = styled.div`
@@ -99,7 +101,8 @@ const EditorContainer = styled.div`
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
     overflow: hidden;
-    height: 400px;
+    flex: 1;
+    min-height: 200px;
 `;
 
 const ButtonContainer = styled.div`
@@ -187,7 +190,7 @@ export const RequestStepEditor: React.FC<RequestStepEditorProps> = ({ step, onUp
                         <Label>Request Body (use {`{{varName}}`} for variables)</Label>
                         <EditorContainer>
                             <Editor
-                                height="400px"
+                                height="100%"
                                 language="xml"
                                 theme="vs-dark"
                                 value={requestBody}

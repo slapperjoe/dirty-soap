@@ -22,6 +22,7 @@ import {
     WsdlDiff
 } from '@shared/models';
 import { useNavigation } from '../contexts/NavigationContext';
+import { useMockProxy } from '../contexts/MockProxyContext';
 
 // Debug logger - console only to prevent message flooding
 // Note: Sending log messages back to the backend on every received message
@@ -144,6 +145,9 @@ export function useMessageHandler(state: MessageHandlerState) {
 
     // Get exploredInterfaces from NavigationContext
     const { setExploredInterfaces, setActiveView: setActiveViewFromNav } = useNavigation();
+
+    // Get proxy/mock history setters from MockProxyContext
+    const { setProxyHistory, setMockHistory, setProxyRunning, setMockRunning } = useMockProxy();
 
     // Silence unused variable warning until migration is complete
     void setSavedProjects;
@@ -641,9 +645,30 @@ export function useMessageHandler(state: MessageHandlerState) {
 
 
                 case BackendCommand.ProxyLog:
-                case BackendCommand.ProxyStatus:
+                    if (message.event && setProxyHistory) {
+                        setProxyHistory(prev => [message.event, ...prev].slice(0, 50));
+                    }
+                    break;
+
                 case BackendCommand.MockLog:
+                case BackendCommand.MockHistoryUpdate:
+                    if (message.event && setMockHistory) {
+                        setMockHistory(prev => [message.event, ...prev].slice(0, 50));
+                    }
+                    break;
+
+                case BackendCommand.ProxyStatus:
+                    if (message.running !== undefined && setProxyRunning) {
+                        setProxyRunning(message.running);
+                    }
+                    break;
+
                 case BackendCommand.MockStatus:
+                    if (message.running !== undefined && setMockRunning) {
+                        setMockRunning(message.running);
+                    }
+                    break;
+
                 case BackendCommand.MockRulesUpdated:
                 case BackendCommand.MockHit:
                 case BackendCommand.MockRecorded:

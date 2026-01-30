@@ -6,21 +6,21 @@ I have successfully implemented a configurable auto-folding feature that automat
 
 ### 1. Configuration Schema
 
-#### Backend: [models.ts](file:///d:/DirtySoap/dirty-soap/src/models.ts)
+#### Backend: [models.ts](file:///d:/DirtySoap/APInox/src/models.ts)
 - Added `autoFoldElements?: string[]` to `DirtySoapConfig.ui`
 - Stores element names like `["Security", "Header", "Body"]`
 
-#### Frontend: [models.ts](file:///d:/DirtySoap/dirty-soap/webview/src/models.ts)
+#### Frontend: [models.ts](file:///d:/DirtySoap/APInox/webview/src/models.ts)
 - Mirrored the backend change for type consistency
 
-#### Settings Types: [SettingsTypes.ts](file:///d:/DirtySoap/dirty-soap/webview/src/components/modals/settings/SettingsTypes.ts)
+#### Settings Types: [SettingsTypes.ts](file:///d:/DirtySoap/APInox/webview/src/components/modals/settings/SettingsTypes.ts)
 - Added `autoFoldElements?: string[]` to the UI settings schema
 
 ---
 
 ### 2. Settings UI
 
-#### [GeneralTab.tsx](file:///d:/DirtySoap/dirty-soap/webview/src/components/modals/settings/GeneralTab.tsx)
+#### [GeneralTab.tsx](file:///d:/DirtySoap/APInox/webview/src/components/modals/settings/GeneralTab.tsx)
 - Added a new "Auto-Fold XML Elements" section under User Interface settings
 - Implemented tag-based input:
   - Displays current elements as removable tags (badges)
@@ -33,7 +33,7 @@ I have successfully implemented a configurable auto-folding feature that automat
 
 ### 3. Folding Logic
 
-#### [NEW] [xmlFoldingUtils.ts](file:///d:/DirtySoap/dirty-soap/webview/src/utils/xmlFoldingUtils.ts)
+#### [NEW] [xmlFoldingUtils.ts](file:///d:/DirtySoap/APInox/webview/src/utils/xmlFoldingUtils.ts)
 Created shared utility with two main functions:
 
 **`findElementRanges(content, elementNames)`**
@@ -55,13 +55,13 @@ Created shared utility with two main functions:
 
 ### 4. Editor Integration
 
-#### [MonacoRequestEditor.tsx](file:///d:/DirtySoap/dirty-soap/webview/src/components/MonacoRequestEditor.tsx)
+#### [MonacoRequestEditor.tsx](file:///d:/DirtySoap/APInox/webview/src/components/MonacoRequestEditor.tsx)
 - Added `autoFoldElements?: string[]` prop
 - Imported `applyAutoFolding` utility
 - Applied folding on editor mount (if configured)
 - Applied folding when value changes (via useEffect)
 
-#### [MonacoResponseViewer.tsx](file:///d:/DirtySoap/dirty-soap/webview/src/components/MonacoResponseViewer.tsx)
+#### [MonacoResponseViewer.tsx](file:///d:/DirtySoap/APInox/webview/src/components/MonacoResponseViewer.tsx)
 - Added `autoFoldElements?: string[]` prop
 - Imported `applyAutoFolding` utility
 - Applied folding on editor mount (if configured)
@@ -243,7 +243,7 @@ Implemented native HTML5 drag-and-drop for reordering requests:
 
 ### CLI Foundation
 - Created `src/cli/index.ts` entry point using commander.js
-- Added bin entry in `package.json`: `dirty-soap` command
+- Added bin entry in `package.json`: `APInox` command
 - Installed dependencies: `commander`, `chalk`, `cli-table3`, `ws`
 
 ### Commands Implemented
@@ -385,7 +385,7 @@ Moved tests into organized subfolders:
 ### Reset Configuration Command
 - Added `Dirty Soap: Reset Configuration (Hard Reset)` to Command Palette
 - Shows modal confirmation dialog
-- Recursively deletes `~/.dirty-soap` directory
+- Recursively deletes `~/.APInox` directory
 - Prompts to reload window upon completion
 
 ### Feature Fixes & Polish

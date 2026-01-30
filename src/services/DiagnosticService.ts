@@ -26,7 +26,7 @@ export class DiagnosticService {
 
             // Use system temp directory
             const tempDir = os.tmpdir();
-            let logDir = path.join(tempDir, 'dirty-soap-diagnostics');
+            let logDir = path.join(tempDir, 'APInox-diagnostics');
 
             // Fallback to .apinox if temp creation fails
             try {

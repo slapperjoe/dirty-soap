@@ -1589,8 +1589,27 @@ export function MainContent() {
                                 if (isTauri()) {
                                     const { openPath } = await import('@tauri-apps/plugin-opener');
                                     await openPath(result.certPath);
-                                    // Show instructions to user
-                                    alert(result.instructions || 'Certificate opened. Please install it to your system trust store.');
+                                    
+                                    // Show comprehensive instructions to user
+                                    const instructions = `Certificate file opened: ${result.certPath}
+
+IMPORTANT: To use HTTPS targets with .NET/WCF applications, you MUST install this certificate to your Trusted Root Certification Authorities store.
+
+AUTOMATED INSTALLATION (Recommended):
+1. Open PowerShell as Administrator
+2. Run: .\\install-proxy-cert.ps1
+
+MANUAL INSTALLATION:
+1. Click "Install Certificate" in the dialog that opened
+2. Select "Local Machine" (requires admin)
+3. Choose "Place all certificates in the following store"
+4. Select "Trusted Root Certification Authorities"
+5. Complete the wizard
+6. Restart your application
+
+See PROXY_CERTIFICATE_SETUP.md for detailed instructions.`;
+                                    
+                                    alert(instructions);
                                 }
                             } else {
                                 console.error('[MainContent] Failed - no success or certPath:', result);

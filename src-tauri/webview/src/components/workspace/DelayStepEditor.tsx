@@ -6,9 +6,13 @@ import { SPACING_SM, SPACING_MD, SPACING_LG } from '../../styles/spacing';
 import { PrimaryButton, SecondaryButton } from '../common/Button';
 
 const Container = styled.div`
-    padding: ${SPACING_LG};
-    max-width: 600px;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: ${SPACING_MD};
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
 `;
 
 const Header = styled.div`

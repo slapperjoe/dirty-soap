@@ -30,7 +30,7 @@ A standalone CLI for Dirty SOAP that enables:
         ▼                ▼                ▼
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
 │ CLI Worker 1 │  │ CLI Worker 2 │  │ CLI Worker N │
-│ dirty-soap   │  │ dirty-soap   │  │ dirty-soap   │
+│ APInox   │  │ APInox   │  │ APInox   │
 │ worker       │  │ worker       │  │ worker       │
 │ --connect    │  │ --connect    │  │ --connect    │
 │ ws://host    │  │ ws://host    │  │ ws://host    │
@@ -42,11 +42,11 @@ A standalone CLI for Dirty SOAP that enables:
 
 ## CLI Commands
 
-### `dirty-soap run-suite`
+### `APInox run-suite`
 Run a performance suite locally (single machine).
 
 ```bash
-dirty-soap run-suite ./suite.json [options]
+APInox run-suite ./suite.json [options]
 
 Options:
   --iterations <n>     Override iteration count
@@ -58,7 +58,7 @@ Options:
 
 **Example:**
 ```bash
-$ dirty-soap run-suite ./my-suite.json --format json
+$ APInox run-suite ./my-suite.json --format json
 {
   "status": "completed",
   "duration": 12500,
@@ -75,11 +75,11 @@ $ dirty-soap run-suite ./my-suite.json --format json
 
 ---
 
-### `dirty-soap worker`
+### `APInox worker`
 Connect to a coordinator as a distributed worker.
 
 ```bash
-dirty-soap worker --connect <ws://host:port> [options]
+APInox worker --connect <ws://host:port> [options]
 
 Options:
   --name <name>        Worker identifier (default: hostname)
@@ -88,7 +88,7 @@ Options:
 
 **Example:**
 ```bash
-$ dirty-soap worker --connect ws://192.168.1.100:8080 --name worker-1
+$ APInox worker --connect ws://192.168.1.100:8080 --name worker-1
 [worker-1] Connected to coordinator
 [worker-1] Waiting for work...
 [worker-1] Received: iterations 1-25 of "API Performance Suite"
@@ -98,11 +98,11 @@ $ dirty-soap worker --connect ws://192.168.1.100:8080 --name worker-1
 
 ---
 
-### `dirty-soap coordinator`
+### `APInox coordinator`
 Run as headless coordinator (for CI/CD, no VS Code needed).
 
 ```bash
-dirty-soap coordinator --suite <file> [options]
+APInox coordinator --suite <file> [options]
 
 Options:
   --port <port>        WebSocket port (default: 8080)
@@ -113,7 +113,7 @@ Options:
 
 **Example:**
 ```bash
-$ dirty-soap coordinator --suite ./suite.json --port 8080 --workers 3
+$ APInox coordinator --suite ./suite.json --port 8080 --workers 3
 [coordinator] WebSocket server listening on :8080
 [coordinator] Waiting for 3 workers...
 [coordinator] Worker "worker-1" connected (1/3)
@@ -130,11 +130,11 @@ $ dirty-soap coordinator --suite ./suite.json --port 8080 --workers 3
 
 ---
 
-### `dirty-soap parse-wsdl`
+### `APInox parse-wsdl`
 Parse WSDL and output schema (for AI agents to understand available operations).
 
 ```bash
-dirty-soap parse-wsdl <url-or-file> [options]
+APInox parse-wsdl <url-or-file> [options]
 
 Options:
   --format <type>      Output format: json, yaml
@@ -143,11 +143,11 @@ Options:
 
 ---
 
-### `dirty-soap send-request`
+### `APInox send-request`
 Send a single SOAP request (for quick testing/AI agents).
 
 ```bash
-dirty-soap send-request [options]
+APInox send-request [options]
 
 Options:
   --endpoint <url>     SOAP endpoint URL
@@ -262,13 +262,13 @@ src/
 ### Copilot Integration
 ```bash
 # Agent can parse WSDL to understand API
-$ dirty-soap parse-wsdl https://api.example.com/service?wsdl --format json
+$ APInox parse-wsdl https://api.example.com/service?wsdl --format json
 
 # Agent can run performance tests and analyze
-$ dirty-soap run-suite ./suite.json --quiet --format json | jq '.summary'
+$ APInox run-suite ./suite.json --quiet --format json | jq '.summary'
 
 # Agent can send ad-hoc requests
-$ dirty-soap send-request --endpoint https://api.example.com/soap \
+$ APInox send-request --endpoint https://api.example.com/soap \
   --action "http://example.com/DoSomething" \
   --body @request.xml --format json
 ```
@@ -278,7 +278,7 @@ $ dirty-soap send-request --endpoint https://api.example.com/soap \
 # GitHub Actions example
 - name: Run Performance Tests
   run: |
-    dirty-soap run-suite ./perf-suite.json --format json > results.json
+    APInox run-suite ./perf-suite.json --format json > results.json
     
 - name: Check SLA
   run: |

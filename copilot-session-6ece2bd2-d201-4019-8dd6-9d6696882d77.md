@@ -122,9 +122,9 @@ No files matched the pattern.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**view the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts
+D:\DirtySoap\APInox\sidecar\src\router.ts
 
 ```
 File too large to read at once (39.7 KB). Consider using tools like grep (for searching), head/tail (for viewing start/end), view with view_range (for specific sections), or jq (for JSON) to examine portions of the file.
@@ -137,7 +137,7 @@ File too large to read at once (39.7 KB). Consider using tools like grep (for se
 
 ### ✅ `grep`
 
-"deletePerformance" (D:\DirtySoap\dirty-soap\sidecar\src\router.ts)
+"deletePerformance" (D:\DirtySoap\APInox\sidecar\src\router.ts)
 
 ```
 No matches found.
@@ -150,7 +150,7 @@ No matches found.
 
 ### ✅ `grep`
 
-"MessageType\.Delete" (D:\DirtySoap\dirty-soap\sidecar\src\router.ts)
+"MessageType\.Delete" (D:\DirtySoap\APInox\sidecar\src\router.ts)
 
 ```
 No matches found.
@@ -163,7 +163,7 @@ No matches found.
 
 ### ✅ `grep`
 
-"case MessageType\." (D:\DirtySoap\dirty-soap\sidecar\src\router.ts)
+"case MessageType\." (D:\DirtySoap\APInox\sidecar\src\router.ts)
 
 ```
 No matches found.
@@ -176,9 +176,9 @@ No matches found.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**view the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts (lines 1-100)
+D:\DirtySoap\APInox\sidecar\src\router.ts (lines 1-100)
 
 <details>
 <summary>100 lines</summary>
@@ -295,7 +295,7 @@ D:\DirtySoap\dirty-soap\sidecar\src\router.ts (lines 1-100)
 
 ### ✅ `grep`
 
-"Performance" (D:\DirtySoap\dirty-soap\sidecar\src\router.ts)
+"Performance" (D:\DirtySoap\APInox\sidecar\src\router.ts)
 
 <details>
 <summary>78 matches</summary>
@@ -411,7 +411,7 @@ Perfect! I can see the issue. The command `deletePerformanceRequest` is being se
 
 ### ✅ `grep`
 
-"deleteRequest|removeRequest" (D:\DirtySoap\dirty-soap\src\services\PerformanceService.ts)
+"deleteRequest|removeRequest" (D:\DirtySoap\APInox\src\services\PerformanceService.ts)
 
 ```
 No matches found.
@@ -424,9 +424,9 @@ No matches found.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src\services\PerformanceService.ts.**
+**view the file at D:\DirtySoap\APInox\src\services\PerformanceService.ts.**
 
-D:\DirtySoap\dirty-soap\src\services\PerformanceService.ts
+D:\DirtySoap\APInox\src\services\PerformanceService.ts
 
 <details>
 <summary>402 lines</summary>
@@ -887,9 +887,9 @@ I see the issue. The sidecar is missing the `DeletePerformanceRequest` command h
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**view the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts (lines 455-520)
+D:\DirtySoap\APInox\sidecar\src\router.ts (lines 455-520)
 
 <details>
 <summary>66 lines</summary>
@@ -980,12 +980,12 @@ Now I need to add the handler for `DeletePerformanceRequest`. The handler should
 
 ### ✅ `edit`
 
-**edit the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**edit the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts
+D:\DirtySoap\APInox\sidecar\src\router.ts
 
 ```
-File D:\DirtySoap\dirty-soap\sidecar\src\router.ts updated with changes.
+File D:\DirtySoap\APInox\sidecar\src\router.ts updated with changes.
 ```
 
 
@@ -1003,9 +1003,9 @@ Now let me verify that the `FrontendCommand.DeletePerformanceRequest` enum exist
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\messages.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\messages.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\messages.ts (lines 80-90)
+D:\DirtySoap\APInox\shared\src\messages.ts (lines 80-90)
 
 <details>
 <summary>11 lines</summary>
@@ -1226,7 +1226,7 @@ Building for node18-win-x64...
 > pkg@5.8.1
 compression:  GZip
 > Warning Cannot resolve 'mod'
-  D:\DirtySoap\dirty-soap\sidecar\bundle.js
+  D:\DirtySoap\APInox\sidecar\bundle.js
   Dynamic require may fail at run time, because the requested file
   is unknown at compilation time and not included into executable.
   Use a string literal as an argument for 'require', or leave it
@@ -1241,7 +1241,7 @@ Copying apinox-sidecar.exe to sidecar-bundle/sidecar...
   Architecture: x64
   Target triple: x86_64-pc-windows-msvc
   Size: 38.04 MB
-  Binary: D:\DirtySoap\dirty-soap\sidecar-bundle\sidecar-x86_64-pc-windows-msvc.exe
+  Binary: D:\DirtySoap\APInox\sidecar-bundle\sidecar-x86_64-pc-windows-msvc.exe
 <exited with exit code 0>
 ```
 
@@ -1348,9 +1348,9 @@ Now let me check how GraphQL requests are opened in the performance suite:
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx (lines 235-250)
+D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx (lines 235-250)
 
 <details>
 <summary>16 lines</summary>
@@ -1383,7 +1383,7 @@ D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx (l
 
 ### ✅ `grep`
 
-"handleOpenPerformanceRequest|openPerformanceRequest" (D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx)
+"handleOpenPerformanceRequest|openPerformanceRequest" (D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx)
 
 ```
 No matches found.
@@ -1396,9 +1396,9 @@ No matches found.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx (lines 245-280)
+D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx (lines 245-280)
 
 <details>
 <summary>36 lines</summary>
@@ -1472,7 +1472,7 @@ I see the issue. When converting the PerformanceRequest to ApiRequest, it's miss
 
 ### ✅ `grep`
 
-"interface PerformanceRequest|type PerformanceRequest" (D:\DirtySoap\dirty-soap\shared\src\models.ts)
+"interface PerformanceRequest|type PerformanceRequest" (D:\DirtySoap\APInox\shared\src\models.ts)
 
 ```
 593:export interface PerformanceRequest {
@@ -1485,9 +1485,9 @@ I see the issue. When converting the PerformanceRequest to ApiRequest, it's miss
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 177-210)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 177-210)
 
 <details>
 <summary>34 lines</summary>
@@ -1538,9 +1538,9 @@ D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 177-210)
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 593-630)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 593-630)
 
 <details>
 <summary>38 lines</summary>
@@ -1603,9 +1603,9 @@ I see the issue - PerformanceRequest doesn't have the GraphQL-specific fields li
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**view the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts (lines 482-500)
+D:\DirtySoap\APInox\sidecar\src\router.ts (lines 482-500)
 
 <details>
 <summary>19 lines</summary>
@@ -1649,12 +1649,12 @@ Now let me add the `UpdatePerformanceRequest` handler after `DeletePerformanceRe
 
 ### ✅ `edit`
 
-**edit the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**edit the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts
+D:\DirtySoap\APInox\sidecar\src\router.ts
 
 ```
-File D:\DirtySoap\dirty-soap\sidecar\src\router.ts updated with changes.
+File D:\DirtySoap\APInox\sidecar\src\router.ts updated with changes.
 ```
 
 
@@ -1672,9 +1672,9 @@ Now let me check what fields need to be added to PerformanceRequest to support G
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 593-610)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 593-610)
 
 <details>
 <summary>18 lines</summary>
@@ -1717,12 +1717,12 @@ Now let me add the missing fields to PerformanceRequest:
 
 ### ✅ `edit`
 
-**edit the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**edit the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts
+D:\DirtySoap\APInox\shared\src\models.ts
 
 ```
-File D:\DirtySoap\dirty-soap\shared\src\models.ts updated with changes.
+File D:\DirtySoap\APInox\shared\src\models.ts updated with changes.
 ```
 
 
@@ -1740,12 +1740,12 @@ Now let me update the PerformanceContext to properly convert PerformanceRequest 
 
 ### ✅ `edit`
 
-**edit the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx.**
+**edit the file at D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx
+D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx
 
 ```
-File D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx updated with changes.
+File D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx updated with changes.
 ```
 
 
@@ -1763,7 +1763,7 @@ Now let me check how performance requests are created/added to ensure they captu
 
 ### ✅ `grep`
 
-"handleAddToPerformance|addToPerformance" (D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\PerformanceContext.tsx)
+"handleAddToPerformance|addToPerformance" (D:\DirtySoap\APInox\src-tauri\webview\src\contexts\PerformanceContext.tsx)
 
 ```
 No matches found.
@@ -1790,9 +1790,9 @@ No matches found.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\MainContent.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\components\MainContent.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\MainContent.tsx (lines 1815-1850)
+D:\DirtySoap\APInox\src-tauri\webview\src\components\MainContent.tsx (lines 1815-1850)
 
 <details>
 <summary>36 lines</summary>
@@ -1853,7 +1853,7 @@ I see - when importing from test cases, the GraphQL fields are not being capture
 
 ### ✅ `grep`
 
-"AddPerformanceRequest" (D:\DirtySoap\dirty-soap\sidecar\src\router.ts)
+"AddPerformanceRequest" (D:\DirtySoap\APInox\sidecar\src\router.ts)
 
 ```
 No matches found.
@@ -1866,7 +1866,7 @@ No matches found.
 
 ### ✅ `grep`
 
-"addPerformanceRequest" (D:\DirtySoap\dirty-soap\sidecar\src\router.ts)
+"addPerformanceRequest" (D:\DirtySoap\APInox\sidecar\src\router.ts)
 
 ```
 No matches found.
@@ -1887,9 +1887,9 @@ It looks like there's no handler for `addPerformanceRequest` either! Let me sear
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\messages.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\messages.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\messages.ts (lines 78-92)
+D:\DirtySoap\APInox\shared\src\messages.ts (lines 78-92)
 
 <details>
 <summary>15 lines</summary>
@@ -1929,9 +1929,9 @@ I need to add handlers for `AddPerformanceRequest` and `PickOperationForPerforma
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**view the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts (lines 488-515)
+D:\DirtySoap\APInox\sidecar\src\router.ts (lines 488-515)
 
 <details>
 <summary>28 lines</summary>
@@ -1984,12 +1984,12 @@ Now let me add the missing handlers:
 
 ### ✅ `edit`
 
-**edit the file at D:\DirtySoap\dirty-soap\sidecar\src\router.ts.**
+**edit the file at D:\DirtySoap\APInox\sidecar\src\router.ts.**
 
-D:\DirtySoap\dirty-soap\sidecar\src\router.ts
+D:\DirtySoap\APInox\sidecar\src\router.ts
 
 ```
-File D:\DirtySoap\dirty-soap\sidecar\src\router.ts updated with changes.
+File D:\DirtySoap\APInox\sidecar\src\router.ts updated with changes.
 ```
 
 
@@ -2007,12 +2007,12 @@ Now let me update the import from test case to include the new fields:
 
 ### ✅ `edit`
 
-**edit the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\MainContent.tsx.**
+**edit the file at D:\DirtySoap\APInox\src-tauri\webview\src\components\MainContent.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\MainContent.tsx
+D:\DirtySoap\APInox\src-tauri\webview\src\components\MainContent.tsx
 
 ```
-File D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\MainContent.tsx updated with changes.
+File D:\DirtySoap\APInox\src-tauri\webview\src\components\MainContent.tsx updated with changes.
 ```
 
 
@@ -2095,7 +2095,7 @@ Building for node18-win-x64...
 > pkg@5.8.1
 compression:  GZip
 > Warning Cannot resolve 'mod'
-  D:\DirtySoap\dirty-soap\sidecar\bundle.js
+  D:\DirtySoap\APInox\sidecar\bundle.js
   Dynamic require may fail at run time, because the requested file
   is unknown at compilation time and not included into executable.
   Use a string literal as an argument for 'require', or leave it
@@ -2110,7 +2110,7 @@ Tauri target triple: x86_64-pc-windows-msvc
   Architecture: x64
   Target triple: x86_64-pc-windows-msvc
   Size: 38.04 MB
-  Binary: D:\DirtySoap\dirty-soap\sidecar-bundle\sidecar-x86_64-pc-windows-msvc.exe
+  Binary: D:\DirtySoap\APInox\sidecar-bundle\sidecar-x86_64-pc-windows-msvc.exe
 <exited with exit code 0>
 ```
 
@@ -2163,7 +2163,7 @@ up to date, audited 291 packages in 918ms
 
 found 0 vulnerabilities
 pm run build:skip-check:\WINDOWS\system32\cmd.exe 
-> dirty-soap-webview@0.14.40 build:skip-check
+> APInox-webview@0.14.40 build:skip-check
 > vite build
 
 vite v7.3.0 building client environment for production...
@@ -2347,9 +2347,9 @@ This is a planning task, so I should create a plan document in the session folde
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\components.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components
+D:\DirtySoap\APInox\src-tauri\webview\src\components
 
 <details>
 <summary>33 lines</summary>
@@ -2488,9 +2488,9 @@ __tests__
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 430-490)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 430-490)
 
 <details>
 <summary>61 lines</summary>
@@ -2568,9 +2568,9 @@ D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 430-490)
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 500-570)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 500-570)
 
 <details>
 <summary>71 lines</summary>
@@ -2658,9 +2658,9 @@ D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 500-570)
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\workspace\TestSuiteSummary.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\components\workspace\TestSuiteSummary.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\workspace\TestSuiteSummary.tsx
+D:\DirtySoap\APInox\src-tauri\webview\src\components\workspace\TestSuiteSummary.tsx
 
 <details>
 <summary>52 lines</summary>
@@ -2789,9 +2789,9 @@ Then I should ask clarifying questions before creating the plan.*
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx (lines 1-100)
+D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx (lines 1-100)
 
 <details>
 <summary>100 lines</summary>
@@ -2921,7 +2921,7 @@ No matches found.
 
 ### ✅ `grep`
 
-"interface TestSuite|type TestSuite" (D:\DirtySoap\dirty-soap\shared\src\models.ts)
+"interface TestSuite|type TestSuite" (D:\DirtySoap\APInox\shared\src\models.ts)
 
 ```
 321:export interface TestSuite {
@@ -2934,9 +2934,9 @@ No matches found.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 321-370)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 321-370)
 
 <details>
 <summary>50 lines</summary>
@@ -3003,9 +3003,9 @@ D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 321-370)
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx (lines 195-280)
+D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx (lines 195-280)
 
 <details>
 <summary>86 lines</summary>
@@ -3108,7 +3108,7 @@ D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx (li
 
 ### ✅ `grep`
 
-"onSelectSuite|handleSelectSuite" (D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx)
+"onSelectSuite|handleSelectSuite" (D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx)
 
 <details>
 <summary>35 matches</summary>
@@ -3160,9 +3160,9 @@ D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx (li
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx (lines 430-520)
+D:\DirtySoap\APInox\src-tauri\webview\src\components\sidebar\TestsUi.tsx (lines 430-520)
 
 <details>
 <summary>91 lines</summary>
@@ -3270,7 +3270,7 @@ D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\sidebar\TestsUi.tsx (li
 
 ### ✅ `grep`
 
-"handleSelectTestSuite" (D:\DirtySoap\dirty-soap\src-tauri\webview\src\components\MainContent.tsx)
+"handleSelectTestSuite" (D:\DirtySoap\APInox\src-tauri\webview\src\components\MainContent.tsx)
 
 <details>
 <summary>35 matches</summary>
@@ -3335,9 +3335,9 @@ No matches found.
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\TestRunnerContext.tsx.**
+**view the file at D:\DirtySoap\APInox\src-tauri\webview\src\contexts\TestRunnerContext.tsx.**
 
-D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\TestRunnerContext.tsx (lines 1-80)
+D:\DirtySoap\APInox\src-tauri\webview\src\contexts\TestRunnerContext.tsx (lines 1-80)
 
 <details>
 <summary>80 lines</summary>
@@ -3461,9 +3461,9 @@ D:\DirtySoap\dirty-soap\src-tauri\webview\src\contexts\TestRunnerContext.tsx (li
 
 ### ✅ `view`
 
-**view the file at D:\DirtySoap\dirty-soap\shared\src\models.ts.**
+**view the file at D:\DirtySoap\APInox\shared\src\models.ts.**
 
-D:\DirtySoap\dirty-soap\shared\src\models.ts (lines 280-340)
+D:\DirtySoap\APInox\shared\src\models.ts (lines 280-340)
 
 <details>
 <summary>61 lines</summary>
@@ -3688,7 +3688,7 @@ Copy the plan file into your repository so it's version controlled:
 
 ```bash
 # Copy the plan to a docs folder in your repo
-copy C:\Users\Mark\.copilot\session-state\6ece2bd2-d201-4019-8dd6-9d6696882d77\plan.md D:\DirtySoap\dirty-soap\docs\test-suite-enhancements-plan.md
+copy C:\Users\Mark\.copilot\session-state\6ece2bd2-d201-4019-8dd6-9d6696882d77\plan.md D:\DirtySoap\APInox\docs\test-suite-enhancements-plan.md
 
 # Then commit it
 git add docs\test-suite-enhancements-plan.md
@@ -3703,7 +3703,7 @@ If you want to preserve the entire session (including checkpoints and event hist
 
 1. **Copy the session folder** to your repo temporarily:
    ```bash
-   xcopy C:\Users\Mark\.copilot\session-state\6ece2bd2-d201-4019-8dd6-9d6696882d77 D:\DirtySoap\dirty-soap\.copilot-session\ /E /I
+   xcopy C:\Users\Mark\.copilot\session-state\6ece2bd2-d201-4019-8dd6-9d6696882d77 D:\DirtySoap\APInox\.copilot-session\ /E /I
    ```
 
 2. **On the other machine**, copy it back:

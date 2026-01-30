@@ -585,9 +585,8 @@ export const ServerUi: React.FC<ServerUiProps> = ({
                 {/* Traffic History */}
                 <TrafficSection>
                     <TrafficHeader>
-                        
                         <TrafficTitle>
-                            <Car size={14} />
+                            <Car size={14} style={{ marginRight: 6 }} />
                             Traffic ({totalEvents})
                         </TrafficTitle>
                         {totalEvents > 0 && (

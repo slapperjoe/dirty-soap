@@ -60,7 +60,7 @@ describe('useHookName', () => {
 5.  **Mocking Contexts**: If the component depends on contexts, wrap it in a provider in the `render` call or use a custom render function.
 6.  **Run the Test**: Execute the test from the `webview` directory: `cd webview && npx vitest run [path/to/test]`.
 7.  **Verify Coverage**: Run with coverage from the `webview` directory: `cd webview && npx vitest run --coverage`.
-8.  **Consistency**: Refer to [create-backend-test.md](file:///Users/mark/Code/dirty-soap/.agent/workflows/create-backend-test.md) for backend test standards.
+8.  **Consistency**: Refer to [create-backend-test.md](file:///Users/mark/Code/APInox/.agent/workflows/create-backend-test.md) for backend test standards.
 
 ## UI Integration Testing (Delete Pattern)
 

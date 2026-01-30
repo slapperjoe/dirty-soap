@@ -40,7 +40,7 @@ Creates `sidecar-bundle/bundle.js` (~1MB) + `node_modules/jsonc-parser`
 
 ### Error
 ```
-Error: Cannot find module '/snapshot/dirty-soap/node_modules/axios/dist/node/axios.cjs'
+Error: Cannot find module '/snapshot/APInox/node_modules/axios/dist/node/axios.cjs'
 ```
 
 ### Potential Solutions (TODO)

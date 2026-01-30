@@ -133,7 +133,7 @@
     - **Data Gen**: `{{lorem}}`, `{{name}}`, `{{country}}`, `{{state}}`.
     - **Date Math**: `{{now+1m}}` (add 1 minute), `{{now-2d}}` (subtract 2 days), etc.
 - **Settings Management**:
-    - Persistent configuration stored in `~/.dirty-soap/config.jsonc`.
+    - Persistent configuration stored in `~/.APInox/config.jsonc`.
     - UI Settings (layout, line numbers) are now remembered.
     - Autosave functionality for unsaved workspace changes.
 - **UI Improvements**:

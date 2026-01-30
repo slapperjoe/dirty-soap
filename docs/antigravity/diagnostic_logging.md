@@ -15,8 +15,8 @@ The Diagnostic Logging System is a "flight recorder" for Dirty Soap, designed to
 1.  **Activate**: The recorder runs automatically and streams logs to disk immediately.
 2.  **Reproduce**: Perform the specific UI actions that are failing.
 3.  **Locate**:
-    - Logs are automatically saved to `c:\temp` (if it exists) or `~/.dirty-soap/diagnostics/` as `.jsonl` files.
-    - Filename format: `dirty-soap-diagnostics-<timestamp>.jsonl`.
+    - Logs are automatically saved to `c:\temp` (if it exists) or `~/.APInox/diagnostics/` as `.jsonl` files.
+    - Filename format: `APInox-diagnostics-<timestamp>.jsonl`.
     - Find the most recent file to see the current session.
 4.  **View**:
     - You can use the command `Dirty Soap: Export Diagnostic Logs` to instantly open the *current active log file*.
@@ -76,7 +76,7 @@ This system is most effective at catching "Protocol Mismatches".
 **PowerShell Commands for Verification**:
 ```powershell
 # Find recent .jsonl log
-Get-ChildItem -Path C:\temp -Filter dirty-soap-diagnostics-*.jsonl | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+Get-ChildItem -Path C:\temp -Filter APInox-diagnostics-*.jsonl | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
 # Search for specific events
 Get-Content "path\to\file.jsonl" | Select-String -Pattern "updateTestStep" -Context 1,2

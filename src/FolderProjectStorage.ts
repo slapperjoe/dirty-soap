@@ -30,7 +30,7 @@ export class FolderProjectStorage {
             name: project.name,
             description: project.description,
             id: project.id,
-            format: "dirty-soap-v1"
+            format: "APInox-v1"
         };
         fs.writeFileSync(path.join(dirPath, 'properties.json'), JSON.stringify(props, null, 2));
 

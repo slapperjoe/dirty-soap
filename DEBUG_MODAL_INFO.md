@@ -255,3 +255,116 @@ These logs are essential for debugging but not directly shown in the GUI. They c
 - In production: May require enabling file logging via Tauri config
 
 The Sidecar Logs tab in the Debug Modal shows sidecar console output captured after startup.
+
+---
+
+# Diagnostics Panel Integration (NEW)
+
+## Overview
+
+**NEW in this version**: All certificate and proxy diagnostic tools are now integrated into the Debug Modal, accessible via the "🔧 Certificate & Proxy" tab.
+
+## What Was Added
+
+### 1. New DiagnosticsTab Component
+**File**: `src-tauri/webview/src/components/modals/DiagnosticsTab.tsx`
+
+Features:
+- **Certificate Diagnostics**: Check if certificate exists, where it's installed, and if it's working
+- **Proxy Configuration Check**: Validate protocol consistency between client and target
+- **One-Click Actions**: 
+  - Install certificate to LocalMachine store
+  - Fix certificate location (move from CurrentUser to LocalMachine)
+  - Regenerate certificate
+- **Status Indicators**: Visual feedback with icons (✓/✗/⚠️)
+- **Detailed Error Messages**: Context-aware help for common issues
+
+### 2. Updated DebugModal with Tabs
+**File**: `src-tauri/webview/src/components/modals/DebugModal.tsx`
+
+Changes:
+- Added tabbed interface (📋 Logs & System Info | 🔧 Certificate & Proxy)
+- Imported new DiagnosticsTab component
+- Tab navigation with VS Code theming
+
+## Backend Commands Required
+
+The DiagnosticsTab expects these backend commands (need to be implemented):
+
+```typescript
+// Certificate checks
+{ command: 'checkCertificate' }
+// Returns: { exists: boolean, certPath: string, thumbprint: string }
+
+{ command: 'checkCertificateStore', thumbprint: string }
+// Returns: { inLocalMachine: boolean, inCurrentUser: boolean }
+
+{ command: 'testHttpsServer' }
+// Returns: { success: boolean, error?: string }
+
+// Certificate actions
+{ command: 'installCertificateToLocalMachine' }
+// Returns: { success: boolean, error?: string }
+
+{ command: 'moveCertificateToLocalMachine' }
+// Returns: { success: boolean, error?: string }
+
+{ command: 'regenerateCertificate' }
+// Returns: { success: boolean, error?: string }
+
+// Proxy checks
+{ command: 'getProxyStatus' }
+// Returns: { running: boolean }
+```
+
+## User Experience
+
+### Access
+1. Press `Ctrl+Shift+D` to open Debug modal
+2. Click "🔧 Certificate & Proxy" tab
+3. Click diagnostic buttons to run checks
+
+### Certificate Workflow
+1. **Run Certificate Check** → Shows detailed status
+2. If issues found, click relevant fix button:
+   - "Install Certificate" - if not in any store
+   - "Fix Certificate Location" - if in wrong store (CurrentUser)
+   - "Regenerate Certificate" - if certificate/key mismatch
+
+### Proxy Workflow
+1. **Run Proxy Check** → Validates configuration
+2. Shows warnings if protocol mismatch (HTTP vs HTTPS)
+3. Provides specific guidance for fixing client URLs
+
+## Common Issues Handled
+
+| Issue | Detection | Solution |
+|-------|-----------|----------|
+| Error 1312 | Certificate not in LocalMachine store | "Fix Certificate Location" button |
+| SEC_E_INVALID_TOKEN | Certificate/key mismatch | "Regenerate Certificate" button |
+| TLS handshake failure | Protocol mismatch | Shows warning with correct URL |
+| Certificate not trusted | Not installed | "Install Certificate" button |
+
+## Benefits
+
+1. **All-in-one**: No need for separate PowerShell scripts
+2. **User-friendly**: Visual feedback and clear actions
+3. **Context-aware**: Diagnostics explain what's wrong and how to fix it
+4. **Integrated**: Works within the application UI
+5. **Cross-platform ready**: Uses bridge commands (can work on all platforms)
+
+## Next Steps
+
+To complete the integration:
+
+1. **Implement backend commands** in the Rust/Node.js bridge
+2. **Test the diagnostics flow** with real HTTPS proxy scenarios
+3. **Add telemetry** (optional) to track common issues
+4. **Update documentation** to reference the built-in diagnostics
+
+## Notes
+
+- PowerShell scripts (`bind-proxy-cert.ps1`, etc.) are still useful for automation
+- The UI provides the same functionality in a more accessible way
+- Backend implementation is platform-specific (Windows cert store APIs)
+

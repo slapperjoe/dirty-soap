@@ -10,7 +10,7 @@ describe('RequestHistoryService', () => {
 
     beforeEach(() => {
         // Create a temporary test directory
-        testConfigDir = path.join(os.tmpdir(), `dirty-soap-test-${Date.now()}`);
+        testConfigDir = path.join(os.tmpdir(), `APInox-test-${Date.now()}`);
         fs.mkdirSync(testConfigDir, { recursive: true });
 
         service = new RequestHistoryService(testConfigDir);

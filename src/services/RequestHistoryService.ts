@@ -5,7 +5,7 @@ import { RequestHistoryEntry, HistoryConfig } from '../../shared/src/models';
 
 /**
  * Service for managing request history
- * Stores history in ~/.dirty-soap/history.json
+ * Stores history in ~/.APInox/history.json
  */
 export class RequestHistoryService {
     private historyPath: string;

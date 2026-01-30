@@ -12,8 +12,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 const Container = styled.div`
     display: flex;
+    width: 100%;
     height: 100%;
     overflow: hidden;
+    box-sizing: border-box;
 `;
 
 const LeftPanel = styled.div`

@@ -17,6 +17,7 @@ const Container = styled.div`
     display: flex;
     height: 100%;
     overflow: hidden;
+    width:100%
 `;
 
 const StepsPanel = styled.div`

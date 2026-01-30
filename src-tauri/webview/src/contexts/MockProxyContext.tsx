@@ -6,9 +6,9 @@ import { bridge } from '../utils/bridge';
 interface MockProxyContextType {
     // Mock
     mockRunning: boolean;
-    setMockRunning: (running: boolean) => void;
+    setMockRunning: React.Dispatch<React.SetStateAction<boolean>>;
     mockConfig: MockConfig | null;
-    setMockConfig: (config: MockConfig) => void;
+    setMockConfig: React.Dispatch<React.SetStateAction<MockConfig | null>>;
     mockHistory: MockEvent[];
     setMockHistory: React.Dispatch<React.SetStateAction<MockEvent[]>>;
     toggleMock: () => void;
@@ -16,7 +16,7 @@ interface MockProxyContextType {
 
     // Proxy
     proxyRunning: boolean;
-    setProxyRunning: (running: boolean) => void;
+    setProxyRunning: React.Dispatch<React.SetStateAction<boolean>>;
     proxyHistory: ProxyEvent[]; // or any[] if type unclear, assuming ProxyEvent exists or use any
     setProxyHistory: React.Dispatch<React.SetStateAction<ProxyEvent[]>>;
     proxyConfig: any;

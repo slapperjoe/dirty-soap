@@ -11,8 +11,10 @@ const Container = styled.div`
     flex-direction: column;
     gap: ${SPACING_MD};
     padding: ${SPACING_MD};
+    width: 100%;
     height: 100%;
     overflow: hidden;
+    box-sizing: border-box;
 `;
 
 const Header = styled.div`

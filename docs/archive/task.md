@@ -23,5 +23,5 @@
     - [x] Add "Revert to Default" button <!-- id: 20 -->
 - [x] Implement Output Logging for Debugging <!-- id: 21 -->
 - [x] Create AGENTS.md for codebase context <!-- id: 22 -->
-- [x] Rename project to "Dirty SOAP" (dirty-soap) <!-- id: 23 -->
+- [x] Rename project to "Dirty SOAP" (APInox) <!-- id: 23 -->
 - [x] Configure .gitignore for Node/Build artifacts <!-- id: 24 -->

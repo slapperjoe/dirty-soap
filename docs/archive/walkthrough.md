@@ -45,7 +45,7 @@ I ran a verification script (`verify_soap.ts`) against the `CountryInfoService` 
 
 ## Installation from VSIX
 
-1.  Locate `dirty-soap-0.0.1.vsix` in the project root.
+1.  Locate `APInox-0.0.1.vsix` in the project root.
 2.  In VS Code, go to Extensions view -> "..." -> "Install from VSIX...".
 3.  Select the generated file.
 
