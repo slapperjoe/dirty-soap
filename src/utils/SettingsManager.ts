@@ -24,7 +24,9 @@ export interface ApinoxConfig {
         showLineNumbers?: boolean;
         alignAttributes?: boolean;
         inlineElementValues?: boolean;
+        showDebugIndicator?: boolean;
         splitRatio?: number;
+        autoFoldElements?: string[];
     };
     activeEnvironment?: string;
     lastConfigPath?: string;
@@ -33,6 +35,7 @@ export interface ApinoxConfig {
     environments?: Record<string, {
         endpoint_url?: string;
         env?: string;
+        color?: string;
         _secretFields?: string[];
         [key: string]: string | string[] | undefined;
     }>;

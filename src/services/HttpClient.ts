@@ -253,8 +253,10 @@ export class HttpClient {
       }
 
       const controller = new AbortController();
-      const timeout = options?.timeout || 30000;
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      // Use configured timeout from settings, fallback to passed option, then default 30s
+      const configuredTimeout = this.settingsManager.getConfig().network?.defaultTimeout;
+      const timeoutMs = options?.timeout || (configuredTimeout ? configuredTimeout * 1000 : 30000);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       // Combine both abort signals (manual cancel + timeout)
       const combinedSignal = this.combineAbortSignals(

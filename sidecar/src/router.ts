@@ -697,6 +697,12 @@ export function createCommandRouter(services: ServiceContainer): CommandRouter {
             services.performanceService.setSuites(updatedConfig.performanceSuites || []);
             services.performanceService.setHistory(updatedConfig.performanceHistory || []);
             services.scheduleService.loadSchedules(updatedConfig.performanceSchedules || []);
+            
+            // Sync proxy-related rules to ProxyService if running
+            services.proxyService.setProxyRules(updatedConfig.network?.proxyRules || []);
+            services.proxyService.setReplaceRules(updatedConfig.replaceRules || []);
+            services.proxyService.setBreakpoints(updatedConfig.breakpoints || []);
+            
             return {
                 success: true
             };
