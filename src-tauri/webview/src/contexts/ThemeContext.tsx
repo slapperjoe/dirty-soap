@@ -6,7 +6,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { isVsCode } from '../utils/bridge';
+
 import { themes, ThemeName } from '../styles/themes';
 import { debugLog } from '../utils/logger';
 import { applyUIFont, UIFontValue } from '../utils/fontLoader';
@@ -37,7 +37,7 @@ interface ThemeProviderProps {
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     // Detect if we're in Tauri mode (NOT VSCode)
-    const isTauriMode = !isVsCode();
+    const isTauriMode = true;
 
     // Default to dark theme
     const [theme, setThemeState] = useState<ThemeName>('dark');

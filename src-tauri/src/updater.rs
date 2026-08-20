@@ -616,31 +616,23 @@ pub async fn launch_installer(
             .output()
             .ok();
 
-        // Write a shell script that runs after we quit and swaps the bundles.
+        // Spawn a helper that swaps bundles after the app exits.
+        // Paths are passed as positional arguments ($1/$2) to avoid
+        // shell injection — no interpolation into the script body.
+        // Fix: replaced format!()-built shell script with safe Command arg passing.
         let app_bundle_str = app_bundle.to_string_lossy();
         let temp_app_str   = temp_app.to_string_lossy();
-        let script = format!(
-            "#!/bin/bash\nsleep 2\nrm -rf \"{0}\"\nmv \"{1}\" \"{0}\"\nopen \"{0}\"\n",
-            app_bundle_str, temp_app_str
-        );
-        let script_path = std::env::temp_dir().join("apinox-updater.sh");
-        std::fs::write(&script_path, &script)
-            .map_err(|e| format!("Failed to write update script: {}", e))?;
-        std::process::Command::new("chmod")
-            .args(["+x", script_path.to_str().unwrap_or("")])
-            .output()
-            .map_err(|e| format!("Failed to chmod update script: {}", e))?;
-
-        // Launch the script detached so it survives this process exiting.
-        std::process::Command::new("bash")
-            .arg(script_path.to_str().unwrap_or(""))
+        std::process::Command::new("sh")
+            .arg("-c")
+            .arg("sleep 2; rm -rf \"$1\"; mv \"$2\" \"$1\"; open \"$1\"")
+            .arg("sh")
+            .arg(app_bundle_str.as_ref())
+            .arg(temp_app_str.as_ref())
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|e| format!("Failed to launch update script: {}", e))?;
-
-        log::info!(
-            "[Updater] macOS update staged: {} → {}; quitting for replacement",
-            temp_app_str, app_bundle_str
-        );
         app.exit(0);
         return Ok(());
     }

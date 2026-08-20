@@ -37,7 +37,17 @@ fn get_secrets_path() -> Result<PathBuf, String> {
     Ok(config_dir.join("secrets.enc"))
 }
 
-/// Get or create encryption key
+/// Get or create encryption key.
+///
+/// # Security Note
+///
+/// The key is stored on disk as a plaintext hex string with `chmod 600`
+/// permissions on Unix.  This means any process running as the same user
+/// can read the key, which is sufficient to decrypt the secrets file.
+///
+/// Future work should integrate with the OS keychain / credential manager
+/// (macOS Keychain, Windows DPAPI, freedesktop Secret Service) so that
+/// the unwrapped key never sits in a plain file on disk.
 fn get_or_create_key() -> Result<[u8; 32], String> {
     // Check environment variable first
     if let Ok(env_key) = std::env::var("APINOX_SECRET_KEY") {

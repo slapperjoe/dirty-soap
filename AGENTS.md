@@ -385,4 +385,4 @@ If code changes don't appear after restart:
 
 ## Known Technical Debt
 
-See [CODE_ANALYSIS.md](./CODE_ANALYSIS.md) for a detailed analysis of simplification opportunities.
+*See commit history for past technical debt resolutions.*

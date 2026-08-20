@@ -5,10 +5,12 @@ use anyhow::{Result, anyhow};
 use reqwest::{Client, Proxy};
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use std::sync::Arc;
 
 use super::{EnvelopeBuilder, SoapVersion};
 use super::ws_security::WsSecurityConfig;
 use crate::parsers::wsdl::types::ServiceOperation;
+use crate::http::client::CancelToken;
 
 /// SOAP Fault information
 #[derive(Debug, Clone)]
@@ -44,6 +46,7 @@ impl SoapResponse {
 /// SOAP Client for executing SOAP requests
 pub struct SoapClient {
     http_client: Client,
+    pub allow_invalid_certs: bool,
 }
 
 impl SoapClient {
@@ -51,29 +54,124 @@ impl SoapClient {
     pub fn new() -> Self {
         Self {
             http_client: Client::new(),
+            allow_invalid_certs: false,
         }
     }
 
     /// Create a SOAP client that routes all traffic through the given proxy URL.
-    /// Disables certificate verification so HTTPS traffic can be intercepted.
-    pub fn with_proxy(proxy_url: &str) -> Result<Self> {
+    /// When `allow_invalid_certs` is true, disables certificate verification so
+    /// HTTPS traffic can be intercepted (e.g. for MITM proxy debugging).
+    pub fn with_proxy(proxy_url: &str, allow_invalid_certs: bool) -> Result<Self> {
         let proxy = Proxy::all(proxy_url)
             .map_err(|e| anyhow!("Invalid proxy URL '{}': {}", proxy_url, e))?;
-        let client = Client::builder()
-            .proxy(proxy)
-            .danger_accept_invalid_certs(true) // required for MITM proxy interception
+        let mut builder = Client::builder()
+            .proxy(proxy);
+        if allow_invalid_certs {
+            builder = builder.danger_accept_invalid_certs(true);
+        }
+        let client = builder
             .build()
             .map_err(|e| anyhow!("Failed to build proxy HTTP client: {}", e))?;
-        Ok(Self { http_client: client })
+        Ok(Self { http_client: client, allow_invalid_certs })
     }
 
     /// Create a SOAP client with a custom HTTP client
-    pub fn with_client(client: Client) -> Self {
+    pub fn with_client(client: Client, allow_invalid_certs: bool) -> Self {
         Self {
             http_client: client,
+            allow_invalid_certs,
         }
     }
     
+    /// Execute a SOAP request, optionally supporting cancellation via the token.
+    pub async fn execute_with_cancel(
+        &self,
+        operation: &ServiceOperation,
+        soap_version: SoapVersion,
+        values: std::collections::HashMap<String, String>,
+        security: Option<WsSecurityConfig>,
+        endpoint_override: Option<String>,
+        content_type_override: Option<&str>,
+        cancel_token: Option<Arc<CancelToken>>,
+    ) -> Result<SoapResponse> {
+        // Build the SOAP envelope
+        let mut builder = EnvelopeBuilder::new(soap_version, operation.clone());
+
+        for (path, value) in values {
+            builder.set_value(&path, value);
+        }
+
+        if let Some(sec) = security {
+            builder.set_security(sec);
+        }
+
+        let envelope = builder.build()?;
+
+        // Determine endpoint
+        let endpoint = endpoint_override
+            .or_else(|| operation.original_endpoint.clone())
+            .ok_or_else(|| anyhow!("No endpoint specified for operation"))?;
+
+        // Prepare headers
+        let content_type = content_type_override.unwrap_or_else(|| soap_version.content_type());
+        let mut request = self.http_client
+            .post(&endpoint)
+            .header("Content-Type", content_type)
+            .body(envelope.clone());
+
+        // Add SOAPAction header for SOAP 1.1
+        if soap_version == SoapVersion::Soap11 {
+            let soap_action = operation.action.as_deref().unwrap_or("");
+            request = request.header("SOAPAction", format!("\"{}\"", soap_action));
+        }
+
+        log::info!("Sending SOAP request to: {}", endpoint);
+        log::debug!("Request headers:");
+        log::debug!("  Content-Type: {}", content_type);
+        if soap_version == SoapVersion::Soap11 {
+            log::debug!("  SOAPAction: \"{}\"", operation.action.as_deref().unwrap_or(""));
+        }
+        log::info!("Request body:\n{}", envelope);
+
+        let response = if let Some(ref token) = cancel_token {
+            tokio::select! {
+                res = request.send() => res?,
+                _ = token.wait() => {
+                    return Err(anyhow!("SOAP request cancelled"));
+                }
+            }
+        } else {
+            request.send().await?
+        };
+
+        let status_code = response.status().as_u16();
+        let status_text = response.status().canonical_reason().unwrap_or("Unknown");
+
+        let headers: Vec<(String, String)> = response.headers()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+            .collect();
+
+        log::info!("Response: {} {}", status_code, status_text);
+        log::debug!("Response headers:");
+        for (k, v) in &headers {
+            log::debug!("  {}: {}", k, v);
+        }
+
+        let raw_xml = response.text().await?;
+        log::info!("Response body:\n{}", raw_xml);
+
+        let (body, fault) = parse_soap_response(&raw_xml)?;
+
+        Ok(SoapResponse {
+            status_code,
+            headers,
+            body,
+            fault,
+            raw_xml,
+        })
+    }
+
     /// Execute a SOAP request
     /// 
     /// # Arguments
@@ -92,71 +190,73 @@ impl SoapClient {
         endpoint_override: Option<String>,
         content_type_override: Option<&str>,
     ) -> Result<SoapResponse> {
-        // Build the SOAP envelope
-        let mut builder = EnvelopeBuilder::new(soap_version, operation.clone());
-        
-        for (path, value) in values {
-            builder.set_value(&path, value);
-        }
-        
-        if let Some(sec) = security {
-            builder.set_security(sec);
-        }
-        
-        let envelope = builder.build()?;
-        
-        // Determine endpoint
-        let endpoint = endpoint_override
-            .or_else(|| operation.original_endpoint.clone())
-            .ok_or_else(|| anyhow!("No endpoint specified for operation"))?;
-        
-        // Prepare headers
-        // Use user-supplied Content-Type if provided, otherwise derive from SOAP version
+        self.execute_with_cancel(
+            operation,
+            soap_version,
+            values,
+            security,
+            endpoint_override,
+            content_type_override,
+            None,
+        )
+        .await
+    }
+
+    /// Execute a SOAP request using a raw, pre-built XML envelope, with optional cancellation.
+    pub async fn execute_raw_with_cancel(
+        &self,
+        raw_envelope: &str,
+        soap_version: SoapVersion,
+        endpoint: &str,
+        soap_action: Option<&str>,
+        content_type_override: Option<&str>,
+        cancel_token: Option<Arc<CancelToken>>,
+    ) -> Result<SoapResponse> {
         let content_type = content_type_override.unwrap_or_else(|| soap_version.content_type());
+
         let mut request = self.http_client
-            .post(&endpoint)
+            .post(endpoint)
             .header("Content-Type", content_type)
-            .body(envelope.clone());
-        
-        // Add SOAPAction header for SOAP 1.1
+            .body(raw_envelope.to_string());
+
         if soap_version == SoapVersion::Soap11 {
-            let soap_action = operation.action.as_deref().unwrap_or("");
-            request = request.header("SOAPAction", format!("\"{}\"", soap_action));
+            let action = soap_action.unwrap_or("");
+            request = request.header("SOAPAction", format!("\"{}\"", action));
         }
 
-        // Log all request headers
-        log::info!("Sending SOAP request to: {}", endpoint);
-        log::debug!("Request headers:");
+        log::info!("Sending raw SOAP request to: {}", endpoint);
         log::debug!("  Content-Type: {}", content_type);
         if soap_version == SoapVersion::Soap11 {
-            log::debug!("  SOAPAction: \"{}\"", operation.action.as_deref().unwrap_or(""));
+            log::debug!("  SOAPAction: \"{}\"", soap_action.unwrap_or(""));
         }
-        log::info!("Request body:\n{}", envelope);
+        log::info!("Request body:\n{}", raw_envelope);
 
-        let response = request.send().await?;
-        
+        let response = if let Some(ref token) = cancel_token {
+            tokio::select! {
+                res = request.send() => res?,
+                _ = token.wait() => {
+                    return Err(anyhow!("SOAP request cancelled"));
+                }
+            }
+        } else {
+            request.send().await?
+        };
+
         let status_code = response.status().as_u16();
         let status_text = response.status().canonical_reason().unwrap_or("Unknown");
 
-        // Extract response headers
         let headers: Vec<(String, String)> = response.headers()
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
             .collect();
 
         log::info!("Response: {} {}", status_code, status_text);
-        log::debug!("Response headers:");
-        for (k, v) in &headers {
-            log::debug!("  {}: {}", k, v);
-        }
-        
-        // Get response body
+
         let raw_xml = response.text().await?;
         log::info!("Response body:\n{}", raw_xml);
-        
-        // Parse the SOAP response
+
         let (body, fault) = parse_soap_response(&raw_xml)?;
-        
+
         Ok(SoapResponse {
             status_code,
             headers,
@@ -178,49 +278,15 @@ impl SoapClient {
         soap_action: Option<&str>,
         content_type_override: Option<&str>,
     ) -> Result<SoapResponse> {
-        let content_type = content_type_override.unwrap_or_else(|| soap_version.content_type());
-
-        let mut request = self.http_client
-            .post(endpoint)
-            .header("Content-Type", content_type)
-            .body(raw_envelope.to_string());
-
-        if soap_version == SoapVersion::Soap11 {
-            let action = soap_action.unwrap_or("");
-            request = request.header("SOAPAction", format!("\"{}\"", action));
-        }
-
-        log::info!("Sending raw SOAP request to: {}", endpoint);
-        log::debug!("  Content-Type: {}", content_type);
-        if soap_version == SoapVersion::Soap11 {
-            log::debug!("  SOAPAction: \"{}\"", soap_action.unwrap_or(""));
-        }
-        log::info!("Request body:\n{}", raw_envelope);
-
-        let response = request.send().await?;
-
-        let status_code = response.status().as_u16();
-        let status_text = response.status().canonical_reason().unwrap_or("Unknown");
-
-        let headers: Vec<(String, String)> = response.headers()
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
-            .collect();
-
-        log::info!("Response: {} {}", status_code, status_text);
-
-        let raw_xml = response.text().await?;
-        log::info!("Response body:\n{}", raw_xml);
-
-        let (body, fault) = parse_soap_response(&raw_xml)?;
-
-        Ok(SoapResponse {
-            status_code,
-            headers,
-            body,
-            fault,
-            raw_xml,
-        })
+        self.execute_raw_with_cancel(
+            raw_envelope,
+            soap_version,
+            endpoint,
+            soap_action,
+            content_type_override,
+            None,
+        )
+        .await
     }
 }
 

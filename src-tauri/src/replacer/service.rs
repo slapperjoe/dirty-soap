@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use crate::proxy_models::ReplaceRule;
 
 /// In-memory store for replace rules with pre-compiled regex cache.
@@ -8,6 +9,8 @@ pub struct ReplacerService {
     pub rules: Vec<ReplaceRule>,
     /// Pre-compiled regexes keyed by rule id, only for regex-mode rules.
     regex_cache: HashMap<String, regex::Regex>,
+    /// Regex compilation errors keyed by rule id.
+    regex_errors: HashMap<String, String>,
 }
 
 pub type SharedReplacerService = Arc<Mutex<ReplacerService>>;
@@ -22,9 +25,15 @@ impl ReplacerService {
     }
 
     pub fn add_rule(&mut self, rule: ReplaceRule) {
+        self.regex_errors.remove(&rule.id);
         if rule.is_regex {
-            if let Ok(re) = regex::Regex::new(&rule.match_pattern) {
-                self.regex_cache.insert(rule.id.clone(), re);
+            match regex::Regex::new(&rule.match_pattern) {
+                Ok(re) => {
+                    self.regex_cache.insert(rule.id.clone(), re);
+                }
+                Err(e) => {
+                    self.regex_errors.insert(rule.id.clone(), e.to_string());
+                }
             }
         }
         self.rules.push(rule);
@@ -33,9 +42,15 @@ impl ReplacerService {
     pub fn update_rule(&mut self, id: &str, updated: ReplaceRule) -> bool {
         if let Some(r) = self.rules.iter_mut().find(|r| r.id == id) {
             self.regex_cache.remove(id);
+            self.regex_errors.remove(id);
             if updated.is_regex {
-                if let Ok(re) = regex::Regex::new(&updated.match_pattern) {
-                    self.regex_cache.insert(updated.id.clone(), re);
+                match regex::Regex::new(&updated.match_pattern) {
+                    Ok(re) => {
+                        self.regex_cache.insert(updated.id.clone(), re);
+                    }
+                    Err(e) => {
+                        self.regex_errors.insert(updated.id.clone(), e.to_string());
+                    }
                 }
             }
             *r = updated;
@@ -49,20 +64,32 @@ impl ReplacerService {
         let len_before = self.rules.len();
         self.rules.retain(|r| r.id != id);
         self.regex_cache.remove(id);
+        self.regex_errors.remove(id);
         self.rules.len() != len_before
     }
 
     /// Replace all rules at once (e.g. on config load).
     pub fn set_rules(&mut self, rules: Vec<ReplaceRule>) {
         self.regex_cache.clear();
+        self.regex_errors.clear();
         for rule in &rules {
             if rule.is_regex {
-                if let Ok(re) = regex::Regex::new(&rule.match_pattern) {
-                    self.regex_cache.insert(rule.id.clone(), re);
+                match regex::Regex::new(&rule.match_pattern) {
+                    Ok(re) => {
+                        self.regex_cache.insert(rule.id.clone(), re);
+                    }
+                    Err(e) => {
+                        self.regex_errors.insert(rule.id.clone(), e.to_string());
+                    }
                 }
             }
         }
         self.rules = rules;
+    }
+
+    /// Retrieve regex compilation errors keyed by rule ID.
+    pub fn get_rule_errors(&self) -> HashMap<String, String> {
+        self.regex_errors.clone()
     }
 
     /// Apply active rules to text, filtered by context ("request" or "response").

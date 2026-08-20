@@ -1,9 +1,15 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use once_cell::sync::Lazy;
 
 use crate::soap::{EnvelopeBuilder, SoapVersion, SoapClient, WsSecurityConfig, UsernameToken, PasswordType};
 use crate::parsers::wsdl::types::ServiceOperation;
 use crate::utils::WildcardProcessor;
+use crate::http::client::CancelToken;
+
+static CANCEL_TOKENS: Lazy<Mutex<HashMap<String, Arc<CancelToken>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,6 +128,9 @@ pub struct ExecuteSoapRequest {
     /// Context/workflow variables (chain extractors, test-case variables)
     #[serde(default)]
     pub context_variables: HashMap<String, String>,
+    /// Allow invalid TLS certificates (for MITM proxy / self-signed servers)
+    #[serde(default)]
+    pub allow_invalid_certs: bool,
 }
 
 /// Response from SOAP execution
@@ -154,8 +163,25 @@ pub async fn execute_soap_request(
     log::info!("Executing SOAP request for operation: {}", request.operation.name);
     log::debug!("Operation target_namespace: {:?}", request.operation.target_namespace);
     log::debug!("Operation action: {:?}", request.operation.action);
-    
-    // Parse SOAP version
+
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let cancel_token = {
+        let token = Arc::new(CancelToken::new());
+        CANCEL_TOKENS.lock().unwrap().insert(request_id.clone(), token.clone());
+        token
+    };
+
+    let result = execute_soap_request_inner(request, Some(cancel_token)).await;
+
+    CANCEL_TOKENS.lock().unwrap().remove(&request_id);
+
+    result
+}
+
+async fn execute_soap_request_inner(
+    request: ExecuteSoapRequest,
+    cancel_token: Option<Arc<CancelToken>>,
+) -> Result<ExecuteSoapResponse, String> {
     let version = match request.soap_version.as_str() {
         "1.1" => SoapVersion::Soap11,
         "1.2" => SoapVersion::Soap12,
@@ -169,44 +195,54 @@ pub async fn execute_soap_request(
             error: Some(format!("Invalid SOAP version: {}", request.soap_version)),
         }),
     };
-    
+
     // Build security config
     let security = if let (Some(username), Some(password)) = (request.username, request.password) {
         let mut config = WsSecurityConfig::new();
-        
+
         // Determine password type
         let password_type = match request.password_type.as_deref() {
             Some("digest") => PasswordType::Digest,
             _ => PasswordType::Text,
         };
-        
+
         config = config.with_username_token(UsernameToken::new(
             username,
             password,
             password_type,
         ));
-        
+
         // Add timestamp if requested
         if request.add_timestamp.unwrap_or(false) {
             config = config.with_default_timestamp();
         }
-        
+
         Some(config)
     } else if request.add_timestamp.unwrap_or(false) {
         Some(WsSecurityConfig::new().with_default_timestamp())
     } else {
         None
     };
-    
+
     // Execute the request
     let client = match request.proxy_url.as_deref().filter(|s| !s.is_empty()) {
         Some(proxy) => {
             log::info!("Using proxy for SOAP request: {}", proxy);
-            SoapClient::with_proxy(proxy).map_err(|e| e.to_string())?
+            SoapClient::with_proxy(proxy, request.allow_invalid_certs).map_err(|e| e.to_string())?
         }
-        None => SoapClient::new(),
+        None => {
+            if request.allow_invalid_certs {
+                let client = reqwest::Client::builder()
+                    .danger_accept_invalid_certs(true)
+                    .build()
+                    .map_err(|e| e.to_string())?;
+                SoapClient::with_client(client, true)
+            } else {
+                SoapClient::new()
+            }
+        }
     };
-    
+
     // Resolve the Content-Type: prefer the user-selected value, fall back to SOAP-version default
     let content_type_override: Option<String> = request.content_type
         .filter(|s| !s.is_empty());
@@ -236,21 +272,23 @@ pub async fn execute_soap_request(
             context_vars,
         );
         log::info!("Using raw XML from editor (bypassing EnvelopeBuilder)");
-        client.execute_raw(
+        client.execute_raw_with_cancel(
             &processed_xml,
             version,
             &processed_endpoint,
             request.operation.action.as_deref(),
             content_type_override.as_deref(),
+            cancel_token,
         ).await
     } else {
-        client.execute(
+        client.execute_with_cancel(
             &request.operation,
             version,
             request.values,
             security,
             request.endpoint,
             content_type_override.as_deref(),
+            cancel_token,
         ).await
     };
 
@@ -285,13 +323,24 @@ pub async fn execute_soap_request(
     }
 }
 
-/// Cancel an in-flight request
-/// 
-/// NOTE: Currently a no-op stub. The frontend handles cancellation by setting loading state to false.
-/// In the future, we could implement proper request tracking with tokio::CancellationToken
-/// to abort in-flight HTTP requests, but for now the UI cancellation is sufficient.
+/// Cancel an in-flight SOAP request by its request ID.
+///
+/// When called from the frontend, the `request_id` is passed along with the
+/// original request so the UI can refer to the in-flight operation.
 #[tauri::command]
-pub async fn cancel_request() -> Result<serde_json::Value, String> {
-    log::debug!("Request cancellation called (no-op - frontend handles UI state)");
-    Ok(serde_json::json!({ "success": true }))
+pub async fn cancel_request(request_id: Option<String>) -> Result<serde_json::Value, String> {
+    let mut tokens = CANCEL_TOKENS.lock().unwrap();
+    if let Some(ref id) = request_id {
+        if let Some(token) = tokens.get(id) {
+            token.cancel();
+            log::info!("Cancelled SOAP request: {}", id);
+            return Ok(serde_json::json!({ "success": true, "cancelled": true }));
+        }
+    }
+    // If no specific ID was given, cancel all in-flight requests.
+    for (id, token) in tokens.iter() {
+        token.cancel();
+        log::info!("Cancelled SOAP request (bulk cancel): {}", id);
+    }
+    Ok(serde_json::json!({ "success": true, "cancelled": !tokens.is_empty() }))
 }

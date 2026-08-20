@@ -439,7 +439,7 @@ async fn build_proxy_state(app: &tauri::AppHandle) -> Result<ProxyAppState, Stri
 
     let replacer_svc = replacer::service::new_shared();
     {
-        let mut svc = replacer_svc.lock().unwrap();
+        let mut svc = replacer_svc.lock().await;
         for rule in proxy_storage.load_replace_rules() {
             svc.add_rule(rule);
         }
@@ -608,9 +608,6 @@ pub fn run() {
             performance::commands::run_performance_suite,
             performance::commands::get_performance_run_updates,
             performance::commands::abort_performance_suite,
-            performance::commands::start_coordinator,
-            performance::commands::stop_coordinator,
-            performance::commands::get_coordinator_status,
             workflow::commands::run_workflow,
             workflow::commands::get_workflows,
             workflow::commands::save_workflow,
@@ -639,6 +636,7 @@ pub fn run() {
             commands::mock_server::export_mock_collection,
             commands::mock_server::import_mock_collection,
             commands::replacer_server::get_replace_rules,
+            commands::replacer_server::get_replacer_rule_errors,
             commands::replacer_server::add_replace_rule,
             commands::replacer_server::update_replace_rule,
             commands::replacer_server::delete_replace_rule,

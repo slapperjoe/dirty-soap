@@ -7,7 +7,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { ApinoxProject, TestStep, TestCase, TestStepType, RequestExtractor } from '@shared/models';
-import { bridge, isVsCode } from '../utils/bridge';
+import { bridge } from '../utils/bridge';
 import {
     deleteTestStep,
     reorderTestStep,
@@ -189,7 +189,7 @@ export function useWorkspaceCallbacks({
         };
 
         if (type === 'request') {
-            if (isVsCode()) {
+            if (false) {
                 bridge.sendMessage({ command: 'pickOperationForTestCase', caseId });
             } else {
                 onPickRequestForTestCase?.(caseId);

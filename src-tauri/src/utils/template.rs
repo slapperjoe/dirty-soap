@@ -4,7 +4,12 @@
 /// Supports both syntaxes so templates written for either convention work correctly.
 pub fn substitute_variables(template: &str, variables: &std::collections::HashMap<String, String>) -> String {
     let mut result = template.to_string();
-    for (key, value) in variables {
+    // Sort keys by length descending so "fooBar" is substituted before "foo",
+    // preventing shorter keys from matching inside longer key names.
+    let mut keys: Vec<&String> = variables.keys().collect();
+    keys.sort_by_key(|k| -(k.len() as isize));
+    for key in keys {
+        let value = &variables[key];
         result = result.replace(&format!("{{{{{}}}}}", key), value);
         result = result.replace(&format!("${{{}}}", key), value);
     }

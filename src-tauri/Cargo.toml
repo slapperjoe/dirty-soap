@@ -104,13 +104,16 @@ rcgen = { version = "0.13", features = ["pem", "x509-parser"] }
 x509-parser = "0.16"
 pem = "3.0"
 
+# Stream utilities for body reader
+futures-util = "0.3"
+tempfile = "3"
+
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Win32_Graphics_Dwm", "Win32_Foundation"] }
 # System proxy detection (reads Internet Settings registry + WPAD via .NET)
 winreg = "0.52"
 
 [dev-dependencies]
-tempfile = "3"
 rustls-pemfile = "2"
 
 [profile.release]

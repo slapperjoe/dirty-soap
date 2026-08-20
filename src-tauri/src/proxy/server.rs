@@ -23,8 +23,17 @@ use crate::certificates::sni_resolver::SniResolver;
 use crate::mock::server::find_matching_rule;
 use crate::mock::state::SharedMockState;
 use crate::proxy_models::{PausedTraffic, ProxyConfig, TrafficEvent};
-use crate::utils::{emit_traffic_event, match_pattern, CONTENT_TYPE_PLAIN};
+use crate::utils::{emit_traffic_event, match_pattern, read_body, CONTENT_TYPE_PLAIN};
 use crate::replacer::service::SharedReplacerService;
+use once_cell::sync::Lazy;
+
+static PROXY_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
+    reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Failed to build proxy HTTP client")
+});
 
 /// Run the forward proxy server. Loops forever; cancel by aborting the spawned task.
 pub async fn run_proxy(
@@ -72,7 +81,7 @@ pub async fn run_proxy(
         let mock_state = mock_state.clone();
         let breakpoints = breakpoints.clone();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let svc = service_fn(move |req: Request<Incoming>| {
                 let config = config.clone();
                 let replacer = replacer.clone();
@@ -95,6 +104,11 @@ pub async fn run_proxy(
                 .await
             {
                 log::debug!("[Proxy] Connection closed: {:?}", e);
+            }
+        });
+        tokio::spawn(async move {
+            if let Err(e) = handle.await {
+                log::error!("[Proxy] Accept-loop background task panicked: {:?}", e);
             }
         });
     }
@@ -141,7 +155,7 @@ async fn handle_connect(
 
     let hostname = host.split(':').next().unwrap_or(&host).to_string();
 
-    tokio::spawn(async move {
+    let connect_handle = tokio::spawn(async move {
         match hyper::upgrade::on(req).await {
             Ok(upgraded) => {
                 let client_io = TokioIo::new(upgraded);
@@ -182,6 +196,11 @@ async fn handle_connect(
                 }
             }
             Err(e) => log::warn!("[Proxy] Upgrade error: {}", e),
+        }
+    });
+    tokio::spawn(async move {
+        if let Err(e) = connect_handle.await {
+            log::error!("[Proxy] MITM CONNECT tunnel background task panicked: {:?}", e);
         }
     });
 
@@ -233,20 +252,20 @@ async fn handle_http(
         .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
         .collect();
 
-    // Read full request body
-    let raw_bytes = match req.collect().await {
-        Ok(b) => b.to_bytes(),
+    // Read full request body (spooled to disk if exceeding configured limit)
+    let body_bytes = match read_body(req.into_body(), config.max_body_bytes).await {
+        Ok(b) => b.into_bytes().await.unwrap_or_default(),
         Err(e) => {
             log::warn!("[Proxy] Failed to read request body: {}", e);
             return error_response(StatusCode::BAD_GATEWAY, "Failed to read request body");
         }
     };
-    let raw_req_body = String::from_utf8_lossy(&raw_bytes).into_owned();
+    let raw_req_body = String::from_utf8_lossy(&body_bytes).into_owned();
     log::debug!("[Proxy] Request body: {} bytes", raw_req_body.len());
 
     // Apply replace rules to request body
     let req_body = {
-        let svc = replacer.lock().unwrap();
+        let svc = replacer.lock().await;
         svc.apply_request(&raw_req_body)
     };
 
@@ -356,17 +375,7 @@ async fn handle_http(
     };
 
     // Build and send the forwarded request
-    let client = match reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("[Proxy] Failed to build HTTP client: {}", e);
-            return error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal proxy error");
-        }
-    };
+    let client = &*PROXY_CLIENT;
 
     let req_method = match reqwest::Method::from_bytes(method.as_bytes()) {
         Ok(m) => m,
@@ -447,7 +456,7 @@ async fn handle_http(
             let body_str = String::from_utf8_lossy(&body_bytes).into_owned();
             log::debug!("[Proxy] Response {}: {} bytes", status, body_str.len());
             let body_out = {
-                let svc = replacer.lock().unwrap();
+                let svc = replacer.lock().await;
                 svc.apply_response(&body_str)
             };
             (status, resp_headers, body_out)

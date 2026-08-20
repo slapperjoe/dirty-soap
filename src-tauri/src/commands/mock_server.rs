@@ -21,6 +21,7 @@ pub async fn start_mock(
     port: u16,
     target_url: String,
     passthrough_enabled: bool,
+    max_body_bytes: Option<u64>,
     state: State<'_, LazyProxyAppState>,
     app: AppHandle,
 ) -> Result<(), String> {
@@ -34,16 +35,22 @@ pub async fn start_mock(
     ms.config.port = port;
     ms.config.target_url = target_url;
     ms.config.passthrough_enabled = passthrough_enabled;
+    ms.config.max_body_bytes = max_body_bytes;
     ms.config.enabled = true;
 
-    let mock_state = state.mock.clone();
+    let mock_state_inner = state.mock.clone();
     let handle = tokio::spawn(async move {
-        if let Err(e) = run_mock(mock_state, app).await {
+        if let Err(e) = run_mock(mock_state_inner, app).await {
             log::error!("[Mock] Server error: {}", e);
         }
     });
 
     ms.task = Some(handle.abort_handle());
+    tokio::spawn(async move {
+        if let Err(e) = handle.await {
+            log::error!("[Mock] Mock server background task panicked: {:?}", e);
+        }
+    });
     ms.running = true;
 
     log::info!("[Mock] Started on port {}", ms.config.port);

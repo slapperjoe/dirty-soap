@@ -37,6 +37,9 @@ pub struct ProxyConfig {
     pub target_url: String,
     /// "proxy" | "mock" | "both"
     pub mode: String,
+    /// Maximum request body size in bytes. None = unlimited (backward compatible).
+    #[serde(default)]
+    pub max_body_bytes: Option<u64>,
 }
 
 impl Default for ProxyConfig {
@@ -46,6 +49,7 @@ impl Default for ProxyConfig {
             port: 8888,
             target_url: String::new(),
             mode: "proxy".to_string(),
+            max_body_bytes: None,
         }
     }
 }
@@ -115,6 +119,9 @@ pub struct MockConfig {
     pub route_through_proxy: bool,
     #[serde(default)]
     pub record_mode: bool,
+    /// Maximum request body size in bytes. None = unlimited (backward compatible).
+    #[serde(default)]
+    pub max_body_bytes: Option<u64>,
 }
 
 impl Default for MockConfig {
@@ -127,6 +134,7 @@ impl Default for MockConfig {
             passthrough_enabled: true,
             route_through_proxy: false,
             record_mode: false,
+            max_body_bytes: None,
         }
     }
 }

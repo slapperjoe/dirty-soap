@@ -87,7 +87,7 @@ export const WatcherPanel: React.FC<WatcherPanelProps> = ({
             {/* List */}
             <SidebarContent>
                 {history.length === 0 ? (
-                    <EmptyState icon={Clock} title={isRunning ? "Watching for events..." : "Watcher stopped"} description={isRunning ? "Waiting for file changes." : "Press Play to begin." />
+                    <EmptyState icon={Clock} title={isRunning ? "Watching for events..." : "Watcher stopped"} description={isRunning ? "Waiting for file changes." : "Press Play to begin."} />
                 ) : (
                     history.map(event => (
                         <ServiceItem key={event.id} onClick={() => onSelectEvent(event)}>

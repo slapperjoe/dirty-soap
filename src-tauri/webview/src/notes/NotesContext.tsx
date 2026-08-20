@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteEntry, NoteLanguage } from "@shared/models";
+import { captureLog } from "../utils/logger";
 import { detectLanguage, DetectedLanguage } from "./detectLanguage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -339,7 +340,9 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (prev.content === prev.savedContent) return prev;
         invoke("save_note", { filePath: prev.entry.filePath, content: prev.content })
           .then(() => setActiveNote((p) => p ? { ...p, savedContent: p.content } : p))
-          .catch(() => {/* silent auto-save failure */});
+          .catch((err) => {
+              captureLog('error', '[Notes] Auto-save failed', err);
+          });
         return prev;
       });
     }, 2000);

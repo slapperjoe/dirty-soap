@@ -7,6 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import { bridge, isTauri } from '../utils/bridge';
+import { debugLog } from '../utils/logger';
 import { generateInitialXmlForOperation } from '../utils/soapUtils';
 import { BackendCommand, FrontendCommand } from '@shared/messages';
 import {
@@ -23,14 +24,6 @@ import {
 import { useNavigation } from '../contexts/NavigationContext';
 
 type SidebarProjectState = ApinoxProject & { loading?: boolean };
-
-// Debug logger - console only to prevent message flooding
-// Note: Sending log messages back to the backend on every received message
-// creates a flood that can lock up the UI, especially on first start
-const debugLog = (context: string, data?: any) => {
-    const msg = `[useMessageHandler] ${context}`;
-    console.log(msg, data || '');
-};
 
 export interface MessageHandlerState {
     // Setters for state that the handler modifies
@@ -149,20 +142,20 @@ export function useMessageHandler(state: MessageHandlerState) {
     useEffect(() => { wsdlUrlRef.current = wsdlUrl; }, [wsdlUrl]);
 
     useEffect(() => {
-        debugLog('Setting up message listener');
+        debugLog('[useMessageHandler] Setting up message listener');
 
         const handleMessage = (message: any) => {
-            debugLog(`Received: ${message.command}`, { hasData: !!message.data || !!message.result });
+            debugLog(`[useMessageHandler] Received: ${message.command}`, { hasData: !!message.data || !!message.result });
 
             switch (message.command) {
                 case BackendCommand.WsdlLoadCancelled:
-                    debugLog('wsdlLoadCancelled');
+                    debugLog('[useMessageHandler] wsdlLoadCancelled');
                     setDownloadStatus(null);
                     break;
 
                 case BackendCommand.WsdlParsed:
                     const data = message.services;
-                    debugLog('wsdlParsed Raw Data', {
+                    debugLog('[useMessageHandler] wsdlParsed Raw Data', {
                         isArray: Array.isArray(data),
                         keys: data ? Object.keys(data) : 'null',
                         hasInterfaces: !!data?.interfaces,
@@ -228,7 +221,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
 
                     const uniqueInterfaces = newInterfaces.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
-                    debugLog('wsdlParsed complete', { interfaceCount: uniqueInterfaces.length });
+                    debugLog('[useMessageHandler] wsdlParsed complete', { interfaceCount: uniqueInterfaces.length });
                     setExploredInterfaces(uniqueInterfaces);
                     setExplorerExpanded(true);
                     setActiveView(SidebarView.EXPLORER);
@@ -236,7 +229,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.Response:
-                    debugLog('response', { hasResult: !!message.result, op: message.operation, request: message.requestName });
+                    debugLog('[useMessageHandler] response', { hasResult: !!message.result, op: message.operation, request: message.requestName });
                     setLoading(false);
                     const endTime = Date.now();
                     const duration = (endTime - startTimeRef.current) / 1000;
@@ -312,18 +305,18 @@ export function useMessageHandler(state: MessageHandlerState) {
                     }
 
                     const nextResponse = { ...res, rawResponse: displayResponse, duration, lineCount, assertionResults: message.assertionResults, language, createdAt };
-                    debugLog('response:setResponse', { duration, lineCount, language, hasRaw: !!displayResponse });
+                    debugLog('[useMessageHandler] response:setResponse', { duration, lineCount, language, hasRaw: !!displayResponse });
                     setResponse(nextResponse);
                     break;
 
                 case BackendCommand.Error:
-                    debugLog('error', { message: message.message, originalCommand: message.originalCommand });
+                    debugLog('[useMessageHandler] error', { message: message.message, originalCommand: message.originalCommand });
                     setLoading(false);
                     setDownloadStatus(null); // Clear loading status on any error
                     
                     // Handle SaveProject errors specially
                     if (message.originalCommand === FrontendCommand.SaveProject && message.projectName) {
-                        debugLog('saveProject error', { projectName: message.projectName, error: message.error });
+                        debugLog('[useMessageHandler] saveProject error', { projectName: message.projectName, error: message.error });
                         // Track the error
                         setSaveErrors(current => {
                             const next = new Map(current);
@@ -348,23 +341,23 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.DownloadComplete:
-                    debugLog('downloadComplete', { fileCount: message.files?.length });
+                    debugLog('[useMessageHandler] downloadComplete', { fileCount: message.files?.length });
                     setDownloadStatus(message.files);
                     setTimeout(() => setDownloadStatus(null), 5000);
                     break;
 
                 case BackendCommand.WsdlSelected:
-                    debugLog('wsdlSelected', { path: message.path });
+                    debugLog('[useMessageHandler] wsdlSelected', { path: message.path });
                     setSelectedFile(message.path);
                     break;
 
                 case BackendCommand.SampleSchema:
-                    debugLog('sampleSchema', { operationName: message.operationName });
+                    debugLog('[useMessageHandler] sampleSchema', { operationName: message.operationName });
                     setSampleModal({ open: true, schema: message.schema, operationName: message.operationName });
                     break;
 
                 case BackendCommand.AddStepToCase:
-                    debugLog('addStepToCase', { caseId: message.caseId });
+                    debugLog('[useMessageHandler] addStepToCase', { caseId: message.caseId });
 
                     setProjects(prev => prev.map(p => {
                         if (!p.testSuites) return p;
@@ -452,7 +445,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.ProjectLoaded:
-                    debugLog('projectLoaded', { projectName: message.project?.name });
+                    debugLog('[useMessageHandler] projectLoaded', { projectName: message.project?.name });
 
                     // Detailed inspection of received project
                     if (message.project?.testSuites) {
@@ -500,22 +493,22 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.WorkspaceLoaded:
-                    debugLog('workspaceLoaded', { projectCount: message.projects?.length });
+                    debugLog('[useMessageHandler] workspaceLoaded', { projectCount: message.projects?.length });
                     setProjects(message.projects.map((p: any) => ({ ...p, expanded: false })));
                     setWorkspaceDirty(false);
                     break;
 
                 case BackendCommand.EchoResponse:
-                    debugLog('echoResponse - Backend connected');
+                    debugLog('[useMessageHandler] echoResponse - Backend connected');
                     setBackendConnected(true);
                     break;
 
                 case BackendCommand.LocalWsdls:
-                    debugLog('localWsdls (no-op)');
+                    debugLog('[useMessageHandler] localWsdls (no-op)');
                     break;
 
                 case BackendCommand.SettingsUpdate:
-                    debugLog('settingsUpdate', { hasConfig: !!message.config });
+                    debugLog('[useMessageHandler] settingsUpdate', { hasConfig: !!message.config });
                     if (!message.config) {
                         console.warn('[useMessageHandler] Malformed settingsUpdate — missing config payload. Full message:', JSON.stringify(message));
                         break;
@@ -545,7 +538,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.RestoreAutosave:
-                    debugLog('restoreAutosave', { hasContent: !!message.content });
+                    debugLog('[useMessageHandler] restoreAutosave', { hasContent: !!message.content });
                     if (message.content) {
                         try {
                             const savedState = JSON.parse(message.content);
@@ -598,13 +591,13 @@ export function useMessageHandler(state: MessageHandlerState) {
                                 });
                             }
                         } catch (e) {
-                            debugLog('restoreAutosave FAILED', { error: String(e) });
+                            debugLog('[useMessageHandler] restoreAutosave FAILED', { error: String(e) });
                         }
                     }
                     break;
 
                 case BackendCommand.Changelog:
-                    debugLog('changelog received', { length: message.content?.length });
+                    debugLog('[useMessageHandler] changelog received', { length: message.content?.length });
                     setChangelog(message.content);
                     break;
 
@@ -612,7 +605,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                 // Watcher/Proxy/Mock commands removed - features moved to APIprox
                 /*
                 case BackendCommand.WatcherUpdate:
-                    debugLog('watcherUpdate', {
+                    debugLog('[useMessageHandler] watcherUpdate', {
                         historyLength: message.history?.length
                     });
                     setWatcherHistory(message.history);
@@ -654,7 +647,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.BreakpointHit:
-                    debugLog('breakpointHit', { breakpointId: message.breakpointId, type: message.type });
+                    debugLog('[useMessageHandler] breakpointHit', { breakpointId: message.breakpointId, type: message.type });
                     setActiveBreakpoint({
                         id: message.breakpointId,
                         type: message.type,
@@ -667,40 +660,40 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.BreakpointTimeout:
-                    debugLog('breakpointTimeout', { breakpointId: message.breakpointId });
+                    debugLog('[useMessageHandler] breakpointTimeout', { breakpointId: message.breakpointId });
                     setActiveBreakpoint(null);
                     break;
                 */
 
                 case BackendCommand.ConfigFileSelected:
-                    debugLog('configFileSelected', { path: message.path });
+                    debugLog('[useMessageHandler] configFileSelected', { path: message.path });
                     setConfigPath(message.path);
                     break;
 
                 case BackendCommand.AdoHasPatResult:
-                    debugLog('adoHasPatResult', { hasPat: message.hasPat });
+                    debugLog('[useMessageHandler] adoHasPatResult', { hasPat: message.hasPat });
                     // ADO PAT check result - handled by IntegrationsTab
                     break;
 
                 case BackendCommand.AdoProjectsResult:
-                    debugLog('adoProjectsResult (no-op)');
+                    debugLog('[useMessageHandler] adoProjectsResult (no-op)');
                     break;
 
                 case BackendCommand.AdoTestConnectionResult:
-                    debugLog('adoTestConnectionResult (no-op)');
+                    debugLog('[useMessageHandler] adoTestConnectionResult (no-op)');
                     break;
 
                 case BackendCommand.AdoAddCommentResult:
-                    debugLog('adoAddCommentResult (no-op)');
+                    debugLog('[useMessageHandler] adoAddCommentResult (no-op)');
                     break;
 
                 case BackendCommand.ClipboardText:
-                    debugLog('clipboardText (no-op)');
+                    debugLog('[useMessageHandler] clipboardText (no-op)');
                     break;
 
                 case BackendCommand.ConfigSwitched:
                 case BackendCommand.ConfigRestored:
-                    debugLog(`${message.command} (no-op)`);
+                    debugLog(`[useMessageHandler] ${message.command} (no-op)`);
                     break;
 
                 case BackendCommand.TestRunnerUpdate:
@@ -710,7 +703,7 @@ export function useMessageHandler(state: MessageHandlerState) {
                 // Request History handlers
                 case BackendCommand.HistoryLoaded: {
                     const entries = message.entries || [];
-                    debugLog('historyLoaded', { count: entries.length });
+                    debugLog('[useMessageHandler] historyLoaded', { count: entries.length });
                     if (entries.length === 0 && isTauri()) {
                         try {
                             const cached = localStorage.getItem('apinox_history_cache');
@@ -728,14 +721,14 @@ export function useMessageHandler(state: MessageHandlerState) {
                 }
 
                 case BackendCommand.HistoryUpdate:
-                    debugLog('historyUpdate', { entryId: message.entry?.id });
+                    debugLog('[useMessageHandler] historyUpdate', { entryId: message.entry?.id });
                     if (message.entry) {
                         setRequestHistory(prev => [message.entry, ...prev].slice(0, 100));
                     }
                     break;
 
                 case BackendCommand.AttachmentSelected:
-                    debugLog('attachmentSelected', { name: message.attachment?.name });
+                    debugLog('[useMessageHandler] attachmentSelected', { name: message.attachment?.name });
                     if (message.attachment && onAttachmentSelected) {
                         onAttachmentSelected(message.attachment);
                     }
@@ -746,26 +739,26 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.WsdlRefreshResult:
-                    debugLog('wsdlRefreshResult', { hasDiff: !!message.diff });
+                    debugLog('[useMessageHandler] wsdlRefreshResult', { hasDiff: !!message.diff });
                     setWsdlDiff(message.diff);
                     break;
 
                 case BackendCommand.ScrapbookLoaded:
                 case BackendCommand.ScrapbookUpdated:
-                    debugLog(`${message.command}`, { hasData: !!message.state });
+                    debugLog(`[useMessageHandler] ${message.command}`, { hasData: !!message.state });
                     // Scrapbook state handled by ScrapbookContext
                     break;
 
                 default:
-                    debugLog(`Unknown command: ${message.command}`);
+                    debugLog(`[useMessageHandler] Unknown command: ${message.command}`);
             }
         };
 
         const cleanup = bridge.onMessage(handleMessage);
-        debugLog('Message listener registered');
+        debugLog('[useMessageHandler] Message listener registered');
 
         return () => {
-            debugLog('Cleaning up message listener');
+            debugLog('[useMessageHandler] Cleaning up message listener');
             cleanup();
         };
     }, []); // Empty deps - refs are used to access current values

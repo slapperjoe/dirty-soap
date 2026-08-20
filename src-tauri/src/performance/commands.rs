@@ -23,24 +23,6 @@ static PERF_RUN_STORE: Lazy<Arc<Mutex<HashMap<String, PerfRunData>>>> =
 static ABORT_FLAGS: Lazy<Arc<Mutex<HashMap<String, bool>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-#[derive(Debug, Clone, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct CoordinatorStatusResponse {
-    pub running: bool,
-    pub port: u16,
-    pub workers: Vec<Value>,
-    pub expected_workers: u32,
-}
-
-static COORDINATOR_STATUS: Lazy<Arc<Mutex<CoordinatorStatusResponse>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(CoordinatorStatusResponse {
-        running: false,
-        port: 0,
-        workers: Vec::new(),
-        expected_workers: 0,
-    }))
-});
-
 fn push_update(run_id: &str, update: Value) {
     let mut store = PERF_RUN_STORE.lock().unwrap();
     if let Some(data) = store.get_mut(run_id) {
@@ -109,48 +91,6 @@ pub struct PerformanceRunUpdatesResponse {
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn start_coordinator(
-    port: u16,
-    expected_workers: u32,
-) -> Result<CoordinatorStatusResponse, String> {
-    let mut status = COORDINATOR_STATUS
-        .lock()
-        .map_err(|e| format!("Failed to lock coordinator status: {}", e))?;
-
-    status.running = true;
-    status.port = port;
-    status.expected_workers = expected_workers;
-    status.workers.clear();
-
-    log::warn!(
-        "[performance] start_coordinator is using placeholder backend status only"
-    );
-
-    Ok(status.clone())
-}
-
-#[tauri::command]
-pub async fn stop_coordinator() -> Result<CoordinatorStatusResponse, String> {
-    let mut status = COORDINATOR_STATUS
-        .lock()
-        .map_err(|e| format!("Failed to lock coordinator status: {}", e))?;
-
-    status.running = false;
-    status.workers.clear();
-
-    Ok(status.clone())
-}
-
-#[tauri::command]
-pub async fn get_coordinator_status() -> Result<CoordinatorStatusResponse, String> {
-    let status = COORDINATOR_STATUS
-        .lock()
-        .map_err(|e| format!("Failed to lock coordinator status: {}", e))?;
-
-    Ok(status.clone())
-}
-
-#[tauri::command]
 pub async fn run_performance_suite(
     request: RunPerformanceSuiteRequest,
 ) -> Result<RunPerformanceSuiteResponse, String> {
@@ -213,7 +153,7 @@ pub async fn run_performance_suite(
     let run_id_clone = run_id.clone();
     let initial_vars = request.environment.unwrap_or_default();
 
-    tokio::spawn(async move {
+    let perf_handle = tokio::spawn(async move {
         let suite_id = suite.id.clone();
         let suite_name = suite.name.clone();
         let start_time = now_ms();
@@ -278,24 +218,27 @@ pub async fn run_performance_suite(
                         break 'outer;
                     }
 
-                    let chunk_vars = variables.clone();
+                    let vars_arc = Arc::new(tokio::sync::RwLock::new(variables.clone()));
                     let mut handles = Vec::new();
                     for req in chunk {
                         let req = req.clone();
-                        let vars = chunk_vars.clone();
+                        let vars = Arc::clone(&vars_arc);
                         handles.push(tokio::spawn(async move {
-                            execute_request(&req, iteration, &vars).await
+                            let snapshot = vars.read().await.clone();
+                            let result = execute_request(&req, iteration, &snapshot).await;
+                            if let Some(ref extracted) = result.extracted_values {
+                                let mut shared = vars.write().await;
+                                for (k, v) in extracted {
+                                    shared.entry(k.clone()).or_insert_with(|| v.clone());
+                                }
+                            }
+                            result
                         }));
                     }
 
                     for handle in handles {
                         match handle.await {
                             Ok(result) => {
-                                if let Some(ref extracted) = result.extracted_values {
-                                    for (k, v) in extracted {
-                                        variables.entry(k.clone()).or_insert_with(|| v.clone());
-                                    }
-                                }
                                 if !is_warmup {
                                     all_results.push(result);
                                 }
@@ -303,6 +246,14 @@ pub async fn run_performance_suite(
                             Err(e) => {
                                 log::warn!("[run_performance_suite] Task join error: {}", e);
                             }
+                        }
+                    }
+
+                    // Merge extracted values from concurrent tasks back into outer state.
+                    {
+                        let merged = vars_arc.read().await.clone();
+                        for (k, v) in merged {
+                            variables.insert(k, v);
                         }
                     }
 
@@ -371,6 +322,12 @@ pub async fn run_performance_suite(
         );
     });
 
+    tokio::spawn(async move {
+        if let Err(e) = perf_handle.await {
+            log::error!("[performance] Performance suite runner background task panicked: {:?}", e);
+        }
+    });
+
     Ok(RunPerformanceSuiteResponse {
         run_id: Some(run_id),
     })
@@ -381,12 +338,19 @@ pub async fn get_performance_run_updates(
     run_id: String,
     from_index: usize,
 ) -> Result<PerformanceRunUpdatesResponse, String> {
-    let store = PERF_RUN_STORE.lock().unwrap();
+    let mut store = PERF_RUN_STORE.lock().unwrap();
     if let Some(data) = store.get(&run_id) {
-        let updates = data.updates[from_index..].to_vec();
-        let next_index = from_index + updates.len();
+        // Fix: bound-safe indexing to prevent panic when from_index exceeds updates length.
+        let safe_index = from_index.min(data.updates.len());
+        let updates = data.updates[safe_index..].to_vec();
+        let next_index = safe_index + updates.len();
         let done = data.done;
         let error = data.error.clone();
+        // Fix: clean up completed runs from the store after the frontend has
+        // consumed all updates, preventing unbounded memory growth.
+        if done && next_index >= data.updates.len() {
+            store.remove(&run_id);
+        }
         Ok(PerformanceRunUpdatesResponse {
             updates,
             next_index,

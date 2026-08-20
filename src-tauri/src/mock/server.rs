@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::mock::state::SharedMockState;
 use crate::proxy_models::{MockMatchCondition, MockRule, TrafficEvent};
-use crate::utils::{emit_traffic_event, match_pattern, XPathEvaluator, CONTENT_TYPE_XML, CONTENT_TYPE_PLAIN};
+use crate::utils::{emit_traffic_event, match_pattern, read_body, XPathEvaluator, CONTENT_TYPE_XML, CONTENT_TYPE_PLAIN};
 
 /// Run the mock HTTP server. Loops forever; cancel via AbortHandle.
 pub async fn run_mock(state: SharedMockState, app: AppHandle) -> Result<()> {
@@ -76,14 +76,20 @@ async fn handle_mock_request(
         .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
         .collect();
 
-    let body_bytes = match req.collect().await {
-        Ok(b) => b.to_bytes(),
+    let max_body_bytes = {
+        let s = state.lock().await;
+        s.config.max_body_bytes
+    };
+
+    let body_bytes = match read_body(req.into_body(), max_body_bytes).await {
+        Ok(b) => b.into_bytes().await.unwrap_or_default(),
         Err(e) => {
             log::warn!("[Mock] Failed to read body: {}", e);
             return plain_response(StatusCode::BAD_GATEWAY, "Failed to read request body");
         }
     };
-    let req_body = String::from_utf8_lossy(&body_bytes).into_owned();
+    let raw_body_bytes = body_bytes;
+    let req_body = String::from_utf8_lossy(&raw_body_bytes).into_owned();
 
     // Snapshot config under lock, then release before any async I/O
     let (rules, passthrough_enabled, target_url, record_mode) = {

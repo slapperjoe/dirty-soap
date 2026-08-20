@@ -2,7 +2,57 @@ use anyhow::{Context, Result};
 use reqwest::{Client, Method, Proxy};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::error::Error as _;
 use std::time::{Duration, Instant};
+use once_cell::sync::Lazy;
+use tokio::sync::Notify;
+
+type ClientKey = (u64, bool, bool, String);
+
+static CLIENT_CACHE: Lazy<Mutex<HashMap<ClientKey, Client>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// A lightweight cancellation token backed by `tokio::sync::Notify`.
+/// Create one with `CancelToken::new()`, pass an `Arc<CancelToken>` to
+/// `HttpClient::execute_with_cancel`, and call `.cancel()` to abort an
+/// in-flight request.
+#[derive(Debug, Clone)]
+pub struct CancelToken {
+    notify: Arc<Notify>,
+}
+
+impl CancelToken {
+    pub fn new() -> Self {
+        Self {
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.notify.notify_waiters();
+    }
+
+    pub async fn wait(&self) {
+        self.notify.notified().await;
+    }
+}
+
+impl Default for CancelToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum HttpErrorKind {
+    Dns,
+    ConnectionRefused,
+    Tls,
+    Timeout,
+    InvalidUrl,
+    Other,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpRequest {
@@ -27,6 +77,7 @@ pub struct HttpResponse {
     pub body: String,
     pub time_taken_ms: u64,
     pub error: Option<String>,
+    pub error_kind: Option<HttpErrorKind>,
 }
 
 pub struct HttpClient {
@@ -86,49 +137,73 @@ impl HttpClient {
 
     /// Execute an HTTP request
     pub async fn execute(&self, request: HttpRequest) -> HttpResponse {
+        self.execute_with_cancel(request, None).await
+    }
+
+    /// Execute an HTTP request with an optional cancellation token.
+    pub async fn execute_with_cancel(
+        &self,
+        request: HttpRequest,
+        cancel_token: Option<Arc<CancelToken>>,
+    ) -> HttpResponse {
         let start = Instant::now();
-        
-        match self.execute_internal(request).await {
+
+        match self.execute_internal(request, cancel_token).await {
             Ok(response) => response,
-            Err(e) => HttpResponse {
-                success: false,
-                status: 0,
-                status_text: "Error".to_string(),
-                headers: HashMap::new(),
-                body: String::new(),
-                time_taken_ms: start.elapsed().as_millis() as u64,
-                error: Some(e.to_string()),
+            Err(e) => {
+                let kind = classify_reqwest_error(&e);
+                HttpResponse {
+                    success: false,
+                    status: 0,
+                    status_text: "Error".to_string(),
+                    headers: HashMap::new(),
+                    body: String::new(),
+                    time_taken_ms: start.elapsed().as_millis() as u64,
+                    error: Some(e.to_string()),
+                    error_kind: Some(kind),
+                }
             }
         }
     }
 
-    async fn execute_internal(&self, request: HttpRequest) -> Result<HttpResponse> {
+    async fn execute_internal(
+        &self,
+        request: HttpRequest,
+        cancel_token: Option<Arc<CancelToken>>,
+    ) -> Result<HttpResponse> {
         let start = Instant::now();
         
         // Parse HTTP method
         let method = Method::from_bytes(request.method.as_bytes())
             .context("Invalid HTTP method")?;
 
-        // Build client for this request if custom settings needed
-        let client = if request.timeout_ms.is_some() 
-            || request.follow_redirects.is_some() 
-            || request.verify_ssl.is_some()
-            || request.proxy_url.is_some() 
-        {
-            Self::with_settings(
-                request.timeout_ms,
-                request.follow_redirects.unwrap_or(true),
-                request.verify_ssl.unwrap_or(true),
-                request.proxy_url,
-                request.proxy_username,
-                request.proxy_password,
-            )?
-        } else {
-            Self::new()?
+        let timeout_ms = request.timeout_ms.unwrap_or(30_000);
+        let follow_redirects = request.follow_redirects.unwrap_or(true);
+        let verify_ssl = request.verify_ssl.unwrap_or(true);
+        let proxy_url = request.proxy_url.clone().unwrap_or_default();
+
+        let key: ClientKey = (timeout_ms, follow_redirects, verify_ssl, proxy_url.clone());
+
+        let client = {
+            let mut cache = CLIENT_CACHE.lock().unwrap();
+            if let Some(c) = cache.get(&key) {
+                c.clone()
+            } else {
+                let c = build_reqwest_client(
+                    timeout_ms,
+                    follow_redirects,
+                    verify_ssl,
+                    proxy_url.clone(),
+                    request.proxy_username.clone(),
+                    request.proxy_password.clone(),
+                )?;
+                cache.insert(key, c.clone());
+                c
+            }
         };
 
         // Build request
-        let mut req_builder = client.client.request(method, &request.url);
+        let mut req_builder = client.request(method, &request.url);
 
         // Add headers
         for (key, value) in &request.headers {
@@ -140,9 +215,17 @@ impl HttpClient {
             req_builder = req_builder.body(body.clone());
         }
 
-        // Execute request
-        let response = req_builder.send().await
-            .context("Failed to send HTTP request")?;
+        // Execute request with optional cancellation
+        let response = if let Some(ref token) = cancel_token {
+            tokio::select! {
+                res = req_builder.send() => res.context("Failed to send HTTP request")?,
+                _ = token.wait() => {
+                    return Err(anyhow::anyhow!("Request cancelled"));
+                }
+            }
+        } else {
+            req_builder.send().await.context("Failed to send HTTP request")?
+        };
 
         let status = response.status();
         let status_code = status.as_u16();
@@ -170,6 +253,7 @@ impl HttpClient {
             body,
             time_taken_ms,
             error: None,
+            error_kind: None,
         })
     }
 
@@ -273,4 +357,90 @@ impl Default for HttpClient {
     fn default() -> Self {
         Self::new().expect("Failed to create default HTTP client")
     }
+}
+
+fn build_reqwest_client(
+    timeout_ms: u64,
+    follow_redirects: bool,
+    verify_ssl: bool,
+    proxy_url: String,
+    proxy_username: Option<String>,
+    proxy_password: Option<String>,
+) -> Result<Client> {
+    let mut builder = Client::builder()
+        .danger_accept_invalid_certs(!verify_ssl);
+
+    builder = builder.timeout(Duration::from_millis(timeout_ms));
+
+    if follow_redirects {
+        builder = builder.redirect(reqwest::redirect::Policy::limited(10));
+    } else {
+        builder = builder.redirect(reqwest::redirect::Policy::none());
+    }
+
+    if !proxy_url.is_empty() {
+        let mut proxy = Proxy::all(&proxy_url)
+            .context("Failed to configure proxy")?;
+        if let (Some(username), Some(password)) = (proxy_username, proxy_password) {
+            proxy = proxy.basic_auth(&username, &password);
+        }
+        builder = builder.proxy(proxy);
+    }
+
+    builder.build().context("Failed to create HTTP client")
+}
+
+fn classify_reqwest_error(e: &anyhow::Error) -> HttpErrorKind {
+    // Walk the chain of source errors looking for reqwest::Error.
+    let mut current: Option<&dyn std::error::Error> = Some(e.as_ref());
+    while let Some(err) = current {
+        if let Some(req_err) = err.downcast_ref::<reqwest::Error>() {
+            if req_err.is_timeout() {
+                return HttpErrorKind::Timeout;
+            }
+            if req_err.is_connect() {
+                let io_kind = 'scan: {
+                    let mut current: Option<&(dyn std::error::Error + 'static)> = req_err.source();
+                    while let Some(err) = current {
+                        if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
+                            break 'scan Some(io_err.kind());
+                        }
+                        current = err.source();
+                    }
+                    None
+                };
+                if let Some(kind) = io_kind {
+                    if kind == std::io::ErrorKind::NotFound {
+                        return HttpErrorKind::Dns;
+                    }
+                    if kind == std::io::ErrorKind::ConnectionRefused
+                        || kind == std::io::ErrorKind::ConnectionReset
+                    {
+                        return HttpErrorKind::ConnectionRefused;
+                    }
+                }
+                let err_str = req_err.to_string().to_lowercase();
+                if err_str.contains("certificate")
+                    || err_str.contains("tls")
+                    || err_str.contains("ssl")
+                    || err_str.contains("handshake")
+                {
+                    return HttpErrorKind::Tls;
+                }
+                return HttpErrorKind::ConnectionRefused;
+            }
+            if req_err.is_builder() {
+                return HttpErrorKind::InvalidUrl;
+            }
+            break;
+        }
+        // Also check for hyper errors which may contain TLS info.
+        if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
+            if io_err.kind() == std::io::ErrorKind::NotFound {
+                return HttpErrorKind::Dns;
+            }
+        }
+        current = err.source();
+    }
+    HttpErrorKind::Other
 }

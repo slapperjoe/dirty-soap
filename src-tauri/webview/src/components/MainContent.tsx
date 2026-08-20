@@ -2,16 +2,15 @@
 import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 import { Container, ContextMenu, ContextMenuItem } from '../styles/App.styles';
-import { bridge, isVsCode, isTauri } from '../utils/bridge';
+import { bridge, isTauri } from '../utils/bridge';
 import { updateProjectWithRename } from '../utils/projectUtils';
+import { captureLog } from '../utils/logger';
 import { generateInitialXmlForOperation } from '../utils/soapUtils';
 import { Sidebar } from './Sidebar';
 import { WorkspaceContext } from '../contexts/WorkspaceContext';
 import { SidebarContext } from '../contexts/SidebarContext';
 import type { AddToProjectDestination } from './proxy/AddToProjectDialog';
 import type { TrafficLog } from './proxy/TrafficViewer';
-// import { SampleModal } from './modals/SampleModal'; // file is .skip — not yet available
-// import { CodeSnippetModal } from './modals/CodeSnippetModal';
 import type { PickRequestItem } from './modals/PickRequestModal';
 import type { BulkImportResult } from './modals/BulkImportModal';
 import { ApiRequest, TestCase, TestStep, SidebarView, RequestHistoryEntry, WsdlDiff, ApiInterface, ApiOperation, Workflow, WorkflowStep, ApinoxProject, UnifiedProject } from '@shared/models';
@@ -509,7 +508,7 @@ const MainContent: React.FC = () => {
     useEffect(() => {
         bridge.invokeTauriCommand<{ has_update: boolean }>('check_for_updates')
             .then((res) => { if (res?.has_update) setHasUpdate(true); })
-            .catch(() => { /* silent failure when offline */ });
+            .catch((err) => { captureLog('warn', '[Updates] check_for_updates failed (offline or backend unavailable)', err); });
     }, []);
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -1788,7 +1787,7 @@ const MainContent: React.FC = () => {
         sidebarExpanded,
         backendConnected,
         workspaceDirty,
-        showBackendStatus: !isVsCode(),
+        showBackendStatus: true,
         onOpenSettings: () => setShowSettings(true),
         onOpenHelp: () => setShowHelp(true),
         onSaveUiState: handleSaveUiState,

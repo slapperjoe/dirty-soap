@@ -19,6 +19,7 @@ pub async fn start_proxy(
     port: u16,
     mode: String,
     target_url: String,
+    max_body_bytes: Option<u64>,
     state: State<'_, LazyProxyAppState>,
     app: AppHandle,
 ) -> Result<(), String> {
@@ -43,6 +44,7 @@ pub async fn start_proxy(
         port,
         target_url,
         mode,
+        max_body_bytes,
     };
     ps.config = config.clone();
 
@@ -59,6 +61,11 @@ pub async fn start_proxy(
     });
 
     ps.task = Some(handle.abort_handle());
+    tokio::spawn(async move {
+        if let Err(e) = handle.await {
+            log::error!("[Proxy] Proxy server background task panicked: {:?}", e);
+        }
+    });
     ps.running = true;
 
     log::info!("[Proxy] Started on port {}", ps.config.port);

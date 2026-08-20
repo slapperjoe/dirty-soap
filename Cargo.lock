@@ -129,6 +129,7 @@ dependencies = [
  "chrono",
  "dirs-next",
  "flate2",
+ "futures-util",
  "hex",
  "http-body-util",
  "hyper",

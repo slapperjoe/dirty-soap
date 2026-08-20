@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { MonacoEditorWrapper } from '@apinox/request-editor/monaco';
 import { Play, Loader2, HelpCircle } from 'lucide-react';
-import { bridge, isTauri, isStandalone } from '../../utils/bridge';
+import { bridge, isTauri } from '../../utils/bridge';
 import { PrimaryButton, SecondaryButton } from '../common/Button';
 import { useTheme } from '@apinox/request-editor/core'; // Use package ThemeContext
 import { Modal } from './Modal';
@@ -273,7 +273,7 @@ export const ScriptPlaygroundModal: React.FC<ScriptPlaygroundModalProps> = ({ on
             return;
         }
 
-        if (isTauri() || isStandalone()) {
+        if (isTauri()) {
             void runScriptLocally(parsedVars as Record<string, any>);
             return;
         }

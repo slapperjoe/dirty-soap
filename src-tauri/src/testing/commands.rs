@@ -106,7 +106,7 @@ pub async fn run_test_case(request: RunTestCaseRequest) -> Result<RunTestCaseRes
             .map(|(k, v)| (k, serde_json::Value::String(v)))
             .collect();
 
-        tokio::spawn(async move {
+        let tc_handle = tokio::spawn(async move {
             use crate::testing::frontend_runner::run_step;
 
             let case_id = test_case.id.clone();
@@ -176,6 +176,11 @@ pub async fn run_test_case(request: RunTestCaseRequest) -> Result<RunTestCaseRes
                 test_case.name, if all_passed { "PASSED" } else { "FAILED" });
 
             mark_done(&run_id_clone);
+        });
+        tokio::spawn(async move {
+            if let Err(e) = tc_handle.await {
+                log::error!("[testing] Test case runner background task panicked: {:?}", e);
+            }
         });
 
         Ok(RunTestCaseResponse {
@@ -275,7 +280,7 @@ pub async fn run_test_suite(request: RunTestSuiteRequest) -> Result<RunTestSuite
         let initial_vars = request.variables.clone();
         
         // Spawn background task
-        tokio::spawn(async move {
+        let ts_handle = tokio::spawn(async move {
             let mut runner = TestRunner::new();
             
             // Set initial variables
@@ -328,6 +333,11 @@ pub async fn run_test_suite(request: RunTestSuiteRequest) -> Result<RunTestSuite
             }
             
             log::info!("Test suite completed (streamed): {}", suite.name);
+        });
+        tokio::spawn(async move {
+            if let Err(e) = ts_handle.await {
+                log::error!("[testing] Test suite runner background task panicked: {:?}", e);
+            }
         });
         
         Ok(RunTestSuiteResponse {

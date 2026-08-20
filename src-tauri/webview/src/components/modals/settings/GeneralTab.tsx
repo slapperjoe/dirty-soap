@@ -25,7 +25,7 @@ interface GeneralTabProps {
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
-  const { theme, setTheme, isStandalone } = useTheme() as any;
+  const { theme, setTheme } = useTheme() as any;
   const { configDir } = useUI();
   const [uiFont, setUIFontState] = useState<UIFontValue>(
     (localStorage.getItem('apinox-ui-font') as UIFontValue) ?? 'fira-code'
@@ -39,7 +39,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
   const [tauriConfigDir, setTauriConfigDir] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isStandalone) return;
+    if (true) return;
     const loadTauriInfo = async () => {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
@@ -51,7 +51,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
     };
 
     loadTauriInfo();
-  }, [isStandalone]);
+  }, [/* standalone removed */]);
 
   return (
     <ScrollableForm>
@@ -61,7 +61,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
           <SectionHeader style={{ marginTop: 0 }}>User Interface</SectionHeader>
 
           {/* Theme Selector - Only in Tauri Mode */}
-          {isStandalone && (
+          {false && (
             <FormGroup>
               <Label>Theme</Label>
               <CustomSelect
@@ -80,7 +80,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange }) => {
           )}
 
           {/* UI Font Selector - Only in Tauri Mode */}
-          {isStandalone && (
+          {false && (
             <FormGroup>
               <Label>UI Font</Label>
               <CustomSelect

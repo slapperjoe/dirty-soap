@@ -16,22 +16,7 @@
  *    - TODO: These should be migrated to use `invoke()` directly from components
  *    - Examples: saveProject, loadProject, saveSettings, getSettings
  *    - Benefit: Simpler, faster, better type safety
- * 
- * ## Migration Guide (Future)
- * 
- * To migrate a simple command to direct Tauri calls:
- * 
- * ```typescript
- * // BEFORE (using bridge)
- * await bridge.sendMessageAsync({
- *     command: FrontendCommand.SaveProject,
- *     project
- * });
- * 
- * // AFTER (direct Tauri call)
- * import { invoke } from '@tauri-apps/api/core';
- * await invoke('save_project', { project, dirPath });
- * ```
+
  */
 
 declare global {
@@ -41,16 +26,6 @@ declare global {
     }
 }
 
-// ============== Environment Detection ==============
-
-export const isTauri = (): boolean => typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
-
-export type Platform = 'tauri' | 'standalone';
-export const getPlatform = (): Platform => {
-    if (isTauri()) return 'tauri';
-    return 'standalone';
-};
-
 // ============== Tauri Imports ==============
 
 let tauriInvoke: ((cmd: string, args?: any) => Promise<any>) | null = null;
@@ -58,8 +33,6 @@ let tauriListen: ((event: string, handler: (e: any) => void) => Promise<() => vo
 let tauriInitPromise: Promise<void> | null = null;
 
 async function initTauri(): Promise<void> {
-    if (!isTauri()) return;
-
     try {
         const { invoke } = await import('@tauri-apps/api/core');
         const { listen } = await import('@tauri-apps/api/event');
@@ -71,7 +44,6 @@ async function initTauri(): Promise<void> {
 }
 
 function ensureTauriInitialized(): Promise<void> {
-    if (!isTauri()) return Promise.resolve();
     if (!tauriInitPromise) {
         tauriInitPromise = initTauri();
     }
@@ -79,9 +51,7 @@ function ensureTauriInitialized(): Promise<void> {
 }
 
 // Initialize Tauri on load
-if (isTauri()) {
-    ensureTauriInitialized();
-}
+ensureTauriInitialized();
 
 // ============== Message Types ==============
 
@@ -1116,10 +1086,6 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
             command: BackendCommand.HistoryLoaded,
             entries: data || []
         }),
-        // [FrontendCommand.GetWatcherHistory]: (data) => ({ // Removed - watcher features
-        //     command: BackendCommand.WatcherUpdate,
-        //     history: data || []
-        // }),
         [FrontendCommand.GetSettings]: (data) => ({
             command: BackendCommand.SettingsUpdate,
             // Frontend expects 'config' not 'settings'
@@ -1166,10 +1132,6 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
                 filename: fileName
             };
         },
-        // [FrontendCommand.GetMockStatus]: (data) => ({ // Removed - mock features
-        //     command: BackendCommand.MockStatus,
-        //     ...data
-        // }),
         ['webviewReady']: (data) => data, // Pass through response with samplesProject and changelog
         // Add more mappings as needed
     };
@@ -1275,9 +1237,8 @@ export const bridge = {
             }
         }
         
-        if (isTauri()) {
-            // Send to Rust backend and convert response to backend message
-            invokeRustCommand(message)
+        // Send to Rust backend and convert response to backend message
+        invokeRustCommand(message)
                 .then(data => {
                     // Emit test runner updates for test runs
                     if ((message.command === FrontendCommand.RunTestCase || message.command === FrontendCommand.RunTestSuite) && data?.updates) {
@@ -1327,9 +1288,7 @@ export const bridge = {
                         projectName: message.command === FrontendCommand.SaveProject ? message.project?.name : undefined
                     }));
                 });
-        } else {
-            console.warn('[Bridge] No backend available (standalone mode)');
-        }
+
     },
 
     /**
@@ -1339,10 +1298,7 @@ export const bridge = {
      * For simple CRUD operations, consider using direct Tauri invoke() in the future.
      */
     sendMessageAsync: async <T = any>(message: BridgeMessage): Promise<T> => {
-        if (isTauri()) {
-            return await invokeRustCommand(message) as T;
-        }
-        throw new Error('No backend available');
+        return await invokeRustCommand(message) as T;
     },
 
     /**
@@ -1355,7 +1311,7 @@ export const bridge = {
 
         // Listen to Tauri events from backend
         let tauriUnlisten: (() => void) | null = null;
-        if (isTauri() && tauriListen) {
+        if (tauriListen) {
             tauriListen('backend_command', (event: any) => {
                 callback(event.payload);
             }).then(unlisten => {
@@ -1375,25 +1331,20 @@ export const bridge = {
      * State Persistence
      */
     setState: (state: any): void => {
-        if (isTauri()) {
-            try {
-                localStorage.setItem('apinox_state', JSON.stringify(state));
-            } catch (e) {
-                console.error('[Bridge] Failed to save state:', e);
-            }
+        try {
+            localStorage.setItem('apinox_state', JSON.stringify(state));
+        } catch (e) {
+            console.error('[Bridge] Failed to save state:', e);
         }
     },
 
     getState: (): any => {
-        if (isTauri()) {
-            try {
-                const saved = localStorage.getItem('apinox_state');
-                return saved ? JSON.parse(saved) : undefined;
-            } catch (e) {
-                return undefined;
-            }
+        try {
+            const saved = localStorage.getItem('apinox_state');
+            return saved ? JSON.parse(saved) : undefined;
+        } catch (e) {
+            return undefined;
         }
-        return undefined;
     },
 
     /**
@@ -1406,18 +1357,11 @@ export const bridge = {
     /**
      * Get current platform
      */
-    getPlatform,
-    isTauri,
     invokeTauriCommand, // Direct Rust command access
-    
-    // Deprecated - kept for backwards compatibility
-    isVsCode: () => false,
-    isStandalone: () => !isTauri()
 };
+
+// Environment detection (Tauri-only app)
+export const isTauri = (): boolean => typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
 
 // Export for backwards compatibility
 export { FrontendCommand, BackendCommand };
-
-// Deprecated exports - for backwards compatibility
-export const isVsCode = () => false;
-export const isStandalone = () => !isTauri();
