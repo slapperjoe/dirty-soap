@@ -43,6 +43,37 @@ pub async fn add_breakpoint_rule(
 }
 
 #[tauri::command]
+pub async fn update_breakpoint_rule(
+    id: String,
+    rule: BreakpointRule,
+    state: State<'_, LazyProxyAppState>,
+    app: AppHandle,
+) -> Result<BreakpointRule, String> {
+    let state = ensure_proxy_state(state, &app).await?;
+    let mut svc = state.breakpoint.lock().await;
+    let mut rules = svc.get_rules();
+    let replaced = rules
+        .iter_mut()
+        .find(|r| r.id == id)
+        .map(|r| {
+            *r = BreakpointRule {
+                id: r.id.clone(),
+                ..rule
+            };
+            r.clone()
+        });
+    match replaced {
+        Some(updated) => {
+            svc.set_rules(rules.clone());
+            drop(svc);
+            state.storage.save_breakpoint_rules(&rules).map_err(|e| e.to_string())?;
+            Ok(updated)
+        }
+        None => Err(format!("Breakpoint rule '{}' not found", id)),
+    }
+}
+
+#[tauri::command]
 pub async fn delete_breakpoint_rule(
     id: String,
     state: State<'_, LazyProxyAppState>,

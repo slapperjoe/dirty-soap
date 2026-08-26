@@ -552,7 +552,12 @@ async function tryRustCommand(message: BridgeMessage): Promise<any | null> {
             };
 
             const startTime = Date.now();
-            const response = await tauriInvoke('execute_soap_request', { request });
+            // H1: generate a real request id per execution so cancelRequest can
+            // target exactly this in-flight request (Rust echoes it back).
+            const requestId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            const response = await tauriInvoke('execute_soap_request', { request: { ...request, requestId } });
             const duration = Date.now() - startTime;
             
             const responseHeaders: Record<string, string> = Object.fromEntries(response.headers || []);
@@ -579,7 +584,8 @@ async function tryRustCommand(message: BridgeMessage): Promise<any | null> {
             if (!response.success) {
                 return {
                     error: response.error || 'SOAP request failed',
-                    fault: response.fault
+                    fault: response.fault,
+                    requestId
                 };
             }
 
@@ -590,7 +596,8 @@ async function tryRustCommand(message: BridgeMessage): Promise<any | null> {
                     headers: responseHeaders,
                     status: response.statusCode || 500,
                     timeTaken: duration
-                }
+                },
+                requestId
             };
         }
 
@@ -985,15 +992,31 @@ async function tryRustCommand(message: BridgeMessage): Promise<any | null> {
             }
         }
 
-        // Route CancelRequest to Rust cancel_request command
+        // Route CancelRequest to Rust cancel_request command (single, exact id).
+        // H1: forward the in-flight request's id; without an id the Rust side
+        // rejects the call instead of silently cancelling everything.
         if (message.command === FrontendCommand.CancelRequest) {
-            debugLog('[Bridge] Routing CancelRequest to Rust backend');
+            debugLog('[Bridge] Routing CancelRequest to Rust backend', { requestId: message.requestId || null });
             try {
-                const response = await tauriInvoke('cancel_request', {});
+                const response = await tauriInvoke('cancel_request', {
+                    requestId: message.requestId ?? null
+                });
                 return response;
             } catch (error: any) {
                 console.error('[Bridge] Cancel request failed:', error);
                 throw new Error(`Failed to cancel request: ${error.message || error}`);
+            }
+        }
+
+        // Route CancelAllRequests to Rust cancel_all_requests command (explicit bulk cancel).
+        if (message.command === FrontendCommand.CancelAllRequests) {
+            debugLog('[Bridge] Routing CancelAllRequests to Rust backend');
+            try {
+                const response = await tauriInvoke('cancel_all_requests', {});
+                return response;
+            } catch (error: any) {
+                console.error('[Bridge] Cancel all requests failed:', error);
+                throw new Error(`Failed to cancel all requests: ${error.message || error}`);
             }
         }
 
@@ -1080,7 +1103,9 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
         [FrontendCommand.ExecuteRequest]: (data) => ({
             command: BackendCommand.Response,
             // Frontend expects response data in 'result' property
-            result: (data && 'response' in data) ? data.response : data || { rawResponse: '', headers: {}, status: 0, timeTaken: 0 }
+            result: (data && 'response' in data) ? data.response : data || { rawResponse: '', headers: {}, status: 0, timeTaken: 0 },
+            // H1: the in-flight request id, so cancelRequest can target this request.
+            requestId: data?.requestId
         }),
         [FrontendCommand.GetHistory]: (data) => ({
             command: BackendCommand.HistoryLoaded,
@@ -1264,7 +1289,10 @@ export const bridge = {
                             command: BackendCommand.Error,
                             error: data.error,
                             message: data.error,
-                            originalCommand: message.command
+                            originalCommand: message.command,
+                            // H1: propagate the in-flight request id so the UI can
+                            // still cancel it even when the execution errored out.
+                            requestId: data.requestId
                         }));
                         return;
                     }

@@ -36,6 +36,8 @@ interface TestRunnerContextType {
     handleRequestUpdate: (updated: ApiRequest) => void;
     handleResetRequest: () => void;
     startTimeRef: React.MutableRefObject<number>;
+    // H1: in-flight request id (echoed back by the backend); lets cancelRequest target the running request
+    requestIdRef: React.MutableRefObject<string | null>;
     setTestExecution: React.Dispatch<React.SetStateAction<Record<string, Record<string, TestExecutionState>>>>;
 }
 

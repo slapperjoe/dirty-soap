@@ -144,6 +144,8 @@ interface UseRequestExecutionReturn {
     handleRequestUpdate: (updated: ApiRequest) => void;
     handleResetRequest: () => void;
     startTimeRef: React.MutableRefObject<number>;
+    // H1: shared with useMessageHandler so cancelRequest can target the in-flight request
+    requestIdRef: React.MutableRefObject<string | null>;
 }
 
 export function useRequestExecution({
@@ -169,9 +171,15 @@ export function useRequestExecution({
 }: UseRequestExecutionParams): UseRequestExecutionReturn {
 
     const startTimeRef = useRef<number>(0);
+    // H1: id of the in-flight request, echoed back by the backend in the
+    // Response/Error event (set by useMessageHandler); used by cancelRequest.
+    const requestIdRef = useRef<string | null>(null);
 
     const executeRequest = useCallback(async (xml: string) => {
         debugLog('[App] executeRequest called');
+        // H1: clear the previous execution's id; the backend echoes the new
+        // execution's id back in the Response/Error event.
+        requestIdRef.current = null;
         // Auto-save scrapbook request before execution (captures manual edits to URL/body)
         if (onScrapbookAutoSave && selectedRequest && !selectedProjectName && !selectedInterface && !selectedOperation && !selectedTestCase) {
             try {
@@ -294,7 +302,16 @@ export function useRequestExecution({
     }, [selectedOperation, selectedRequest, selectedInterface, selectedTestCase, selectedStep, wsdlUrl, testExecution, setLoading, setResponse, onScrapbookAutoSave, selectedProjectName]);
 
     const cancelRequest = useCallback(() => {
-        bridge.sendMessage({ command: FrontendCommand.CancelRequest });
+        // H1: cancel exactly the in-flight request (id echoed back by the backend
+        // in the Response/Error event). If no id is known yet (execution still
+        // dispatching, or no id ever returned), fall back to the explicit bulk
+        // command rather than silently no-op'ing the user's Cancel click.
+        const inFlightId = requestIdRef.current;
+        if (inFlightId) {
+            bridge.sendMessage({ command: FrontendCommand.CancelRequest, requestId: inFlightId });
+        } else {
+            bridge.sendMessage({ command: FrontendCommand.CancelAllRequests });
+        }
         setLoading(false);
     }, [setLoading]);
 
@@ -516,7 +533,8 @@ export function useRequestExecution({
         cancelRequest,
         handleRequestUpdate,
         handleResetRequest,
-        startTimeRef
+        startTimeRef,
+        requestIdRef
     };
 }
 

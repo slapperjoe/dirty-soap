@@ -62,6 +62,9 @@ export interface MessageHandlerState {
     selectedTestCase: TestCase | null;
     selectedRequest: ApiRequest | null;
     startTimeRef: React.MutableRefObject<number>;
+    // H1: the in-flight request id (echoed back by the backend in Response/Error
+    // events); lets cancelRequest target exactly the running request.
+    requestIdRef?: React.MutableRefObject<string | null>;
 
     // Callbacks
     saveProject: (project: ApinoxProject) => void;
@@ -113,6 +116,7 @@ export function useMessageHandler(state: MessageHandlerState) {
         selectedTestCase,
         selectedRequest,
         startTimeRef,
+        requestIdRef,
         saveProject,
         onAttachmentSelected,
         setWsdlDiff
@@ -229,7 +233,11 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.Response:
-                    debugLog('[useMessageHandler] response', { hasResult: !!message.result, op: message.operation, request: message.requestName });
+                    debugLog('[useMessageHandler] response', { hasResult: !!message.result, op: message.operation, request: message.requestName, requestId: message.requestId || null });
+                    // H1: remember this execution's id so cancelRequest can target it.
+                    if (requestIdRef && message.requestId) {
+                        requestIdRef.current = message.requestId;
+                    }
                     setLoading(false);
                     const endTime = Date.now();
                     const duration = (endTime - startTimeRef.current) / 1000;
@@ -316,7 +324,12 @@ export function useMessageHandler(state: MessageHandlerState) {
                     break;
 
                 case BackendCommand.Error:
-                    debugLog('[useMessageHandler] error', { message: message.message, originalCommand: message.originalCommand });
+                    debugLog('[useMessageHandler] error', { message: message.message, originalCommand: message.originalCommand, requestId: message.requestId || null });
+                    // H1: execution errors still identify the in-flight request
+                    // (e.g. cancelled / timeout); keep the id for cancel semantics.
+                    if (requestIdRef && message.requestId) {
+                        requestIdRef.current = message.requestId;
+                    }
                     setLoading(false);
                     setDownloadStatus(null); // Clear loading status on any error
                     

@@ -131,6 +131,11 @@ pub struct ExecuteSoapRequest {
     /// Allow invalid TLS certificates (for MITM proxy / self-signed servers)
     #[serde(default)]
     pub allow_invalid_certs: bool,
+    /// Client-supplied request id (UI-generated). When absent, a fresh UUID is
+    /// generated. The id is echoed back in the response so the UI can cancel
+    /// exactly this in-flight request.
+    #[serde(default)]
+    pub request_id: Option<String>,
 }
 
 /// Response from SOAP execution
@@ -171,7 +176,14 @@ pub async fn execute_soap_request(
     log::debug!("Operation target_namespace: {:?}", request.operation.target_namespace);
     log::debug!("Operation action: {:?}", request.operation.action);
 
-    let request_id = uuid::Uuid::new_v4().to_string();
+    // Prefer the client-supplied id (UI generates one per execution so it can
+    // later cancel exactly this request); fall back to a generated UUID.
+    let request_id = request
+        .request_id
+        .as_deref()
+        .filter(|id| !id.is_empty())
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let cancel_token = {
         let token = Arc::new(CancelToken::new());
         CANCEL_TOKENS.lock().unwrap().insert(request_id.clone(), token.clone());
@@ -352,24 +364,41 @@ async fn execute_soap_request_inner(
     }
 }
 
-/// Cancel an in-flight SOAP request by its request ID.
+/// Cancel a single in-flight SOAP request by its exact request id.
 ///
-/// When called from the frontend, the `request_id` is passed along with the
-/// original request so the UI can refer to the in-flight operation.
+/// Semantics (H1/L1):
+/// - Missing `request_id` → error: callers must target a specific request.
+/// - Known but unmatched id (request already finished, or never started) →
+///   `cancelled: false, found: false` — a clear "not found" result, no error.
+/// - Matching id → the request's cancel token fires; `cancelled: true`.
+///
+/// Bulk cancellation is a separate, explicit command: `cancel_all_requests`.
 #[tauri::command]
-pub async fn cancel_request(request_id: Option<String>) -> Result<serde_json::Value, String> {
-    let mut tokens = CANCEL_TOKENS.lock().unwrap();
-    if let Some(ref id) = request_id {
-        if let Some(token) = tokens.get(id) {
-            token.cancel();
-            log::info!("Cancelled SOAP request: {}", id);
-            return Ok(serde_json::json!({ "success": true, "cancelled": true }));
-        }
+pub fn cancel_request(request_id: Option<String>) -> Result<serde_json::Value, String> {
+    let id = request_id
+        .filter(|id| !id.is_empty())
+        .ok_or("cancel_request requires a request_id")?;
+
+    let tokens = CANCEL_TOKENS.lock().unwrap();
+    if let Some(token) = tokens.get(&id) {
+        token.cancel();
+        log::info!("Cancelled SOAP request: {}", id);
+        Ok(serde_json::json!({ "success": true, "cancelled": true, "found": true, "requestId": id }))
+    } else {
+        log::info!("cancel_request: id not found (not in-flight): {}", id);
+        Ok(serde_json::json!({ "success": true, "cancelled": false, "found": false, "requestId": id }))
     }
-    // If no specific ID was given, cancel all in-flight requests.
+}
+
+/// Cancel every in-flight SOAP request. Explicit bulk semantics (H1) — the
+/// single-request `cancel_request` command never falls through to this.
+#[tauri::command]
+pub fn cancel_all_requests() -> Result<serde_json::Value, String> {
+    let tokens = CANCEL_TOKENS.lock().unwrap();
+    let cancelled = tokens.len();
     for (id, token) in tokens.iter() {
         token.cancel();
         log::info!("Cancelled SOAP request (bulk cancel): {}", id);
     }
-    Ok(serde_json::json!({ "success": true, "cancelled": !tokens.is_empty() }))
+    Ok(serde_json::json!({ "success": true, "cancelled": cancelled > 0, "count": cancelled }))
 }

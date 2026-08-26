@@ -799,7 +799,8 @@ const MainContent: React.FC = () => {
         cancelRequest,
         handleRequestUpdate,
         handleResetRequest,
-        startTimeRef
+        startTimeRef,
+        requestIdRef
     } = useTestRunner();
 
     const {
@@ -1344,6 +1345,7 @@ const MainContent: React.FC = () => {
         selectedTestCase,
         selectedRequest,
         startTimeRef,
+        requestIdRef,
 
         // Callbacks
         saveProject,

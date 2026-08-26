@@ -10,6 +10,7 @@ export enum FrontendCommand {
     GetSampleSchema = 'getSampleSchema',
     ClipboardAction = 'clipboardAction',
     CancelRequest = 'cancelRequest',
+    CancelAllRequests = 'cancelAllRequests',
     SaveSettings = 'saveSettings',
     GetSettings = 'getSettings',
     SetActiveEnvironment = 'setActiveEnvironment',
