@@ -236,25 +236,39 @@ export const generateXmlFromSchemaNode = (
     schemaNode: SchemaNode | null | undefined,
     targetNamespace: string
 ): string => {
-    // Helper to recursively build XML from SchemaNode tree
-    const buildFromNode = (node: SchemaNode, indent: string = ''): string => {
+    // Helper to recursively build XML from SchemaNode tree.
+    // M2: a visited-set of node references plus a depth cap guard against
+    // self-referential / recursive WSDL types (A→B→A) that would otherwise
+    // recurse forever.
+    const MAX_XML_DEPTH = 64;
+    const buildFromNode = (
+        node: SchemaNode,
+        indent: string = '',
+        path: Set<SchemaNode> = new Set(),
+        depth: number = 0
+    ): string => {
         if (!node) return '';
+        if (depth > MAX_XML_DEPTH) return `${indent}<!--Max depth reached-->`;
+        if (path.has(node)) return `${indent}<!--Recursive type cycle: ${node.name}-->`;
 
         // Simple type - just placeholder
         if (node.kind === 'simple') {
-            return `${indent}<!--Optional:-->\n${indent}?`;
+            return `${indent}<!--Optional:-->${'\n'}${indent}?`;
         }
 
         // Complex type - recursively build children
         if (node.kind === 'complex' && node.children && node.children.length > 0) {
             const childLines: string[] = [];
             let lastChoiceGroup: number | undefined = undefined;
-            
+
+            // M2: track this node in the recursion path; remove after this level.
+            path.add(node);
+
             node.children.forEach((child: SchemaNode) => {
                 const childName = child.name;
                 const childIndent = indent + '   ';
                 const optional = child.minOccurs === '0' || child.isOptional;
-                
+
                 // Handle choice group comment
                 if (child.isChoice && child.choiceGroup !== lastChoiceGroup) {
                     // Count how many elements in this choice group
@@ -264,15 +278,15 @@ export const generateXmlFromSchemaNode = (
                     }
                     lastChoiceGroup = child.choiceGroup;
                 }
-                
+
                 if (optional && !child.isChoice) {
                     childLines.push(`${indent}<!--Optional:-->`);
                 }
-                
+
                 if (child.kind === 'complex' && child.children && child.children.length > 0) {
                     // Complex child with nested elements
                     childLines.push(`${indent}<${childName}>`);
-                    const nestedContent = buildFromNode(child, childIndent);
+                    const nestedContent = buildFromNode(child, childIndent, path, depth + 1);
                     if (nestedContent) {
                         childLines.push(nestedContent);
                     }
@@ -282,7 +296,9 @@ export const generateXmlFromSchemaNode = (
                     childLines.push(`${indent}<${childName}>?</${childName}>`);
                 }
             });
-            
+
+            path.delete(node);
+
             return childLines.join('\n');
         }
 

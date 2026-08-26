@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getInitialXml, generateXmlFromSchema } from '../utils/soapUtils';
+import { getInitialXml, generateXmlFromSchema, generateXmlFromSchemaNode } from '../utils/soapUtils';
+import type { SchemaNode } from '@shared/models';
 
 describe('soapUtils', () => {
     describe('getInitialXml', () => {
@@ -221,6 +222,41 @@ describe('soapUtils', () => {
             expect(result).toContain('<tLanguage>');
             expect(result).not.toContain('tLanguage[]');
             expect(result).not.toContain('targetNSAlias');
+        });
+    });
+
+    describe('generateXmlFromSchemaNode (M2 recursion guard)', () => {
+        it('should terminate on a self-referential type cycle (A→B→A)', () => {
+            // nodeA.children → nodeB → nodeA (reference cycle)
+            const nodeA: SchemaNode = { name: 'A', type: 'tns:A', kind: 'complex' };
+            const nodeB: SchemaNode = { name: 'B', type: 'tns:B', kind: 'complex' };
+            nodeA.children = [
+                { name: 'aField', type: 'xsd:string', kind: 'simple' },
+                nodeB,
+            ];
+            nodeB.children = [
+                { name: 'bField', type: 'xsd:string', kind: 'simple' },
+                nodeA,
+            ];
+
+            const result = generateXmlFromSchemaNode('SelfRef', nodeA, 'http://example.com');
+            expect(result).toContain('<aField>');
+            expect(result).toContain('<B>');
+            expect(result).toContain('<!--Recursive type cycle: A-->');
+        });
+
+        it('should cap runaway depth on a deep chain', () => {
+            // Deep non-cyclic chain longer than the depth cap
+            let root: SchemaNode = { name: 'Level0', type: 'tns:L0', kind: 'complex' };
+            let cur = root;
+            for (let i = 1; i < 200; i++) {
+                const next: SchemaNode = { name: `Level${i}`, type: `tns:L${i}`, kind: 'complex' };
+                cur.children = [next];
+                cur = next;
+            }
+
+            const result = generateXmlFromSchemaNode('Deep', root, 'http://example.com');
+            expect(result).toContain('<!--Max depth reached-->');
         });
     });
 });

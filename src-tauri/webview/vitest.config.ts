@@ -1,13 +1,18 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import pkg from './package.json';
 
 export default defineConfig({
     plugins: [react()],
     resolve: {
         alias: {
-            '@shared': path.resolve(__dirname, '../shared/src')
+            '@shared': path.resolve(__dirname, '../../shared/src')
         }
+    },
+    define: {
+        '__APP_VERSION__': JSON.stringify(pkg.version),
+        '__CHANGELOG__': '""'
     },
     test: {
         globals: true,
