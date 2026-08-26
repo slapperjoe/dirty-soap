@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react';
 import { ApinoxProject, TestCase, TestSuite } from '@shared/models';
+import { BackendCommand } from '@shared/messages';
 import { bridge } from '../utils/bridge';
 import { debugLog } from '../utils/logger';
 
@@ -46,7 +47,7 @@ export function useSidebarCallbacks({
 
         // Prevent creating suites when project/workspace is read-only
         if (project.readOnly || config?.isReadOnly) {
-            bridge.sendMessage({ command: 'error', message: 'Cannot create test suites in a read-only workspace.' });
+            bridge.emit({ command: BackendCommand.Error, error: 'Cannot create test suites in a read-only workspace.', message: 'Cannot create test suites in a read-only workspace.' });
             return;
         }
 

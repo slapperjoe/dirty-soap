@@ -115,7 +115,7 @@ export function useTestCaseHandlers({
             setResponse(null);
             // Don't change activeView - let user stay on current sidebar tab
         } else {
-            bridge.sendMessage({ command: 'error', message: `Could not find Test Case: ${caseId}` });
+            bridge.emit({ command: BackendCommand.Error, error: `Could not find Test Case: ${caseId}`, message: `Could not find Test Case: ${caseId}` });
         }
     }, [projects, setSelectedTestCase, setSelectedStep, setSelectedRequest, setSelectedOperation, setSelectedInterface, setSelectedPerformanceSuiteId, setResponse]);
 

@@ -1047,6 +1047,20 @@ async function tryRustCommand(message: BridgeMessage): Promise<any | null> {
             return { state: { requests } };
         }
 
+        // Environment secret storage — routed to registered secret_storage commands.
+        if (message.command === 'getEnvironmentSecret') {
+            const value = await tauriInvoke('get_secret', { envName: message.envName, fieldName: message.fieldName });
+            return { value: value ?? '' };
+        }
+        if (message.command === 'setEnvironmentSecret') {
+            await tauriInvoke('store_secret', { envName: message.envName, fieldName: message.fieldName, value: message.value });
+            return { success: true };
+        }
+        if (message.command === 'deleteEnvironmentSecret') {
+            await tauriInvoke('delete_secret', { envName: message.envName, fieldName: message.fieldName });
+            return { success: true };
+        }
+
         // Command not implemented in Rust
         return null;
 
@@ -1158,6 +1172,10 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
             };
         },
         ['webviewReady']: (data) => data, // Pass through response with samplesProject and changelog
+        ['getEnvironmentSecret']: (data) => ({
+            command: 'environmentSecretResult',
+            value: data?.value
+        }),
         // Add more mappings as needed
     };
 

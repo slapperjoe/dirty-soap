@@ -2101,9 +2101,6 @@ const MainContent: React.FC = () => {
                         {(contextMenu.type === 'request' || contextMenu.type === 'project' || contextMenu.type === 'folder') && (
                             <ContextMenuItem onClick={handleRename}>Rename</ContextMenuItem>
                         )}
-                        {contextMenu.type === 'project' && (
-                            <ContextMenuItem onClick={() => handleExportNative(contextMenu.data)}>Export to Native Format</ContextMenuItem>
-                        )}
                         {!contextMenu.isExplorer && contextMenu.type === 'request' && (
                             <>
                                 <ContextMenuItem onClick={handleCopyUrl}>Copy URL</ContextMenuItem>
