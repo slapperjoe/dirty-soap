@@ -62,6 +62,16 @@ struct OperationMeta {
     full_schema: JsonValue,
     #[serde(skip_serializing_if = "Option::is_none", rename = "displayName")]
     display_name: Option<String>,
+    /// Required by ServiceOperation on load; persisted so save → load → execute round-trips.
+    /// Always serialized (even null) so legacy files missing the field stay loadable:
+    /// load paths re-serialize through OperationMeta, and a dropped key would break
+    /// ServiceOperation deserialization downstream.
+    #[serde(default)]
+    output: JsonValue,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "portName")]
+    port_name: Option<String>,
 }
 
 /// Data written to interfaces/{name}/{op}/{req}.json (request metadata)
@@ -332,6 +342,9 @@ fn save_operation(op: &JsonValue, iface_dir: &Path) -> Result<(), String> {
         original_endpoint: op["originalEndpoint"].as_str().map(|s| s.to_string()),
         full_schema: op["fullSchema"].clone(),
         display_name: op["displayName"].as_str().map(|s| s.to_string()),
+        output: op["output"].clone(),
+        description: op["description"].as_str().map(|s| s.to_string()),
+        port_name: op["portName"].as_str().map(|s| s.to_string()),
     };
     let meta_val = serde_json::to_value(&meta)
         .map_err(|e| format!("Failed to serialize operation meta: {}", e))?;
@@ -869,6 +882,10 @@ fn save_unified_operation(op: &serde_json::Value, project_dir: &Path) -> Result<
         "originalEndpoint": op["originalEndpoint"],
         "fullSchema": op["fullSchema"],
         "displayName": op["displayName"],
+        // Required by ServiceOperation on load — persist so save → load → execute round-trips.
+        "output": op.get("output").cloned().unwrap_or(serde_json::Value::Null),
+        "description": op["description"],
+        "portName": op["portName"],
     }))?;
 
     let requests = op["requests"]
@@ -1051,6 +1068,11 @@ fn load_unified_operation(op_dir: &Path) -> Result<serde_json::Value, String> {
         "originalEndpoint": op_data["originalEndpoint"],
         "fullSchema": op_data["fullSchema"],
         "displayName": op_data["displayName"],
+        // Legacy files saved before output was persisted lack it; fall back to null so
+        // ServiceOperation deserialization (required field) still succeeds.
+        "output": op_data.get("output").cloned().unwrap_or(serde_json::Value::Null),
+        "description": op_data["description"],
+        "portName": op_data["portName"],
         "requests": requests,
     }))
 }
@@ -1080,6 +1102,7 @@ pub fn list_unified_projects() -> Result<Vec<serde_json::Value>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parsers::wsdl::types::ServiceOperation;
 
     #[test]
     fn resolve_unified_project_dir_maps_relative_names_to_projects_dir() {
@@ -1177,5 +1200,117 @@ mod tests {
         assert!(loaded["contentType"].is_null());
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// H2: operation metadata (output/description/portName) must survive
+    /// save → load in the folder (interfaces) format, and the loaded value
+    /// must still deserialize into ServiceOperation (required `output` field).
+    #[test]
+    fn folder_operation_save_load_round_trips_output_description_portname() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let op = serde_json::json!({
+            "name": "GetUser",
+            "action": "http://example.com/GetUser",
+            "input": { "name": "GetUserRequest" },
+            "targetNamespace": "http://example.com",
+            "originalEndpoint": "http://example.com/service",
+            "fullSchema": null,
+            "displayName": "Get User",
+            "output": { "name": "GetUserResponse" },
+            "description": "Returns a user",
+            "portName": "GetUserPort",
+            "requests": []
+        });
+
+        save_operation(&op, tmp.path()).expect("save_operation");
+        let loaded = load_operation(&tmp.path().join("GetUser")).expect("load_operation");
+
+        assert_eq!(loaded["output"], serde_json::json!({ "name": "GetUserResponse" }));
+        assert_eq!(loaded["description"], "Returns a user");
+        assert_eq!(loaded["portName"], "GetUserPort");
+        assert_eq!(loaded["displayName"], "Get User");
+        assert_eq!(loaded["originalEndpoint"], "http://example.com/service");
+
+        // The normal user flow: load project → run → ServiceOperation deserialization.
+        let service_op: ServiceOperation =
+            serde_json::from_value(loaded).expect("loaded op must deserialize");
+        assert_eq!(service_op.name, "GetUser");
+        assert_eq!(service_op.output, serde_json::json!({ "name": "GetUserResponse" }));
+        assert_eq!(service_op.port_name.as_deref(), Some("GetUserPort"));
+        assert_eq!(service_op.original_endpoint.as_deref(), Some("http://example.com/service"));
+    }
+
+    /// H2: legacy operation.json files saved before `output` was persisted
+    /// must still load and deserialize (fallback to null).
+    #[test]
+    fn folder_operation_load_without_output_field_still_deserializes() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let op_dir = tmp.path().join("LegacyOp");
+        fs::create_dir_all(&op_dir).expect("mkdir");
+        fs::write(
+            op_dir.join("operation.json"),
+            r#"{
+                "name": "LegacyOp",
+                "input": null,
+                "targetNamespace": "http://example.com",
+                "fullSchema": null
+            }"#,
+        )
+        .expect("write legacy operation.json");
+
+        let loaded = load_operation(&op_dir).expect("load_operation");
+        assert!(loaded["output"].is_null());
+
+        let service_op: ServiceOperation =
+            serde_json::from_value(loaded).expect("legacy op must deserialize");
+        assert_eq!(service_op.name, "LegacyOp");
+    }
+
+    /// H2: the unified save path must persist output/description/portName,
+    /// and a unified load of that directory must yield a deserializable op.
+    #[test]
+    fn unified_operation_save_load_round_trips_output() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let dir = tmp.path().join("TestUnified");
+        fs::create_dir_all(&dir).expect("mkdir");
+        // properties.json is required by load_unified_project
+        fs::write(
+            dir.join("properties.json"),
+            r#"{"name": "TestUnified", "format": "APInox-unified-v1"}"#,
+        )
+        .expect("write properties.json");
+
+        let op = serde_json::json!({
+            "name": "GetCountry",
+            "action": "http://example.com/GetCountry",
+            "input": { "name": "GetCountryRequest" },
+            "targetNamespace": "http://example.com",
+            "originalEndpoint": "http://example.com/country",
+            "fullSchema": null,
+            "displayName": "Get Country",
+            "output": { "name": "GetCountryResponse" },
+            "description": "Country info",
+            "portName": "CountryPort",
+            "requests": []
+        });
+        save_unified_operation(&op, &dir).expect("save_unified_operation");
+
+        let on_disk: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(dir.join("GetCountry").join("operation.json")).expect("read operation.json"))
+                .expect("parse operation.json");
+        assert_eq!(on_disk["output"], serde_json::json!({ "name": "GetCountryResponse" }));
+        assert_eq!(on_disk["description"], "Country info");
+        assert_eq!(on_disk["portName"], "CountryPort");
+
+        // Full unified load (absolute dir path passes through resolve as-is)
+        let project = load_unified_project(dir.to_string_lossy().into())
+            .expect("load_unified_project");
+        let loaded_op = &project["operations"][0];
+        let service_op: ServiceOperation =
+            serde_json::from_value(loaded_op.clone()).expect("loaded unified op must deserialize");
+        assert_eq!(service_op.name, "GetCountry");
+        assert_eq!(service_op.output, serde_json::json!({ "name": "GetCountryResponse" }));
+        assert_eq!(service_op.description.as_deref(), Some("Country info"));
+        assert_eq!(service_op.port_name.as_deref(), Some("CountryPort"));
     }
 }
