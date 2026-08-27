@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use once_cell::sync::Lazy;
 use tokio::sync::Notify;
 
-type ClientKey = (u64, bool, bool, String);
+type ClientKey = (u64, bool, bool, String, Option<String>, Option<String>);
 
 static CLIENT_CACHE: Lazy<Mutex<HashMap<ClientKey, Client>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -182,7 +182,17 @@ impl HttpClient {
         let verify_ssl = request.verify_ssl.unwrap_or(true);
         let proxy_url = request.proxy_url.clone().unwrap_or_default();
 
-        let key: ClientKey = (timeout_ms, follow_redirects, verify_ssl, proxy_url.clone());
+        // M3: include proxy credentials in the cache key — two requests that
+        // share a proxy URL but use different credentials must not share a
+        // reqwest Client (the first request's basic-auth would win).
+        let key: ClientKey = (
+            timeout_ms,
+            follow_redirects,
+            verify_ssl,
+            proxy_url.clone(),
+            request.proxy_username.clone(),
+            request.proxy_password.clone(),
+        );
 
         let client = {
             let mut cache = CLIENT_CACHE.lock().unwrap();
@@ -239,9 +249,19 @@ impl HttpClient {
             }
         }
 
-        // Read body
-        let body = response.text().await
-            .context("Failed to read response body")?;
+        // Read body — M4: also race the cancel token against the body read,
+        // not just the request send. A huge/slow response body should be
+        // aborted promptly on cancel.
+        let body_text = if let Some(ref token) = cancel_token {
+            tokio::select! {
+                res = response.text() => res.context("Failed to read response body")?,
+                _ = token.wait() => {
+                    return Err(anyhow::anyhow!("Request cancelled"));
+                }
+            }
+        } else {
+            response.text().await.context("Failed to read response body")?
+        };
 
         let time_taken_ms = start.elapsed().as_millis() as u64;
 
@@ -250,7 +270,7 @@ impl HttpClient {
             status: status_code,
             status_text,
             headers,
-            body,
+            body: body_text,
             time_taken_ms,
             error: None,
             error_kind: None,
