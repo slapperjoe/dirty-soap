@@ -1,15 +1,19 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use crate::http::client::{HttpClient, HttpRequest};
+use crate::http::client::{CancelToken, HttpClient, HttpRequest};
 use crate::performance::types::{PerformanceRequest, PerformanceResult};
 use crate::utils::{substitute_variables, CONTENT_TYPE_XML};
 
 /// Execute a single performance request and return a `PerformanceResult`.
+/// M1: an optional cancel token lets abort_performance_suite interrupt an
+/// in-flight request (raced against both the request send and body read).
 pub async fn execute_request(
     req: &PerformanceRequest,
     iteration: u32,
     variables: &HashMap<String, String>,
+    cancel_token: Option<Arc<CancelToken>>,
 ) -> PerformanceResult {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -51,7 +55,7 @@ pub async fn execute_request(
                 proxy_password: None,
             };
 
-            let resp = client.execute(http_req).await;
+            let resp = client.execute_with_cancel(http_req, cancel_token).await;
             status = resp.status;
             success = resp.status >= 200 && resp.status < 300;
             if let Some(e) = resp.error {

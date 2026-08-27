@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use once_cell::sync::Lazy;
 
+use crate::http::client::CancelToken;
 use crate::performance::runner::execute_request;
 use crate::performance::types::{PerformanceRun, PerformanceStats, PerformanceSuite};
 use crate::settings_manager;
@@ -21,6 +22,11 @@ static PERF_RUN_STORE: Lazy<Arc<Mutex<HashMap<String, PerfRunData>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 static ABORT_FLAGS: Lazy<Arc<Mutex<HashMap<String, bool>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+/// M1: per-run cancel tokens so abort_performance_suite can interrupt an
+/// in-flight request (not just wait for the next iteration boundary).
+static RUN_CANCEL_TOKENS: Lazy<Arc<Mutex<HashMap<String, Arc<CancelToken>>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 fn push_update(run_id: &str, update: Value) {
@@ -149,6 +155,10 @@ pub async fn run_performance_suite(
         .lock()
         .unwrap()
         .insert(run_id.clone(), false);
+    RUN_CANCEL_TOKENS
+        .lock()
+        .unwrap()
+        .insert(run_id.clone(), Arc::new(CancelToken::new()));
 
     let run_id_clone = run_id.clone();
     let initial_vars = request.environment.unwrap_or_default();
@@ -184,6 +194,10 @@ pub async fn run_performance_suite(
             let mut requests = suite.requests.clone();
             requests.sort_by_key(|r| r.order);
 
+            // M1: grab this run's cancel token so a single request can be
+            // interrupted mid-flight on abort.
+            let run_token = RUN_CANCEL_TOKENS.lock().unwrap().get(&run_id_clone).cloned();
+
             if suite.concurrency <= 1 {
                 for req in &requests {
                     if is_aborted(&run_id_clone) {
@@ -191,7 +205,7 @@ pub async fn run_performance_suite(
                         break 'outer;
                     }
 
-                    let result = execute_request(req, iteration, &variables).await;
+                    let result = execute_request(req, iteration, &variables, run_token.clone()).await;
 
                     if let Some(ref extracted) = result.extracted_values {
                         for (k, v) in extracted {
@@ -223,9 +237,10 @@ pub async fn run_performance_suite(
                     for req in chunk {
                         let req = req.clone();
                         let vars = Arc::clone(&vars_arc);
+                        let token = run_token.clone();
                         handles.push(tokio::spawn(async move {
                             let snapshot = vars.read().await.clone();
-                            let result = execute_request(&req, iteration, &snapshot).await;
+                            let result = execute_request(&req, iteration, &snapshot, token).await;
                             if let Some(ref extracted) = result.extracted_values {
                                 let mut shared = vars.write().await;
                                 for (k, v) in extracted {
@@ -315,6 +330,7 @@ pub async fn run_performance_suite(
 
         mark_done(&run_id_clone);
         ABORT_FLAGS.lock().unwrap().remove(&run_id_clone);
+        RUN_CANCEL_TOKENS.lock().unwrap().remove(&run_id_clone);
 
         log::info!(
             "[run_performance_suite] Run {} completed",
@@ -370,6 +386,20 @@ pub async fn get_performance_run_updates(
 #[tauri::command]
 pub async fn abort_performance_suite(run_id: String) -> Result<(), String> {
     log::info!("[abort_performance_suite] Aborting run: {}", run_id);
+    // M1: fire the cancel token so any in-flight request aborts immediately,
+    // not just at the next iteration boundary.
+    {
+        let tokens = RUN_CANCEL_TOKENS.lock().unwrap();
+        if !run_id.is_empty() {
+            if let Some(token) = tokens.get(&run_id) {
+                token.cancel();
+            }
+        } else {
+            for token in tokens.values() {
+                token.cancel();
+            }
+        }
+    }
     let mut flags = ABORT_FLAGS.lock().unwrap();
     if run_id.is_empty() {
         for val in flags.values_mut() {
