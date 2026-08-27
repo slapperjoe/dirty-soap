@@ -304,8 +304,14 @@ export function useMessageHandler(state: MessageHandlerState) {
                         lineCount = displayResponse.split(/\r\n|\r|\n/).length;
                     }
 
-                    const nextResponse = { ...res, rawResponse: displayResponse, duration, lineCount, assertionResults: message.assertionResults, language, createdAt };
-                    debugLog('[useMessageHandler] response:setResponse', { duration, lineCount, language, hasRaw: !!displayResponse });
+                    // M5: flag truncated responses so the user knows the body was capped.
+                    let rawResponse = displayResponse;
+                    if (res?.truncated) {
+                        rawResponse = `${rawResponse ? rawResponse + '\n\n' : ''}--- RESPONSE TRUNCATED AT ${(32 * 1024 * 1024 / 1024 / 1024)} MiB (M5 body cap) ---`;
+                    }
+
+                    const nextResponse = { ...res, rawResponse, duration, lineCount, assertionResults: message.assertionResults, language, createdAt, truncated: res?.truncated ?? false };
+                    debugLog('[useMessageHandler] response:setResponse', { duration, lineCount, language, hasRaw: !!displayResponse, truncated: res?.truncated });
                     setResponse(nextResponse);
                     break;
 

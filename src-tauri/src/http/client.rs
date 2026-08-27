@@ -7,6 +7,11 @@ use std::error::Error as _;
 use std::time::{Duration, Instant};
 use once_cell::sync::Lazy;
 use tokio::sync::Notify;
+use futures_util::StreamExt as _;
+
+/// M5: response bodies larger than this are truncated and flagged on the
+/// HttpResponse (surfaced to the UI) instead of buffered whole into memory.
+pub const RESPONSE_BODY_LIMIT: usize = 32 * 1024 * 1024; // 32 MiB
 
 type ClientKey = (u64, bool, bool, String, Option<String>, Option<String>);
 
@@ -78,6 +83,9 @@ pub struct HttpResponse {
     pub time_taken_ms: u64,
     pub error: Option<String>,
     pub error_kind: Option<HttpErrorKind>,
+    /// M5: true when the response body was truncated at RESPONSE_BODY_LIMIT.
+    #[serde(default)]
+    pub truncated: bool,
 }
 
 pub struct HttpClient {
@@ -161,6 +169,7 @@ impl HttpClient {
                     time_taken_ms: start.elapsed().as_millis() as u64,
                     error: Some(e.to_string()),
                     error_kind: Some(kind),
+                    truncated: false,
                 }
             }
         }
@@ -252,15 +261,21 @@ impl HttpClient {
         // Read body — M4: also race the cancel token against the body read,
         // not just the request send. A huge/slow response body should be
         // aborted promptly on cancel.
-        let body_text = if let Some(ref token) = cancel_token {
+        // M5: cap the body at RESPONSE_BODY_LIMIT; flag truncation on the result.
+        let body_opt = if let Some(ref token) = cancel_token {
             tokio::select! {
-                res = response.text() => res.context("Failed to read response body")?,
+                res = read_capped_body(response) => Some(res),
                 _ = token.wait() => {
                     return Err(anyhow::anyhow!("Request cancelled"));
                 }
             }
         } else {
-            response.text().await.context("Failed to read response body")?
+            Some(read_capped_body(response).await)
+        };
+
+        let (body, truncated) = match body_opt {
+            Some((body, truncated)) => (body, truncated),
+            None => return Err(anyhow::anyhow!("Request cancelled")),
         };
 
         let time_taken_ms = start.elapsed().as_millis() as u64;
@@ -270,10 +285,11 @@ impl HttpClient {
             status: status_code,
             status_text,
             headers,
-            body: body_text,
+            body,
             time_taken_ms,
             error: None,
             error_kind: None,
+            truncated,
         })
     }
 
@@ -377,6 +393,34 @@ impl Default for HttpClient {
     fn default() -> Self {
         Self::new().expect("Failed to create default HTTP client")
     }
+}
+
+/// Read a response body, capping at RESPONSE_BODY_LIMIT bytes (M5).
+/// Returns `(body_string, truncated)`.
+pub(crate) async fn read_capped_body(response: reqwest::Response) -> (String, bool) {
+    let mut stream = response.bytes_stream();
+    let mut buf: Vec<u8> = Vec::new();
+    let mut truncated = false;
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(chunk) => {
+                let remaining = RESPONSE_BODY_LIMIT.saturating_sub(buf.len());
+                if chunk.len() > remaining {
+                    buf.extend_from_slice(&chunk[..remaining]);
+                    truncated = true;
+                    break;
+                }
+                buf.extend_from_slice(&chunk);
+            }
+            Err(_e) => {
+                // Surface the read failure as an empty body with the error in
+                // the HttpResponse.error field instead of throwing away the
+                // whole response.
+                return (String::new(), truncated);
+            }
+        }
+    }
+    (String::from_utf8_lossy(&buf).into_owned(), truncated)
 }
 
 fn build_reqwest_client(

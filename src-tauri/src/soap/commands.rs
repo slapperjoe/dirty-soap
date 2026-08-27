@@ -144,6 +144,13 @@ pub struct ExecuteSoapResponse {
     pub fault: Option<SoapFaultResponse>,
     pub raw_xml: String,
     pub error: Option<String>,
+    /// M5: true when the raw response body was truncated at RESPONSE_BODY_LIMIT.
+    #[serde(default)]
+    pub truncated: bool,
+    /// The id this execution is registered under in CANCEL_TOKENS (client id if
+    /// provided, otherwise a generated UUID). Lets the UI cancel this request by id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -175,7 +182,23 @@ pub async fn execute_soap_request(
 
     CANCEL_TOKENS.lock().unwrap().remove(&request_id);
 
-    result
+    Ok(match result {
+        Ok(response) => ExecuteSoapResponse {
+            request_id: Some(request_id),
+            ..response
+        },
+        Err(err) => ExecuteSoapResponse {
+            success: false,
+            status_code: 0,
+            headers: vec![],
+            body: None,
+            fault: None,
+            raw_xml: String::new(),
+            error: Some(err),
+            truncated: false,
+            request_id: Some(request_id),
+        },
+    })
 }
 
 async fn execute_soap_request_inner(
@@ -193,6 +216,8 @@ async fn execute_soap_request_inner(
             fault: None,
             raw_xml: String::new(),
             error: Some(format!("Invalid SOAP version: {}", request.soap_version)),
+            truncated: false,
+            request_id: None,
         }),
     };
 
@@ -309,6 +334,8 @@ async fn execute_soap_request_inner(
                 fault,
                 raw_xml: response.raw_xml,
                 error: None,
+                truncated: response.truncated,
+                request_id: None,
             })
         }
         Err(e) => Ok(ExecuteSoapResponse {
@@ -319,6 +346,8 @@ async fn execute_soap_request_inner(
             fault: None,
             raw_xml: String::new(),
             error: Some(e.to_string()),
+            truncated: false,
+            request_id: None,
         }),
     }
 }

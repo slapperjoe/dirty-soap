@@ -10,7 +10,7 @@ use std::sync::Arc;
 use super::{EnvelopeBuilder, SoapVersion};
 use super::ws_security::WsSecurityConfig;
 use crate::parsers::wsdl::types::ServiceOperation;
-use crate::http::client::CancelToken;
+use crate::http::client::{CancelToken, read_capped_body};
 
 /// SOAP Fault information
 #[derive(Debug, Clone)]
@@ -29,6 +29,8 @@ pub struct SoapResponse {
     pub body: Option<String>,
     pub fault: Option<SoapFault>,
     pub raw_xml: String,
+    /// M5: true when the raw response body was truncated at RESPONSE_BODY_LIMIT.
+    pub truncated: bool,
 }
 
 impl SoapResponse {
@@ -158,7 +160,7 @@ impl SoapClient {
             log::debug!("  {}: {}", k, v);
         }
 
-        let raw_xml = response.text().await?;
+        let (raw_xml, truncated) = read_capped_body(response).await;
         log::info!("Response body:\n{}", raw_xml);
 
         let (body, fault) = parse_soap_response(&raw_xml)?;
@@ -169,6 +171,7 @@ impl SoapClient {
             body,
             fault,
             raw_xml,
+            truncated,
         })
     }
 
@@ -252,7 +255,7 @@ impl SoapClient {
 
         log::info!("Response: {} {}", status_code, status_text);
 
-        let raw_xml = response.text().await?;
+        let (raw_xml, truncated) = read_capped_body(response).await;
         log::info!("Response body:\n{}", raw_xml);
 
         let (body, fault) = parse_soap_response(&raw_xml)?;
@@ -263,6 +266,7 @@ impl SoapClient {
             body,
             fault,
             raw_xml,
+            truncated,
         })
     }
 
