@@ -219,8 +219,14 @@ export const useWildcardDecorations = (
   };
 
   useEffect(() => {
-    // Debounce slightly or just run
-    updateDecorations();
+    // Debounce: fast typing re-triggers this effect per keystroke; running
+    // the regex pass + deltaDecorations synchronously on every key is wasted
+    // work. 150 ms keeps decorations visually in lockstep with typing
+    // (R3-lite in MONACO_LAG_ROOT_CAUSE.md).
+    const timer = setTimeout(() => {
+      updateDecorations();
+    }, 150);
+    return () => clearTimeout(timer);
   }, [value, editor, monaco, availableChainVariables, availableEnvVariables]);
 
   return { updateDecorations };

@@ -87,6 +87,10 @@ export const GraphQLVariablesPanel: React.FC<GraphQLVariablesPanelProps> = ({
 }) => {
     const [error, setError] = React.useState<string | null>(null);
 
+    // R6 (MONACO_LAG_ROOT_CAUSE.md): debounce the JSON.parse so fast typing
+    // in the variables editor does not parse (and propagate) on every keystroke.
+    const parseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // Convert variables object to JSON string for editing
     const jsonString = React.useMemo(() => {
         try {
@@ -97,20 +101,35 @@ export const GraphQLVariablesPanel: React.FC<GraphQLVariablesPanelProps> = ({
     }, [variables]);
 
     const handleChange = (value: string | undefined) => {
-        if (!value) {
-            onChange({});
-            setError(null);
-            return;
+        if (parseTimer.current) {
+            clearTimeout(parseTimer.current);
         }
+        parseTimer.current = setTimeout(() => {
+            parseTimer.current = null;
+            if (!value) {
+                onChange({});
+                setError(null);
+                return;
+            }
 
-        try {
-            const parsed = JSON.parse(value);
-            onChange(parsed);
-            setError(null);
-        } catch (e: any) {
-            setError(`Invalid JSON: ${e.message}`);
-        }
+            try {
+                const parsed = JSON.parse(value);
+                onChange(parsed);
+                setError(null);
+            } catch (e: any) {
+                setError(`Invalid JSON: ${e.message}`);
+            }
+        }, 300);
     };
+
+    // Flush any pending parse on unmount so the last edit is not lost.
+    React.useEffect(() => {
+        return () => {
+            if (parseTimer.current) {
+                clearTimeout(parseTimer.current);
+            }
+        };
+    }, []);
 
     return (
         <Container>

@@ -196,6 +196,20 @@ function instrumentEditor(editor: any, id: number) {
       return r;
     };
   }
+  // updateOptions churn — per-render options-object identity forces this on
+  // every editor while any editor receives a keystroke (RC2 finding).
+  const origUpdateOptions = editor.updateOptions;
+  if (typeof origUpdateOptions === "function") {
+    editor.updateOptions = (opts: any) => {
+      const s = performance.now();
+      const r = origUpdateOptions.call(editor, opts);
+      const d = performance.now() - s;
+      bump("updateOptions");
+      push({ t: s - t0, type: "updateOptions", dur: d });
+      if (d > 4) push({ t: s - t0, type: "updateOptions:slow", dur: d });
+      return r;
+    };
+  }
 
   registry.push({ id, editor, label: `editor-${id}` });
 }

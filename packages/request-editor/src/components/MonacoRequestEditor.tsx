@@ -1,8 +1,9 @@
-import {
+import React, {
   useRef,
   useImperativeHandle,
   forwardRef,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { MonacoEditorWrapper, Monaco } from "../monaco";
@@ -11,7 +12,7 @@ import { useWildcardDecorations } from "../hooks/useWildcardDecorations";
 import { applyAutoFolding } from "../utils/xmlFoldingUtils";
 import { useTheme } from "../contexts/ThemeContext";
 import { applyMonacoTheme } from "../utils/monacoTheme";
-import { debugLog, debugWarn } from "../utils/logger";
+import { debugWarn } from "../utils/logger";
 
 const EditorContainer = styled.div`
   height: 100%;
@@ -49,7 +50,197 @@ export interface MonacoRequestEditorHandle {
   getValue: () => string;
 }
 
-export const MonacoRequestEditor = forwardRef<
+// R5 (MONACO_LAG_ROOT_CAUSE.md): completion providers are a shared,
+// per-language monaco resource. Previously each mounted request editor
+// registered its own pair of providers (2 per mount, cumulative across
+// tabs and theme-flip remounts), so every suggest query ran 2N providers
+// for N editors, and typing `{{` in one editor could fire another
+// editor's stale provider. Providers are now registered ONCE per language
+// and read each editor's current variables live, keyed by that editor's
+// model URI (published in MonacoRequestEditor's onMount).
+const variableCompletionRegistered = new Set<string>();
+const editorVariablesByModel = new Map<
+  string,
+  () => Array<{ name: string; value: string | null; source: string }>
+>();
+
+function getEditorVariables(model: any): Array<{
+  name: string;
+  value: string | null;
+  source: string;
+}> {
+  if (!model || !model.uri) return [];
+  const provider = editorVariablesByModel.get(model.uri.toString());
+  return provider ? provider() : [];
+}
+
+function ensureVariableCompletionProviders(monaco: Monaco, language: string): void {
+  if (variableCompletionRegistered.has(language)) {
+    return;
+  }
+  variableCompletionRegistered.add(language);
+
+  // Defensive: test environments mock monaco-editor without `languages`.
+  if (!monaco || !monaco.languages || !monaco.languages.registerCompletionItemProvider) {
+    return;
+  }
+
+  // ${...} chain variables (live per-editor values via the model URI)
+  monaco.languages.registerCompletionItemProvider(language, {
+    triggerCharacters: ["$", "{"],
+    provideCompletionItems: (model: any, position: any) => {
+      const textUntilPosition = model.getValueInRange({
+        startLineNumber: position.lineNumber,
+        startColumn: 1,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column,
+      });
+
+      // Check if we're typing ${...}
+      const match = textUntilPosition.match(/\$\{([^}]*)$/);
+      if (!match) {
+        return { suggestions: [] };
+      }
+
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
+
+      const suggestions = getEditorVariables(model).map((variable) => ({
+        label: variable.name,
+        kind: monaco.languages.CompletionItemKind.Variable,
+        detail: variable.value
+          ? `= ${variable.value}`
+          : "(not yet extracted)",
+        documentation: `From: ${variable.source}\nValue: ${variable.value || "pending"}`,
+        insertText: variable.name,
+        range: range,
+      }));
+
+      return { suggestions };
+    },
+  });
+
+  // {{...}} variables (env/global/functions - static list)
+  monaco.languages.registerCompletionItemProvider(language, {
+    triggerCharacters: ["{"],
+    provideCompletionItems: (model: any, position: any) => {
+      const textUntilPosition = model.getValueInRange({
+        startLineNumber: position.lineNumber,
+        startColumn: 1,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column,
+      });
+
+      // Check if we're typing {{...}}
+      const match = textUntilPosition.match(/\{\{([^}]*)$/);
+      if (!match) {
+        return { suggestions: [] };
+      }
+
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
+
+      const suggestions: any[] = [];
+
+      // Add function suggestions
+      const functions = [
+        {
+          name: "uuid",
+          detail: "Generate a new UUID",
+          doc: "Generates a random UUID v4 identifier",
+        },
+        {
+          name: "newguid",
+          detail: "Generate a new GUID",
+          doc: "Alias for uuid - generates a random UUID",
+        },
+        {
+          name: "now",
+          detail: "Current timestamp (ISO)",
+          doc: "Returns the current date/time in ISO 8601 format",
+        },
+        {
+          name: "epoch",
+          detail: "Current Unix timestamp",
+          doc: "Returns the current timestamp in seconds",
+        },
+        {
+          name: "randomInt(1,100)",
+          detail: "Random integer",
+          doc: "Generate a random integer between min and max (inclusive)\nExample: {{randomInt(1,100)}}",
+        },
+        {
+          name: "lorem(5)",
+          detail: "Lorem ipsum text",
+          doc: "Generate lorem ipsum placeholder text\nExample: {{lorem(10)}} generates 10 words",
+        },
+        {
+          name: "name",
+          detail: "Random name",
+          doc: "Generates a random full name",
+        },
+        {
+          name: "country",
+          detail: "Random country",
+          doc: "Generates a random country name",
+        },
+        {
+          name: "state",
+          detail: "Random US state",
+          doc: "Generates a random US state name",
+        },
+        {
+          name: "now+1d",
+          detail: "Date math (future)",
+          doc: "Add time to current date\nExamples: {{now+1d}} (1 day), {{now+2m}} (2 months), {{now+3y}} (3 years)",
+        },
+        {
+          name: "now-1d",
+          detail: "Date math (past)",
+          doc: "Subtract time from current date\nExamples: {{now-1d}} (1 day ago), {{now-2m}} (2 months ago)",
+        },
+        {
+          name: "env",
+          detail: "Environment endpoint URL",
+          doc: "Shortcut for the current environment's endpoint URL",
+        },
+        {
+          name: "url",
+          detail: "Environment endpoint URL",
+          doc: "Shortcut for the current environment's endpoint URL (alias for env)",
+        },
+      ];
+
+      functions.forEach((fn) => {
+        suggestions.push({
+          label: fn.name,
+          kind: monaco.languages.CompletionItemKind.Function,
+          detail: fn.detail,
+          documentation: fn.doc,
+          insertText: fn.name,
+          range: range,
+        });
+      });
+
+      // TODO: Add environment and global variables when available
+      // This would require passing them as props similar to availableVariables
+
+      return { suggestions };
+    },
+  });
+}
+
+const MonacoRequestEditorBase = forwardRef<
   MonacoRequestEditorHandle,
   MonacoRequestEditorProps
 >(
@@ -74,6 +265,13 @@ export const MonacoRequestEditor = forwardRef<
   ) => {
     const editorRef = useRef<any>(null);
     const monacoRef = useRef<Monaco | null>(null);
+    // R5 (MONACO_LAG_ROOT_CAUSE.md): the shared per-language completion
+    // providers read each editor's variables through this ref so suggestions
+    // stay current without re-registering providers on prop changes.
+    const availableVariablesRef = useRef(availableVariables);
+    availableVariablesRef.current = availableVariables;
+    // Model URI this editor published its variables under (cleared on unmount).
+    const registeredModelUriRef = useRef<string | undefined>(undefined);
     const { theme } = useTheme();
     const [editorTheme, setEditorTheme] = useState<string>("vs-dark");
     const previousRequestIdRef = useRef<string | undefined>(undefined);
@@ -216,163 +414,24 @@ export const MonacoRequestEditor = forwardRef<
         run: doPaste,
       });
 
-      // --- Variable Autocomplete ---
-      // Register completion provider for ${...} variables (chain variables)
-      if (availableVariables.length > 0) {
-        monaco.languages.registerCompletionItemProvider(language, {
-          triggerCharacters: ["$", "{"],
-          provideCompletionItems: (model: any, position: any) => {
-            const textUntilPosition = model.getValueInRange({
-              startLineNumber: position.lineNumber,
-              startColumn: 1,
-              endLineNumber: position.lineNumber,
-              endColumn: position.column,
-            });
+      // --- Variable Autocomplete (R5: shared, per-language providers) ---
+      // R5 (MONACO_LAG_ROOT_CAUSE.md): completion providers are now
+      // registered once per language via the module-level
+      // ensureVariableCompletionProviders(); each mounted editor just
+      // publishes its current variables under its model URI (below,
+      // in onMount) so the shared providers read them live. No per-mount
+      // registration, no cumulative provider growth, no cross-editor
+      // completion fire.
+      ensureVariableCompletionProviders(monaco, language);
 
-            // Check if we're typing ${...}
-            const match = textUntilPosition.match(/\$\{([^}]*)$/);
-            if (!match) {
-              return { suggestions: [] };
-            }
-
-            const word = model.getWordUntilPosition(position);
-            const range = {
-              startLineNumber: position.lineNumber,
-              endLineNumber: position.lineNumber,
-              startColumn: word.startColumn,
-              endColumn: word.endColumn,
-            };
-
-            const suggestions = availableVariables.map((variable) => ({
-              label: variable.name,
-              kind: monaco.languages.CompletionItemKind.Variable,
-              detail: variable.value
-                ? `= ${variable.value}`
-                : "(not yet extracted)",
-              documentation: `From: ${variable.source}\nValue: ${variable.value || "pending"}`,
-              insertText: variable.name,
-              range: range,
-            }));
-
-            return { suggestions };
-          },
-        });
+      // Publish this editor's live variables under its model URI so the
+      // shared providers resolve per-editor values (see getEditorVariables).
+      const model = editor.getModel?.();
+      if (model && model.uri) {
+        const uri = model.uri.toString();
+        editorVariablesByModel.set(uri, () => availableVariablesRef.current);
+        registeredModelUriRef.current = uri;
       }
-
-      // Register completion provider for {{...}} variables (env/global/functions)
-      monaco.languages.registerCompletionItemProvider(language, {
-        triggerCharacters: ["{"],
-        provideCompletionItems: (model: any, position: any) => {
-          const textUntilPosition = model.getValueInRange({
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: position.column,
-          });
-
-          // Check if we're typing {{...}}
-          const match = textUntilPosition.match(/\{\{([^}]*)$/);
-          if (!match) {
-            return { suggestions: [] };
-          }
-
-          const word = model.getWordUntilPosition(position);
-          const range = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
-
-          const suggestions: any[] = [];
-
-          // Add function suggestions
-          const functions = [
-            {
-              name: "uuid",
-              detail: "Generate a new UUID",
-              doc: "Generates a random UUID v4 identifier",
-            },
-            {
-              name: "newguid",
-              detail: "Generate a new GUID",
-              doc: "Alias for uuid - generates a random UUID",
-            },
-            {
-              name: "now",
-              detail: "Current timestamp (ISO)",
-              doc: "Returns the current date/time in ISO 8601 format",
-            },
-            {
-              name: "epoch",
-              detail: "Current Unix timestamp",
-              doc: "Returns the current Unix timestamp in seconds",
-            },
-            {
-              name: "randomInt(1,100)",
-              detail: "Random integer",
-              doc: "Generate a random integer between min and max (inclusive)\nExample: {{randomInt(1,100)}}",
-            },
-            {
-              name: "lorem(5)",
-              detail: "Lorem ipsum text",
-              doc: "Generate lorem ipsum placeholder text\nExample: {{lorem(10)}} generates 10 words",
-            },
-            {
-              name: "name",
-              detail: "Random name",
-              doc: "Generates a random full name",
-            },
-            {
-              name: "country",
-              detail: "Random country",
-              doc: "Generates a random country name",
-            },
-            {
-              name: "state",
-              detail: "Random US state",
-              doc: "Generates a random US state name",
-            },
-            {
-              name: "now+1d",
-              detail: "Date math (future)",
-              doc: "Add time to current date\nExamples: {{now+1d}} (1 day), {{now+2m}} (2 months), {{now+3y}} (3 years)",
-            },
-            {
-              name: "now-1d",
-              detail: "Date math (past)",
-              doc: "Subtract time from current date\nExamples: {{now-1d}} (1 day ago), {{now-2m}} (2 months ago)",
-            },
-            {
-              name: "env",
-              detail: "Environment endpoint URL",
-              doc: "Shortcut for the current environment's endpoint URL",
-            },
-            {
-              name: "url",
-              detail: "Environment endpoint URL",
-              doc: "Shortcut for the current environment's endpoint URL (alias for env)",
-            },
-          ];
-
-          functions.forEach((fn) => {
-            suggestions.push({
-              label: fn.name,
-              kind: monaco.languages.CompletionItemKind.Function,
-              detail: fn.detail,
-              documentation: fn.doc,
-              insertText: fn.name,
-              range: range,
-            });
-          });
-
-          // TODO: Add environment and global variables when available
-          // This would require passing them as props similar to availableVariables
-
-          return { suggestions };
-        },
-      });
-
       // Copy (Ctrl+C)
       const doCopy = (ed: any) => {
         const selection = ed.getSelection();
@@ -444,6 +503,18 @@ export const MonacoRequestEditor = forwardRef<
       }
     }, [theme]);
 
+    // R5 (MONACO_LAG_ROOT_CAUSE.md): drop this editor's published variables
+    // on unmount so shared providers never resolve a disposed model's URI.
+    useEffect(() => {
+      return () => {
+        const uri = registeredModelUriRef.current;
+        if (uri) {
+          editorVariablesByModel.delete(uri);
+          registeredModelUriRef.current = undefined;
+        }
+      };
+    }, []);
+
     // Listen for Clipboard Data from Backend (Fallback for Paste)
     // Listen for Clipboard Data from Backend (Fallback for Paste)
     useEffect(() => {
@@ -485,20 +556,27 @@ export const MonacoRequestEditor = forwardRef<
       };
     }, [onLog, requestId]);
 
-    const editorOptions = {
-      minimap: { enabled: showMinimap },
-      fontSize: fontSize,
-      fontFamily: fontFamily,
-      scrollBeyondLastLine: false,
-      readOnly: readOnly,
-      folding: true,
-      automaticLayout: true,
-      lineNumbers: showLineNumbers ? "on" : "off",
-      renderLineHighlight: "none",
-      contextmenu: true,
-      acceptSuggestionOnEnter: "off",
-      quickSuggestions: false,
-    };
+    // R2 (MONACO_LAG_ROOT_CAUSE.md): memoize editorOptions so the wrapper's
+    // [options] effect only calls editor.updateOptions() when an actual
+    // setting changes. Previously a fresh object literal was built on every
+    // render, forcing updateOptions on all mounted editors per keystroke.
+    const editorOptions = useMemo(
+      () => ({
+        minimap: { enabled: showMinimap },
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        scrollBeyondLastLine: false,
+        readOnly: readOnly,
+        folding: true,
+        automaticLayout: true,
+        lineNumbers: showLineNumbers ? "on" : "off",
+        renderLineHighlight: "none",
+        contextmenu: true,
+        acceptSuggestionOnEnter: "off",
+        quickSuggestions: false,
+      }),
+      [showMinimap, fontSize, fontFamily, readOnly, showLineNumbers],
+    );
 
     // Apply auto-folding when switching to a different request
     useEffect(() => {
@@ -538,16 +616,19 @@ export const MonacoRequestEditor = forwardRef<
         <style></style>
         <MonacoEditorWrapper
           height="100%"
-          key={`request-editor-${theme}`}
+          // R6 (MONACO_LAG_ROOT_CAUSE.md): no theme remount key — the theme
+          // already switches in place via monaco.editor.setTheme (see the
+          // applyEditorTheme effect above). A key-based remount destroyed and
+          // re-created the whole editor (60-77 ms) on every theme flip.
           language={language}
           value={value}
-          onChange={(val) => {
-            debugLog(
-              "[MonacoRequestEditor] onChange fired",
-              `val length: ${val?.length}, requestId: ${requestId}`,
-            );
-            onChange(val || "");
-          }}
+          // R6: the per-keystroke debugLog here paid for in-memory log
+          // capture on every typed character; debug logging is gated in
+          // logger.ts (setDebugLogging) and only costs one flag check now.
+          // R2: an inline arrow is fine — MonacoEditorWrapper subscribes
+          // onDidChangeModelContent once and reads the latest callback via a
+          // ref, so unstable caller identities no longer cause listener churn.
+          onChange={(val) => onChange(val || "")}
           theme={editorTheme}
           onMount={handleEditorDidMount}
           options={editorOptions as any}
@@ -556,3 +637,10 @@ export const MonacoRequestEditor = forwardRef<
     );
   },
 );
+
+// R3 (MONACO_LAG_ROOT_CAUSE.md): memoize so parent re-renders that don't
+// change the props (e.g. a header edit elsewhere in the explorer) skip
+// re-rendering the editor subtree entirely. Props that change per keystroke
+// (value) still propagate; R2's stable options/callbacks mean the re-render
+// is cheap when it does happen.
+export const MonacoRequestEditor = React.memo(MonacoRequestEditorBase);

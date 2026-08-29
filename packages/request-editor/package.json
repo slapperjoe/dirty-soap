@@ -30,7 +30,8 @@
     "dev": "vite",
     "build": "vite build && tsc --emitDeclarationOnly --declaration --outDir dist",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "perf:serve": "vite"
   },
   "keywords": [
     "monaco-editor",

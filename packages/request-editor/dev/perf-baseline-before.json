@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "task": "t_c20ec889",
+    "captured": "2026-08-29 post-compaction re-capture on the same :3111 harness (perf.html via npx vite --port 3111 --strictPort in packages/request-editor)",
+    "driver": "dev/perf-driver.js: 40-key typing on request1, triggerSuggest, 40 growing selections on response viewer",
+    "note": "countersAfterInit = cumulative counters after init+all phases; worker-fallback=2 are the two load-time console warnings captured before the driver's reset. 'delta' is the driver-reported per-run delta."
+  },
+  "countersAfterInit": {
+    "completion-provide": 2,
+    "completion-register:xml": 2,
+    "frame-drop": 2,
+    "longtask": 2,
+    "sub:onDidChangeCursorSelection": 43,
+    "sub:onDidChangeModelContent": 309,
+    "sub:onDidScrollChange": 54,
+    "unsub:onDidChangeModelContent": 202,
+    "updateOptions": 255,
+    "worker-fallback": 2
+  },
+  "delta": {
+    "completion-provide": 2,
+    "completion-register:xml": 0,
+    "frame-drop": 0,
+    "longtask": 0,
+    "sub:onDidChangeCursorSelection": 0,
+    "sub:onDidChangeModelContent": 200,
+    "sub:onDidScrollChange": 0,
+    "unsub:onDidChangeModelContent": 200,
+    "updateOptions": 240,
+    "worker-fallback": 0
+  },
+  "init": {
+    "firstCreateMs": 26.0,
+    "timeToFirstRenderMs": 85,
+    "chunkCount": 201
+  },
+  "phases": {
+    "typing-40keys": {
+      "durationMs": 3630,
+      "eventCounts": {
+        "content-change": 720,
+        "cursor-selection": 280,
+        "deltaDecorations": 83,
+        "key": 40,
+        "scroll-change": 9,
+        "updateOptions": 240
+      },
+      "contentChange": {
+        "max": 0.2,
+        "p50": 0,
+        "p99": 0.1,
+        "totalMs": 3
+      },
+      "typingContent": {
+        "max": 3.6,
+        "p50": 0.3,
+        "p90": 0.7,
+        "p99": 3.6,
+        "totalMs": 18
+      }
+    },
+    "autocomplete": {
+      "durationMs": 1501,
+      "completionProvide": 2
+    },
+    "selection-response": {
+      "durationMs": 3815,
+      "cursor-selection": 328,
+      "key": 40
+    }
+  },
+  "react": {
+    "typing": {
+      "commits": 40,
+      "max": 0.7,
+      "p50": 0.3,
+      "p90": 0.5,
+      "totalMs": 13
+    },
+    "all": {
+      "commits": 42,
+      "max": 6.2,
+      "p50": 0.3,
+      "p99": 6.2,
+      "totalMs": 20
+    }
+  },
+  "stats": {
+    "cursor-selection": {
+      "max": 0.1,
+      "n": 609,
+      "p99": 0.1,
+      "totalMs": 1
+    },
+    "editor-create": {
+      "max": 26,
+      "min": 1.3,
+      "n": 6,
+      "p90": 26,
+      "totalMs": 45
+    },
+    "frame-drop": {
+      "max": 100,
+      "min": 50,
+      "n": 2,
+      "totalMs": 150
+    },
+    "longtask": {
+      "max": 79,
+      "min": 62,
+      "n": 2,
+      "totalMs": 141
+    },
+    "setValue": {
+      "n": 1,
+      "totalMs": 2
+    }
+  }
+}

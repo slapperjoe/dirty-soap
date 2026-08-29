@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { MonacoEditorWrapper } from '../monaco';
 import type { MonacoType as Monaco } from '../monaco';
 import styled from 'styled-components';
@@ -23,7 +23,7 @@ interface MonacoResponseViewerProps {
     fontFamily?: string; // Font family for viewer (default: Consolas)
 }
 
-export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
+const MonacoResponseViewerBase: React.FC<MonacoResponseViewerProps> = ({
     value,
     language = 'xml',
     showLineNumbers = true,
@@ -35,6 +35,11 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
 }) => {
     const editorRef = useRef<any>(null);
     const monacoRef = useRef<Monaco | null>(null);
+    // R4 (MONACO_LAG_ROOT_CAUSE.md): the selection listener is subscribed
+    // once in onMount, so it always reads the latest callback through a ref
+    // instead of re-subscribing when caller callback identity changes.
+    const onSelectionChangeRef = useRef<MonacoResponseViewerProps['onSelectionChange']>(onSelectionChange);
+    onSelectionChangeRef.current = onSelectionChange;
     const [isReady, setIsReady] = React.useState(!autoFoldElements || autoFoldElements.length === 0 || !value);
     const { theme } = useTheme();
     const [viewerTheme, setViewerTheme] = useState<string>('vs-dark');
@@ -70,15 +75,10 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
         applyAutoFolding(editorRef.current, value, autoFoldElements, () => setIsReady(true));
     }, [value, autoFoldElements]);
 
-    return (
-        <ViewerContainer style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.1s' }}>
-            <MonacoEditorWrapper
-                height="100%"
-                key={`response-viewer-${theme}`}
-                language={language}
-                value={value}
-                theme={viewerTheme}
-                options={{
+    // R2 (MONACO_LAG_ROOT_CAUSE.md): memoize the viewer options so the wrapper's
+            // [options] effect stops calling updateOptions on every parent re-render.
+            const viewerOptions = useMemo(
+                () => ({
                     minimap: { enabled: showMinimap },
                     fontSize: fontSize,
                     fontFamily: fontFamily,
@@ -89,8 +89,21 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
                     lineNumbers: showLineNumbers ? 'on' : 'off',
                     renderLineHighlight: 'none',
                     contextmenu: true,
-                }}
-                onMount={(editor, monaco) => {
+                }),
+                [showMinimap, fontSize, fontFamily, showLineNumbers]
+            );
+
+            return (
+            <ViewerContainer style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.1s' }}>
+                <MonacoEditorWrapper
+                    height="100%"
+                    // R6 (MONACO_LAG_ROOT_CAUSE.md): no theme remount key — the
+                    // theme switches in place via applyViewerTheme/setTheme.
+                    language={language}
+                    value={value}
+                    theme={viewerTheme}
+                    options={viewerOptions}
+                    onMount={(editor, monaco) => {
                     editorRef.current = editor;
                     monacoRef.current = monaco;
                     applyViewerTheme(monaco);
@@ -104,6 +117,45 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
                     let isMouseDown = false;
                     let wasMouseSelection = false;
 
+                    // R4 (MONACO_LAG_ROOT_CAUSE.md): onDidChangeCursorSelection fires
+                    // per drag step / arrow key; running model.getValueInRange over the
+                    // selected range on every fire is O(selection) per event (100 KB+
+                    // responses are routine). Coalesce to at most one fire per frame
+                    // (requestAnimationFrame), only when the selection is non-empty and
+                    // actually changed since the last processed frame. Keyboard
+                    // cursor moves produce an empty selection and are skipped entirely.
+                    let rafPending = false;
+                    let lastProcessedKey = '';
+                    const selectionKey = (sel: any) =>
+                        sel
+                            ? `${sel.startLineNumber}:${sel.startColumn}-${sel.endLineNumber}:${sel.endColumn}`
+                            : '';
+                    const processSelection = () => {
+                        rafPending = false;
+                        const sel = pendingSelection;
+                        pendingSelection = null;
+                        // Mouse selections are reported on mouseup instead.
+                        if (isMouseDown || wasMouseSelection) return;
+                        const cb = onSelectionChangeRef.current;
+                        if (!cb) return;
+                        if (!sel || sel.isEmpty()) {
+                            cb(null);
+                            return;
+                        }
+                        const key = selectionKey(sel);
+                        if (key === lastProcessedKey) return;
+                        lastProcessedKey = key;
+                        const model = editor.getModel();
+                        if (!model) return;
+                        const text = model.getValueInRange(sel);
+                        if (text) {
+                            const offset = model.getOffsetAt(sel.getStartPosition());
+                            cb({ text, offset });
+                        } else {
+                            cb(null);
+                        }
+                    };
+
                     editor.onMouseDown(() => {
                         isMouseDown = true;
                         wasMouseSelection = true;
@@ -112,15 +164,17 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
                     editor.onMouseUp(() => {
                         isMouseDown = false;
                         // Only report selection on mouse up (when user finishes selecting with mouse)
-                        if (pendingSelection && onSelectionChange) {
+                        const sel = pendingSelection;
+                        pendingSelection = null;
+                        if (sel && onSelectionChangeRef.current) {
                             const model = editor.getModel();
                             if (model) {
-                                const text = model.getValueInRange(pendingSelection);
+                                const text = model.getValueInRange(sel);
                                 if (text) {
-                                    const offset = model.getOffsetAt(pendingSelection.getStartPosition());
-                                    onSelectionChange({ text, offset });
+                                    const offset = model.getOffsetAt(sel.getStartPosition());
+                                    onSelectionChangeRef.current({ text, offset });
                                 } else {
-                                    onSelectionChange(null);
+                                    onSelectionChangeRef.current(null);
                                 }
                             }
                         }
@@ -130,25 +184,9 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
 
                     editor.onDidChangeCursorSelection((e: any) => {
                         pendingSelection = e.selection;
-
-                        // Only immediately notify for keyboard-based selections (not mouse-based)
-                        // If mouse is down, we'll wait for mouseup
-                        // If this selection was initiated by a mouse, don't notify here
-                        if (!isMouseDown && !wasMouseSelection && onSelectionChange) {
-                            if (e.selection) {
-                                const model = editor.getModel();
-                                if (model) {
-                                    const text = model.getValueInRange(e.selection);
-                                    const offset = model.getOffsetAt(e.selection.getStartPosition());
-                                    if (text) {
-                                        onSelectionChange({ text, offset });
-                                    } else {
-                                        onSelectionChange(null);
-                                    }
-                                }
-                            } else {
-                                onSelectionChange(null);
-                            }
+                        if (!rafPending) {
+                            rafPending = true;
+                            requestAnimationFrame(processSelection);
                         }
                     });
                 }}
@@ -156,3 +194,8 @@ export const MonacoResponseViewer: React.FC<MonacoResponseViewerProps> = ({
         </ViewerContainer>
     );
 };
+
+// R3 (MONACO_LAG_ROOT_CAUSE.md): the viewer's `value` is stable while the user
+// types in other editors, so memoization keeps it out of per-keystroke parent
+// re-renders (React.memo short-circuits before the wrapper re-renders at all).
+export const MonacoResponseViewer = React.memo(MonacoResponseViewerBase);

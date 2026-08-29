@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as monaco from "monaco-editor";
+import "../monaco-env"; // R1: registers MonacoEnvironment.getWorker (web workers) before any editor is created
 
 // Unique instance counter for per-editor model URIs
 let _monacoWrapperId = 0;
@@ -169,21 +170,31 @@ export const MonacoEditorWrapper = React.forwardRef<
       editorRef.current.updateOptions(options);
     }, [options]);
 
-    // Handle editor content changes
+    // R2 (MONACO_LAG_ROOT_CAUSE.md): keep the latest onChange in a ref and
+    // subscribe onDidChangeModelContent once on mount. Callers may pass
+    // unstable inline callbacks (e.g. `onChange={(v) => setXml(v)}`) without
+    // the wrapper tearing down and re-subscribing the listener on every
+    // render — that churn was 200 dispose/re-subscribe cycles per 40-key burst.
+    const onChangeRef = useRef<MonacoEditorWrapperProps["onChange"]>(onChange);
+    onChangeRef.current = onChange;
+
+    // Handle editor content changes (subscribed once; the handler always
+    // reads the latest callback through onChangeRef)
     useEffect(() => {
-      if (!editorRef.current || !onChange) return;
+      if (!editorRef.current) return;
       const editor = editorRef.current;
 
       const listener = editor.onDidChangeModelContent(() => {
-        if (onChange) {
-          onChange(editor.getValue());
+        const handler = onChangeRef.current;
+        if (handler) {
+          handler(editor.getValue());
         }
       });
 
       return () => {
         listener.dispose();
       };
-    }, [onChange]);
+    }, []);
 
     // Expose imperative handle
     useEffect(() => {

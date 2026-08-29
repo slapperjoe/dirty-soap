@@ -1,0 +1,631 @@
+{
+  "delta": {
+    "longtask": 0,
+    "frame-drop": 0,
+    "sub:onDidScrollChange": 0,
+    "completion-register:xml": 0,
+    "updateOptions": 120,
+    "sub:onDidChangeModelContent": 0,
+    "sub:onDidChangeCursorSelection": 0,
+    "completion-provide": 2
+  },
+  "countersAfter": {
+    "longtask": 2,
+    "frame-drop": 2,
+    "sub:onDidScrollChange": 54,
+    "completion-register:xml": 2,
+    "updateOptions": 132,
+    "sub:onDidChangeModelContent": 108,
+    "sub:onDidChangeCursorSelection": 43,
+    "completion-provide": 2
+  },
+  "reactStatsAll": {
+    "commits": 42,
+    "totalMs": 23,
+    "p50": 0.4000000059604645,
+    "p90": 0.5999999940395355,
+    "p99": 6.200000002980232,
+    "max": 6.200000002980232,
+    "byId": {
+      "perf-harness": {
+        "n": 42,
+        "ms": 23.200000002980232
+      }
+    }
+  },
+  "reactStatsTyping": {
+    "commits": 40,
+    "totalMs": 17,
+    "p50": 0.3999999910593033,
+    "p90": 0.5999999940395355,
+    "p99": 0.800000011920929,
+    "max": 0.800000011920929,
+    "byId": {
+      "perf-harness": {
+        "n": 40,
+        "ms": 16.50000001490116
+      }
+    }
+  },
+  "phases": [
+    {
+      "label": "typing-40keys",
+      "durationMs": 3647,
+      "stats": {
+        "content-change": {
+          "n": 720,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0.10000000894069672,
+          "max": 0.19999998807907104,
+          "totalMs": 4
+        },
+        "render-fire": {
+          "n": 0
+        },
+        "scroll-change": {
+          "n": 9,
+          "min": 0,
+          "p50": 0,
+          "p90": 0.10000000894069672,
+          "p99": 0.10000000894069672,
+          "max": 0.10000000894069672,
+          "totalMs": 0
+        },
+        "scroll-fire": {
+          "n": 1
+        },
+        "setDecorations": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "deltaDecorations": {
+          "n": 3,
+          "min": 0,
+          "p50": 0,
+          "p90": 0.09999999403953552,
+          "p99": 0.09999999403953552,
+          "max": 0.09999999403953552,
+          "totalMs": 0
+        },
+        "completion-provide": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "longtask": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "frame-drop": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "setValue": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "executeEdits": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        }
+      },
+      "eventCounts": {
+        "key": 40,
+        "content-change": 720,
+        "cursor-selection": 280,
+        "updateOptions": 120,
+        "scroll-fire": 1,
+        "scroll-change": 9,
+        "deltaDecorations": 3
+      },
+      "typing": {
+        "content": {
+          "n": 40,
+          "min": 0.29999999701976776,
+          "p50": 0.699999988079071,
+          "p90": 1.199999988079071,
+          "p99": 3.9000000059604645,
+          "max": 3.9000000059604645,
+          "totalMs": 30
+        },
+        "render": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        }
+      }
+    },
+    {
+      "label": "autocomplete",
+      "durationMs": 1502,
+      "stats": {
+        "content-change": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "render-fire": {
+          "n": 0
+        },
+        "scroll-change": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "scroll-fire": {
+          "n": 0
+        },
+        "setDecorations": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "deltaDecorations": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "completion-provide": {
+          "n": 2,
+          "min": 0.20000000298023224,
+          "p50": 0.4000000059604645,
+          "p90": 0.4000000059604645,
+          "p99": 0.4000000059604645,
+          "max": 0.4000000059604645,
+          "totalMs": 1
+        },
+        "longtask": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "frame-drop": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "setValue": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "executeEdits": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        }
+      },
+      "eventCounts": {
+        "completion-provide": 2
+      },
+      "typing": {
+        "content": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "render": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        }
+      }
+    },
+    {
+      "label": "selection-response",
+      "durationMs": 3821,
+      "stats": {
+        "content-change": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "render-fire": {
+          "n": 0
+        },
+        "scroll-change": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "scroll-fire": {
+          "n": 0
+        },
+        "setDecorations": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "deltaDecorations": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "completion-provide": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "longtask": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "frame-drop": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "setValue": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "executeEdits": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        }
+      },
+      "eventCounts": {
+        "cursor-selection": 328,
+        "key": 40
+      },
+      "typing": {
+        "content": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        },
+        "render": {
+          "n": 0,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0,
+          "totalMs": 0
+        }
+      }
+    }
+  ],
+  "init": {
+    "firstCreateAtMs": 46,
+    "firstCreateMs": 24.399999991059303,
+    "timeToFirstRenderMs": 82
+  },
+  "editorCreates": [
+    {
+      "t": 46,
+      "ms": 24.399999991059303,
+      "language": "?",
+      "valueLen": 0,
+      "model": false
+    },
+    {
+      "t": 79,
+      "ms": 10.400000005960464,
+      "language": "?",
+      "valueLen": 0,
+      "model": false
+    },
+    {
+      "t": 90,
+      "ms": 2,
+      "language": "?",
+      "valueLen": 0,
+      "model": false
+    },
+    {
+      "t": 93,
+      "ms": 1.2999999970197678,
+      "language": "?",
+      "valueLen": 0,
+      "model": false
+    },
+    {
+      "t": 96,
+      "ms": 3.2999999970197678,
+      "language": "?",
+      "valueLen": 0,
+      "model": false
+    },
+    {
+      "t": 105,
+      "ms": 2.0999999940395355,
+      "language": "?",
+      "valueLen": 0,
+      "model": false
+    }
+  ],
+  "typing": {
+    "content": {
+      "n": 40,
+      "min": 0.29999999701976776,
+      "p50": 0.699999988079071,
+      "p90": 1.199999988079071,
+      "p99": 3.9000000059604645,
+      "max": 3.9000000059604645,
+      "totalMs": 30
+    },
+    "render": {
+      "n": 0,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0,
+      "max": 0,
+      "totalMs": 0
+    }
+  },
+  "monacoResources": {
+    "chunkCount": 216,
+    "transferBytes": 10122376,
+    "sumLoadMs": 10529,
+    "sample": [
+      {
+        "name": "MonacoRequestEditor.tsx?t=1787987826803",
+        "ms": 7
+      },
+      {
+        "name": "MonacoResponseViewer.tsx?t=1787987826803",
+        "ms": 7
+      },
+      {
+        "name": "MonacoSingleLineInput.tsx?t=1787987826803",
+        "ms": 7
+      },
+      {
+        "name": "editor.main.js?v=1f01b819",
+        "ms": 3
+      },
+      {
+        "name": "monaco.ts?t=1787987826803",
+        "ms": 2
+      },
+      {
+        "name": "monacoTheme.ts",
+        "ms": 7
+      },
+      {
+        "name": "monaco.contribution.js?v=1f01b819",
+        "ms": 10
+      },
+      {
+        "name": "monaco.contribution.js?v=1f01b819",
+        "ms": 11
+      }
+    ]
+  },
+  "stats": {
+    "editor-create": {
+      "n": 6,
+      "min": 1.2999999970197678,
+      "p50": 3.2999999970197678,
+      "p90": 24.399999991059303,
+      "p99": 24.399999991059303,
+      "max": 24.399999991059303,
+      "totalMs": 43
+    },
+    "content-change": {
+      "n": 720,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0.10000000894069672,
+      "max": 0.19999998807907104,
+      "totalMs": 4
+    },
+    "content-change:slow": {
+      "n": 0,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0,
+      "max": 0,
+      "totalMs": 0
+    },
+    "render-fire": {
+      "n": 6
+    },
+    "scroll-fire": {
+      "n": 12
+    },
+    "scroll-change": {
+      "n": 60,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0.10000000894069672,
+      "max": 0.10000000894069672,
+      "totalMs": 0
+    },
+    "cursor-selection": {
+      "n": 609,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0.10000000894069672,
+      "max": 0.10000000894069672,
+      "totalMs": 1
+    },
+    "setValue": {
+      "n": 1,
+      "min": 2.2000000029802322,
+      "p50": 2.2000000029802322,
+      "p90": 2.2000000029802322,
+      "p99": 2.2000000029802322,
+      "max": 2.2000000029802322,
+      "totalMs": 2
+    },
+    "executeEdits": {
+      "n": 0,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0,
+      "max": 0,
+      "totalMs": 0
+    },
+    "setDecorations": {
+      "n": 0,
+      "min": 0,
+      "p50": 0,
+      "p90": 0,
+      "p99": 0,
+      "max": 0,
+      "totalMs": 0
+    },
+    "deltaDecorations": {
+      "n": 7,
+      "min": 0,
+      "p50": 0,
+      "p90": 0.09999999403953552,
+      "p99": 0.09999999403953552,
+      "max": 0.09999999403953552,
+      "totalMs": 0
+    },
+    "completion-provide": {
+      "n": 2,
+      "min": 0.20000000298023224,
+      "p50": 0.4000000059604645,
+      "p90": 0.4000000059604645,
+      "p99": 0.4000000059604645,
+      "max": 0.4000000059604645,
+      "totalMs": 1
+    },
+    "longtask": {
+      "n": 2,
+      "min": 60,
+      "p50": 75,
+      "p90": 75,
+      "p99": 75,
+      "max": 75,
+      "totalMs": 135
+    },
+    "frame-drop": {
+      "n": 2,
+      "min": 49.89999999999998,
+      "p50": 99.90000000000009,
+      "p90": 99.90000000000009,
+      "p99": 99.90000000000009,
+      "max": 99.90000000000009,
+      "totalMs": 150
+    }
+  }
+}

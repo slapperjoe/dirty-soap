@@ -37,8 +37,20 @@ export const captureLog = (level: 'debug' | 'warn' | 'error' | 'info', ...args: 
     }
 };
 
+// R6 (MONACO_LAG_ROOT_CAUSE.md): per-keystroke debugLog calls (e.g. the
+// request editor's onChange) must not pay for log capture in production.
+// Debug logging is off by default; flip it on while debugging.
+let debugLoggingEnabled = false;
+
+export const setDebugLogging = (enabled: boolean): void => {
+    debugLoggingEnabled = enabled;
+};
+
+export const isDebugLogging = (): boolean => debugLoggingEnabled;
+
 /**
- * Debug log: writes to the in-memory log store only.
+ * Debug log: writes to the in-memory log store only, and only while debug
+ * logging is enabled (see setDebugLogging).
  * Does NOT write to the browser DevTools console.
  *
  * Usage:
@@ -46,6 +58,9 @@ export const captureLog = (level: 'debug' | 'warn' | 'error' | 'info', ...args: 
  *   debugLog('[ThemeContext] Applied dark theme');
  */
 export const debugLog = (context: string, data?: unknown): void => {
+    if (!debugLoggingEnabled) {
+        return;
+    }
     if (data !== undefined) {
         captureLog('debug', context, data);
     } else {

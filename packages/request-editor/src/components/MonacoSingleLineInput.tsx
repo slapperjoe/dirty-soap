@@ -1,4 +1,4 @@
-import {
+import React, {
   useRef,
   useImperativeHandle,
   forwardRef,
@@ -38,7 +38,7 @@ export interface MonacoSingleLineInputHandle {
   insertText: (text: string) => void;
 }
 
-export const MonacoSingleLineInput = forwardRef<
+export const MonacoSingleLineInputBase = forwardRef<
   MonacoSingleLineInputHandle,
   MonacoSingleLineInputProps
 >(({ value, onChange, readOnly = false, onEnter, onFocus }, ref) => {
@@ -266,3 +266,8 @@ export const MonacoSingleLineInput = forwardRef<
     </InputContainer>
   );
 });
+
+// R3 (MONACO_LAG_ROOT_CAUSE.md): memoize — these inputs are mounted next to
+// the request editor and previously re-rendered on every keystroke even when
+// their own value was unchanged.
+export const MonacoSingleLineInput = React.memo(MonacoSingleLineInputBase);
