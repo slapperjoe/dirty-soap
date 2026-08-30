@@ -1355,6 +1355,11 @@ export const bridge = {
     },
 
     /**
+     * Environment detection (Tauri-only app)
+     */
+    isTauri: (): boolean => isTauri(),
+
+    /**
      * Get current platform
      */
     invokeTauriCommand, // Direct Rust command access
