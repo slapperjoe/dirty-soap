@@ -4,7 +4,107 @@
  * Generates SOAP Envelope XML from operation input schemas.
  */
 
-import type { SchemaNode } from '../models';
+import type { SchemaNode, SampleRequestMetadata, ApiRequest, ApiOperation } from '../models';
+
+// ============================================================================
+// CONTENT-TYPE PRECEDENCE (see docs/SOAP_INTERFACE_CONTENT_TYPE_SPEC.md)
+// ============================================================================
+
+/**
+ * Default Content-Type for a SOAP version.
+ * Mirrors Rust's `SoapVersion::content_type()` (src-tauri/src/soap/envelope_builder.rs):
+ * 1.1 → `text/xml; charset=utf-8`, 1.2 → `application/soap+xml; charset=utf-8`.
+ * Unknown/missing versions default to 1.1.
+ */
+export const soapDefault = (soapVersion?: string): string => {
+    const v = (soapVersion || "").trim();
+    if (v.startsWith("1.2")) return "application/soap+xml; charset=utf-8";
+    return "text/xml; charset=utf-8";
+};
+
+/** Returns the (first) Content-Type header value from a headers map, case-insensitive key. */
+const headerContentType = (headers?: Record<string, string>): string => {
+    if (!headers) return "";
+    for (const [key, value] of Object.entries(headers)) {
+        if (key.toLowerCase() === "content-type" && value) return value;
+    }
+    return "";
+};
+
+/**
+ * Canonical effective Content-Type resolver — the single source of truth for
+ * "what will be sent" (spec §4). First non-empty tier wins:
+ *
+ * 1. Explicit request value: `headers["Content-Type"]` (case-insensitive), else `request.contentType`.
+ * 2. Interface override: `iface.contentType` (classic ApiInterface / unified UnifiedProject).
+ * 3. Action default: `operation.sampleMetadata.contentType` → `operation.input.contentType`
+ *    → the operation's sample request `contentType`.
+ * 4. SOAP-version default: `soapDefault(iface.soapVersion)` (never empty).
+ */
+export const resolveEffectiveContentType = (
+    request: { contentType?: string; headers?: Record<string, string> } | null,
+    operation: { sampleMetadata?: SampleRequestMetadata; input?: any; requests?: ApiRequest[] } | null,
+    iface: { contentType?: string; soapVersion?: string } | null
+): string => {
+    // Tier 1 — explicit request value
+    const headerCt = headerContentType(request?.headers);
+    if (headerCt) return headerCt;
+    if (request?.contentType) return request.contentType;
+
+    // Tier 2 — interface-level override
+    if (iface?.contentType) return iface.contentType;
+
+    // Tier 3 — action / sample defaults
+    const actionCt = operation?.sampleMetadata?.contentType || operation?.input?.contentType;
+    if (actionCt) return actionCt;
+    const sample = (operation?.requests || []).find(r => r?.name?.startsWith("sample_"));
+    if (sample?.contentType) return sample.contentType;
+
+    // Tier 4 — SOAP-version default
+    return soapDefault(iface?.soapVersion);
+};
+
+/**
+ * Rewrites existing requests in place when the interface-level Content-Type
+ * override changes (spec §5.4). Returns a NEW operations array:
+ *
+ * - Sample requests (`sample_` prefix, name "Sample", or readOnly) are ALWAYS rewritten.
+ * - Other requests are rewritten only if *inheriting*: `contentType` is empty, or equals
+ *   the previous effective value (`oldOverride` if set, else the SOAP default), or equals
+ *   the SOAP default.
+ * - User-customized requests (a non-empty value differing from both) are left untouched.
+ *
+ * Rewritten requests get BOTH `contentType` and `headers["Content-Type"]` set to the new
+ * effective value (invariant, spec §6).
+ */
+export const rewriteRequestsForContentTypeChange = (
+    operations: ApiOperation[] | undefined,
+    oldOverride: string | undefined,
+    newOverride: string | undefined,
+    soapVersion?: string
+): ApiOperation[] => {
+    if (!operations) return operations || [];
+    const sd = soapDefault(soapVersion);
+    const prevEffective = oldOverride || sd;
+    const newEffective = newOverride || sd;
+
+    return operations.map(op => {
+        if (!op || !Array.isArray(op.requests) || op.requests.length === 0) return op;
+        let changed = false;
+        const newRequests = op.requests.map(req => {
+            const isSample = req.name.startsWith("sample_") || req.name === "Sample" || req.readOnly === true;
+            const inherits = isSample || !req.contentType || req.contentType === prevEffective || req.contentType === sd;
+            if (!inherits) return req;
+            changed = true;
+            const headers: Record<string, string> = { ...(req.headers || {}) };
+            const ctKey = Object.keys(headers).find(k => k.toLowerCase() === "content-type");
+            if (ctKey) delete headers[ctKey];
+            headers["Content-Type"] = newEffective;
+            return { ...req, contentType: newEffective, headers };
+        });
+        return changed ? { ...op, requests: newRequests } : op;
+    });
+};
 
 /**
  * Builds the SOAP envelope wrapper around body content.
@@ -295,9 +395,13 @@ export const generateInitialXmlForOperation = (operation: any): string => {
  * Returns both the XML string and associated metadata like endpoint, SOAPAction, etc.
  *
  * @param operation - The operation with name, input, fullSchema, targetNamespace, action, originalEndpoint
- * @returns Object containing sampleXml and metadata
+ * @param iface - Optional interface (classic ApiInterface / unified UnifiedProject) providing the
+ *                interface-level contentType override and soapVersion. Omit to resolve purely
+ *                from operation + SOAP-version defaults.
+ * @returns Object containing sampleXml and metadata (contentType is the *effective* value,
+ *          resolved per docs/SOAP_INTERFACE_CONTENT_TYPE_SPEC.md — never a hardcoded fallback)
  */
-export const generateSampleWithMetadata = (operation: any): {
+export const generateSampleWithMetadata = (operation: any, iface?: { contentType?: string; soapVersion?: string }): {
     sampleXml: string;
     endpoint?: string;
     soapAction?: string;
@@ -313,7 +417,11 @@ export const generateSampleWithMetadata = (operation: any): {
         sampleXml,
         endpoint: operation.sampleMetadata?.endpoint || sampleRequest?.endpoint || operation.originalEndpoint,
         soapAction: operation.sampleMetadata?.soapAction || operation.action,
-        contentType: operation.sampleMetadata?.contentType || sampleRequest?.contentType || "text/xml; charset=utf-8",
+        contentType: resolveEffectiveContentType(
+            { contentType: sampleRequest?.contentType, headers: sampleRequest?.headers },
+            operation,
+            iface ?? null
+        ),
         targetNamespace: operation.sampleMetadata?.targetNamespace || operation.targetNamespace || "http://tempuri.org/"
     };
 };

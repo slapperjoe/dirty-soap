@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { debugLog } from '../../utils/logger';
 import { UnifiedProject, ApiOperation, ApiRequest } from '@shared/models';
+import { soapDefault, resolveEffectiveContentType } from '../../utils/soapUtils';
 import { invokeTauriCommand } from '../../utils/bridge';
 import { MonacoRequestEditorWithToolbar as MonacoRequestEditor, MonacoResponseViewer, HeadersPanel, AssertionsPanel, ExtractorsPanel } from '@apinox/request-editor/monaco';
 import { ExecutionResponse } from '@apinox/request-editor/monaco';
@@ -24,6 +25,8 @@ export interface UnifiedExplorerMainProps {
     onRefreshProject: (projectName: string) => void;
     onLoadWsdl: (url: string) => void;
     onNewRequest: (projectName: string, operationName: string) => void;
+    /** Interface-level (project) Content-Type override change — propagates to all existing requests and persists the project. */
+    onProjectContentTypeChange?: (projectName: string, contentType: string) => void;
 }
 
 interface UrlInputState {
@@ -48,6 +51,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     onRefreshProject,
     onLoadWsdl,
     onNewRequest,
+    onProjectContentTypeChange,
 }) => {
     const [urlInput, setUrlInput] = useState<UrlInputState>({ url: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL', loading: false, error: null });
     /** Response cache keyed by request ID — persists across request switches */
@@ -207,6 +211,27 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     const handleExecuteRequest = useCallback(async (req: ApiRequest, currentXml: string) => {
         setEditingRequest(req);
         const reqId = req.id || req.name || 'unknown';
+
+        // Locate the owning project/operation so we can resolve the *effective*
+        // Content-Type (interface override > stored value > SOAP default) — the UI
+        // must send exactly what it displays (SOAP_INTERFACE_CONTENT_TYPE_SPEC.md).
+        let ownerProject: UnifiedProject | undefined;
+        let ownerOperation: ApiOperation | undefined;
+        for (const project of projects) {
+            for (const op of (project.operations || [])) {
+                if ((op.requests || []).some(r => (r.id || r.name) === reqId)) {
+                    ownerProject = project;
+                    ownerOperation = op;
+                    break;
+                }
+            }
+            if (ownerProject) break;
+        }
+        const effectiveContentType = resolveEffectiveContentType(req, ownerOperation ?? null, {
+            contentType: ownerProject?.contentType,
+            soapVersion: ownerProject?.soapVersion,
+        });
+
         try {
             const result = await invokeTauriCommand<ExecuteSoapResponse>('execute_soap_request', {
                 request: {
@@ -221,10 +246,10 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                         description: null,
                         portName: null,
                     },
-                    soapVersion: '1.1',
+                    soapVersion: ownerProject?.soapVersion || '1.1',
                     endpoint: req.endpoint || null,
                     rawXml: currentXml || req.request || '',
-                    contentType: req.contentType || 'text/xml',
+                    contentType: effectiveContentType,
                     headers: req.headers || {},
                     envVariables,
                     contextVariables: {},
@@ -237,7 +262,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             });
 
             const headers = Object.fromEntries(result.headers || []);
-            const contentType = headers['content-type'] || headers['Content-Type'] || req.contentType || 'text/xml';
+            const contentType = headers['content-type'] || headers['Content-Type'] || effectiveContentType;
             const normalizedResponse: ExecutionResponse = {
                 rawResponse: result.rawXml || result.body || '',
                 status: result.statusCode,
@@ -400,6 +425,30 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                     {selected.project.parsedAt ? new Date(selected.project.parsedAt).toLocaleDateString() : 'N/A'}
                                 </div>
                             </div>
+                            <div style={{ padding: '12px', background: 'var(--apinox-card-background)', borderRadius: 6, border: '1px solid var(--apinox-card-border)' }}>
+                                <div style={{ fontSize: 12, opacity: 0.7 }}>Content-Type {selected.project.contentType ? '(override)' : `— SOAP ${selected.project.soapVersion || '1.1'} default: ${soapDefault(selected.project.soapVersion)}`}</div>
+                                <select
+                                    value={selected.project.contentType || ''}
+                                    onChange={(e) => onProjectContentTypeChange?.(selected.project.name, e.target.value)}
+                                    disabled={!onProjectContentTypeChange}
+                                    style={{
+                                        marginTop: 4,
+                                        width: '100%',
+                                        padding: '4px 6px',
+                                        backgroundColor: 'var(--apinox-input-background)',
+                                        color: 'var(--apinox-input-foreground)',
+                                        border: '1px solid var(--apinox-input-border)',
+                                        borderRadius: 4,
+                                        fontSize: 13,
+                                        cursor: onProjectContentTypeChange ? 'pointer' : 'not-allowed',
+                                    }}
+                                >
+                                    <option value="">SOAP default ({soapDefault(selected.project.soapVersion)})</option>
+                                    <option value="text/xml">text/xml</option>
+                                    <option value="application/soap+xml">application/soap+xml</option>
+                                    <option value="application/xml">application/xml</option>
+                                </select>
+                            </div>
                         </div>
 
                         {selected.project.sourceUrl && (
@@ -501,6 +550,13 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                 <div style={{ opacity: 0.7 }}>SOAP Version:</div>
                                 <div style={{ fontFamily: 'monospace' }}>{selected.project.soapVersion || '1.1'}</div>
 
+                                <div style={{ opacity: 0.7 }}>Content-Type:</div>
+                                <div style={{ fontFamily: 'monospace' }}>
+                                    {selected.project.contentType
+                                        ? `${selected.project.contentType} (interface override)`
+                                        : soapDefault(selected.project.soapVersion)}
+                                </div>
+
                                 <div style={{ opacity: 0.7 }}>Binding:</div>
                                 <div style={{ fontFamily: 'monospace' }}>{selected.project.bindingName || '(not available)'}</div>
 
@@ -512,6 +568,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                         <div style={{ marginBottom: 20 }}>
                             <SampleRequestPanel
                                 operation={selected.operation}
+                                interfaceContext={{ contentType: selected.project.contentType, soapVersion: selected.project.soapVersion }}
                                 onCreateRequest={() => onNewRequest(selected.project.name, selected.operation.name)}
                             />
                         </div>
@@ -538,7 +595,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                     <span>{req.name}</span>
                                 </div>
                                 <div style={{ fontSize: 12, opacity: 0.7 }}>
-                                    {req.method || 'POST'} {req.contentType || 'text/xml'}
+                                    {req.method || 'POST'} {resolveEffectiveContentType(req, selected.operation, { contentType: selected.project.contentType, soapVersion: selected.project.soapVersion })}
                                 </div>
                             </div>
                         ))}
@@ -598,6 +655,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                 language="xml"
                                 onChange={(value: string) => setEditingXml(value)}
                                 headers={editingRequest?.headers || {}}
+                                contentType={resolveEffectiveContentType(selected.request, selected.operation, { contentType: selected.project.contentType, soapVersion: selected.project.soapVersion })}
                                 onHeadersChange={(headers) => {
                                     const updated = { ...editingRequest!, headers };
                                     setEditingRequest(updated);

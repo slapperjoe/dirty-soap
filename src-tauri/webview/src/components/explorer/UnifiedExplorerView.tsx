@@ -15,6 +15,8 @@ interface UnifiedExplorerViewProps {
     onSelectNode: (type: string, id: string) => void;
     onRefreshProject: (projectName: string) => void;
     onNewRequest: (projectName: string, operationName: string) => void;
+    /** Interface-level (project) Content-Type override change — propagates to all existing requests and persists the project. */
+    onProjectContentTypeChange?: (projectName: string, contentType: string) => void;
     onWsdlLoaded?: (project: UnifiedProject) => void;
 }
 
@@ -24,6 +26,7 @@ const UnifiedExplorerView: React.FC<UnifiedExplorerViewProps> = ({
     onSelectNode,
     onRefreshProject,
     onNewRequest,
+    onProjectContentTypeChange,
     onWsdlLoaded,
 }) => {
 
@@ -48,6 +51,7 @@ const UnifiedExplorerView: React.FC<UnifiedExplorerViewProps> = ({
                 onRefreshProject={onRefreshProject}
                 onLoadWsdl={handleLoadWsdl}
                 onNewRequest={onNewRequest}
+                onProjectContentTypeChange={onProjectContentTypeChange}
             />
         </div>
     );
