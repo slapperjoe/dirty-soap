@@ -50,8 +50,8 @@ pub async fn parse_wsdl_as_project(url: String) -> Result<serde_json::Value, Str
         .unwrap_or(&service.name)
         .to_string();
 
-    // Build operations array from parsed service
-    let operations = build_operations_json(service);
+    // Build operations array from parsed service (sample content-type follows soap_version)
+    let operations = build_operations_json(service, soap_version);
 
     let project = json!({
         "name": service.name,
@@ -108,6 +108,15 @@ pub async fn refresh_unified_project(service_name: String) -> Result<serde_json:
     let new_service = &result.services[0];
     let now = chrono::Utc::now().to_rfc3339();
 
+    // Preserve the interface-level Content-Type override across refresh
+    let content_type_override = existing.get("contentType")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string());
+    let soap_version = existing["soapVersion"].as_str().unwrap_or("1.1");
+    // Sample content-type follows the project's SOAP version
+    let sample_content_type = soap_version_from_str(soap_version).content_type();
+
     // Get existing operations
     let existing_operations: Vec<&serde_json::Value> = existing.get("operations")
         .and_then(|a| a.as_array())
@@ -133,7 +142,7 @@ pub async fn refresh_unified_project(service_name: String) -> Result<serde_json:
                     "name": format!("sample_{}", new_op.name),
                     "endpoint": new_op.original_endpoint,
                     "method": "POST",
-                    "contentType": "text/xml",
+                    "contentType": sample_content_type,
                     "request": sample_xml,
                 })
             ])
@@ -168,7 +177,7 @@ pub async fn refresh_unified_project(service_name: String) -> Result<serde_json:
     }
 
     // Build updated project
-    let updated = json!({
+    let mut updated = json!({
         "name": existing["name"],
         "description": existing["description"],
         "source": existing["source"],
@@ -180,6 +189,10 @@ pub async fn refresh_unified_project(service_name: String) -> Result<serde_json:
         "bindingName": existing["bindingName"].as_str().unwrap_or(""),
         "operations": merged_operations,
     });
+    // Re-attach the interface-level Content-Type override if it was set
+    if let Some(ct) = content_type_override {
+        updated["contentType"] = json!(ct);
+    }
 
     // Save updated project
     project_storage::save_unified_project(
@@ -213,15 +226,30 @@ pub async fn refresh_project_wsdl(params: serde_json::Value) -> Result<serde_jso
     refresh_unified_project(service_name.to_string()).await
 }
 
+/// Resolve the SOAP version from a version string ("1.1" or "1.2").
+/// Unknown/missing values default to SOAP 1.1 (mirrors `soapDefault` in shared/soapUtils.ts).
+fn soap_version_from_str(version: &str) -> SoapVersion {
+    if version.trim() == "1.2" {
+        SoapVersion::Soap12
+    } else {
+        SoapVersion::Soap11
+    }
+}
+
 /// Convert an ApiService to a JSON array of operations
-fn build_operations_json(service: &ApiService) -> Vec<serde_json::Value> {
-    service.operations.iter().map(build_operation_json).collect()
+/// for the given SOAP version (sample request content-type follows it).
+fn build_operations_json(service: &ApiService, soap_version: &str) -> Vec<serde_json::Value> {
+    service.operations.iter().map(|op| build_operation_json(op, soap_version)).collect()
 }
 
 /// Convert a ServiceOperation to JSON
-fn build_operation_json(op: &ServiceOperation) -> serde_json::Value {
+fn build_operation_json(op: &ServiceOperation, soap_version: &str) -> serde_json::Value {
     // Generate sample XML body using EnvelopeBuilder
     let sample_xml = generate_sample_xml(op);
+    // Sample requests inherit the SOAP-version default; the interface-level
+    // override (project contentType) is resolved at display/execution time
+    // (see SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §4).
+    let content_type = soap_version_from_str(soap_version).content_type();
 
     json!({
         "name": op.name,
@@ -235,7 +263,7 @@ fn build_operation_json(op: &ServiceOperation) -> serde_json::Value {
                 "name": format!("sample_{}", op.name),
                 "endpoint": op.original_endpoint,
                 "method": "POST",
-                "contentType": "text/xml",
+                "contentType": content_type,
                 "request": sample_xml,
             })
         ]),
@@ -376,6 +404,15 @@ pub fn new_unified_request(params: serde_json::Value) -> Result<serde_json::Valu
         project_dir.to_string_lossy().to_string(),
     ).map_err(|e| format!("Failed to load project: {}", e))?;
 
+    // Interface-level override + SOAP version (per SOAP_INTERFACE_CONTENT_TYPE_SPEC §5.2)
+    let project_content_type = project.get("contentType")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string());
+    let project_soap_version = project.get("soapVersion")
+        .and_then(|v| v.as_str())
+        .unwrap_or("1.1");
+
     let operations = project["operations"]
         .as_array_mut()
         .ok_or("Missing or invalid operations array")?;
@@ -383,11 +420,16 @@ pub fn new_unified_request(params: serde_json::Value) -> Result<serde_json::Valu
     for op in operations.iter_mut() {
         if op.get("name").and_then(|v| v.as_str()) == Some(&operation_name) {
             let endpoint = op.get("originalEndpoint").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let content_type = op.get("input")
+            // Per spec §5.2: project contentType override ?? op.input.contentType ??
+            // soapDefault(project.soap_version). No bare "application/soap+xml" fallback.
+            let input_content_type = op.get("input")
                 .and_then(|v| v.get("contentType"))
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "application/soap+xml".to_string());
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.to_string());
+            let content_type = project_content_type.clone()
+                .or(input_content_type)
+                .unwrap_or_else(|| soap_version_from_str(project_soap_version).content_type().to_string());
 
             // Auto-generate request name: Request1.xml, Request2.xml, ...
             let existing_requests = op.get("requests").and_then(|v| v.as_array()).cloned().unwrap_or_else(Vec::new);
@@ -481,7 +523,7 @@ mod tests {
             action: Some("http://example.com/GetBalance".to_string()),
         };
 
-        let json = build_operation_json(&op);
+        let json = build_operation_json(&op, "1.1");
 
         assert_eq!(json["name"], "GetBalance");
         assert_eq!(json["action"], "http://example.com/GetBalance");
@@ -492,7 +534,27 @@ mod tests {
         assert_eq!(json["requests"].as_array().unwrap().len(), 1);
         assert_eq!(json["requests"][0]["name"], "sample_GetBalance");
         assert_eq!(json["requests"][0]["method"], "POST");
-        assert_eq!(json["requests"][0]["contentType"], "text/xml");
+        // Sample content-type follows the project's SOAP version (spec §5.1)
+        assert_eq!(json["requests"][0]["contentType"], "text/xml; charset=utf-8");
+    }
+
+    #[test]
+    fn test_build_operation_json_soap12_content_type() {
+        let op = ServiceOperation {
+            name: "GetBalance12".to_string(),
+            input: None,
+            output: serde_json::Value::Null,
+            description: None,
+            target_namespace: Some("http://example.com".to_string()),
+            port_name: None,
+            original_endpoint: Some("http://example.com/service".to_string()),
+            full_schema: None,
+            action: None,
+        };
+
+        let json = build_operation_json(&op, "1.2");
+
+        assert_eq!(json["requests"][0]["contentType"], "application/soap+xml; charset=utf-8");
     }
 
     #[test]
@@ -526,7 +588,7 @@ mod tests {
             target_namespace: Some("http://ns".to_string()),
         };
 
-        let ops_json = build_operations_json(&service);
+        let ops_json = build_operations_json(&service, "1.1");
         assert_eq!(ops_json.len(), 2);
         assert_eq!(ops_json[0]["name"], "Op1");
         assert_eq!(ops_json[1]["name"], "Op2");
@@ -562,5 +624,80 @@ mod tests {
         assert_eq!(project["sourceUrl"], "http://example.com/test.wsdl");
         assert_eq!(project["operations"][0]["name"], "TestOp");
         assert_eq!(project["operations"][0]["requests"][0]["name"], "sample_TestOp");
+    }
+
+    /// Serialize tests that swap APINOX_CONFIG_DIR (process-global env).
+    static NEW_REQUEST_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn run_new_unified_request_scenario(content_type_override: Option<&str>) -> serde_json::Value {
+        let _guard = NEW_REQUEST_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = std::env::temp_dir().join(format!("apinox-new-req-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).expect("create temp config dir");
+        // Redirect project storage into the temp dir (resolve_config_dir honors this env var)
+        std::env::set_var("APINOX_CONFIG_DIR", &tmp);
+        let result = (|| {
+            let project = json!({
+                "name": "E2eCtService",
+                "source": "wsdl",
+                "sourceUrl": "http://example.com/e2e.wsdl",
+                "soapVersion": "1.2",
+                "operations": json!([
+                    {
+                        "name": "E2eOp",
+                        "action": "http://example.com/E2eOp",
+                        "input": null,
+                        "targetNamespace": "http://example.com/ns",
+                        "originalEndpoint": "http://example.com/e2e",
+                        "requests": json!([
+                            {
+                                "name": "sample_E2eOp",
+                                "endpoint": "http://example.com/e2e",
+                                "method": "POST",
+                                "contentType": "application/soap+xml; charset=utf-8",
+                                "request": "<x/>"
+                            }
+                        ])
+                    }
+                ]),
+            });
+            if let Some(ct) = content_type_override {
+                project["contentType"] = json!(ct);
+            }
+            let project_dir = project_storage::projects_dir()
+                .expect("projects dir")
+                .join("E2eCtService");
+            project_storage::save_unified_project(
+                project_dir.to_string_lossy().to_string(),
+                project,
+            ).expect("seed project save");
+
+            let params = json!({
+                "projectName": "E2eCtService",
+                "operationName": "E2eOp",
+            });
+            new_unified_request(params).expect("new_unified_request should succeed")
+        })();
+
+        // Restore env + cleanup
+        std::env::remove_var("APINOX_CONFIG_DIR");
+        let _ = std::fs::remove_dir_all(&tmp);
+        result
+    }
+
+    #[test]
+    fn test_new_unified_request_inherits_project_content_type_override() {
+        // Project override wins over input and SOAP-version default (spec §5.2)
+        let created = run_new_unified_request_scenario(Some("application/xml"));
+        assert_eq!(created["name"], "Request1.xml");
+        assert_eq!(created["method"], "POST");
+        assert_eq!(created["contentType"], "application/xml");
+    }
+
+    #[test]
+    fn test_new_unified_request_falls_back_to_soap_version_default() {
+        // No override, no input contentType → soapDefault(1.2)
+        let created = run_new_unified_request_scenario(None);
+        assert_eq!(created["name"], "Request1.xml");
+        assert_eq!(created["contentType"], "application/soap+xml; charset=utf-8");
     }
 }
