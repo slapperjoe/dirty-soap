@@ -333,7 +333,7 @@ export interface ApiInterface {
     type: string;
     bindingName: string;
     soapVersion: string;
-    /** Optional interface-level Content-Type override (see SOAP_INTERFACE_CONTENT_TYPE_SPEC.md). Empty/undefined = no override. */
+    /** Optional Content-Type override for all requests in this interface (e.g. "text/xml", "application/soap+xml"). Empty/undefined = use SOAP-version default. */
     contentType?: string;
     definition: string; // WSDL URL
     operations: ApiOperation[];
@@ -417,7 +417,7 @@ export interface UnifiedProject {
     lastRefreshedAt?: Date;
     /** SOAP version (1.1 or 1.2) */
     soapVersion?: string;
-    /** Optional interface-level (project-level) Content-Type override (see SOAP_INTERFACE_CONTENT_TYPE_SPEC.md). Empty/undefined = no override. */
+    /** Optional Content-Type override for all requests in this project (e.g. "text/xml", "application/soap+xml"). Empty/undefined = use SOAP-version default. */
     contentType?: string;
     /** Binding name derived from the WSDL service */
     bindingName?: string;

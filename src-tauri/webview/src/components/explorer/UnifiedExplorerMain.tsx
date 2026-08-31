@@ -552,9 +552,11 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
 
                                 <div style={{ opacity: 0.7 }}>Content-Type:</div>
                                 <div style={{ fontFamily: 'monospace' }}>
-                                    {selected.project.contentType
-                                        ? `${selected.project.contentType} (interface override)`
-                                        : soapDefault(selected.project.soapVersion)}
+                                    {resolveEffectiveContentType(
+                                        (selected.operation.requests || []).find(r => r.name.startsWith('sample_')) || null,
+                                        selected.operation,
+                                        { contentType: selected.project.contentType, soapVersion: selected.project.soapVersion }
+                                    )}{selected.project.contentType ? ' (interface override)' : ''}
                                 </div>
 
                                 <div style={{ opacity: 0.7 }}>Binding:</div>
