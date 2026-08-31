@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 use crate::utils::resolve_config_dir;
 
 /// Returns the ~/.apinox/projects/ directory, creating it if needed.

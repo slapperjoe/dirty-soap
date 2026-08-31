@@ -409,9 +409,12 @@ pub fn new_unified_request(params: serde_json::Value) -> Result<serde_json::Valu
         .and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty())
         .map(|s| s.to_string());
+    // Owned String: must not keep an immutable borrow of `project` alive across
+    // the mutable borrow below (project["operations"].as_array_mut()).
     let project_soap_version = project.get("soapVersion")
         .and_then(|v| v.as_str())
-        .unwrap_or("1.1");
+        .unwrap_or("1.1")
+        .to_string();
 
     let operations = project["operations"]
         .as_array_mut()
@@ -429,7 +432,7 @@ pub fn new_unified_request(params: serde_json::Value) -> Result<serde_json::Valu
                 .map(|s| s.to_string());
             let content_type = project_content_type.clone()
                 .or(input_content_type)
-                .unwrap_or_else(|| soap_version_from_str(project_soap_version).content_type().to_string());
+                .unwrap_or_else(|| soap_version_from_str(&project_soap_version).content_type().to_string());
 
             // Auto-generate request name: Request1.xml, Request2.xml, ...
             let existing_requests = op.get("requests").and_then(|v| v.as_array()).cloned().unwrap_or_else(Vec::new);
@@ -636,7 +639,7 @@ mod tests {
         // Redirect project storage into the temp dir (resolve_config_dir honors this env var)
         std::env::set_var("APINOX_CONFIG_DIR", &tmp);
         let result = (|| {
-            let project = json!({
+            let mut project = json!({
                 "name": "E2eCtService",
                 "source": "wsdl",
                 "sourceUrl": "http://example.com/e2e.wsdl",
@@ -688,7 +691,8 @@ mod tests {
     fn test_new_unified_request_inherits_project_content_type_override() {
         // Project override wins over input and SOAP-version default (spec §5.2)
         let created = run_new_unified_request_scenario(Some("application/xml"));
-        assert_eq!(created["name"], "Request1.xml");
+        // Numbered after the seeded sample request (pre-existing naming behavior)
+        assert_eq!(created["name"], "Request2.xml");
         assert_eq!(created["method"], "POST");
         assert_eq!(created["contentType"], "application/xml");
     }
@@ -697,7 +701,7 @@ mod tests {
     fn test_new_unified_request_falls_back_to_soap_version_default() {
         // No override, no input contentType → soapDefault(1.2)
         let created = run_new_unified_request_scenario(None);
-        assert_eq!(created["name"], "Request1.xml");
+        assert_eq!(created["name"], "Request2.xml");
         assert_eq!(created["contentType"], "application/soap+xml; charset=utf-8");
     }
 }
