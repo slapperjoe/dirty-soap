@@ -82,6 +82,8 @@ export interface MonacoRequestEditorWithToolbarProps {
   headers?: Record<string, string>;
   /** Callback when headers change */
   onHeadersChange?: (headers: Record<string, string>) => void;
+  /** Effective Content-Type shown in the locked read-only row of the Headers tab (callers must pass the *resolved* effective value — see SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §5.3). Falls back to 'application/soap+xml' when omitted. */
+  contentType?: string;
   /** Additional tabs injected by the parent */
   extraTabs?: ExtraTab[];
 }
@@ -98,6 +100,7 @@ const EditorWithToolbarInternal = forwardRef<MonacoRequestEditorHandle, Omit<Mon
     autoFormat = true,
     headers,
     onHeadersChange,
+    contentType,
     extraTabs = [],
     forceUpdateKey: externalForceUpdateKey,
     ...otherProps
@@ -208,6 +211,7 @@ const EditorWithToolbarInternal = forwardRef<MonacoRequestEditorHandle, Omit<Mon
           <HeadersPanel
             headers={headers ?? {}}
             onChange={onHeadersChange ?? (() => {})}
+            contentType={contentType}
           />
         );
       }

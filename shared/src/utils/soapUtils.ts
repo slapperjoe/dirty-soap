@@ -4,7 +4,7 @@
  * Generates SOAP Envelope XML from operation input schemas.
  */
 
-import type { SchemaNode, SampleRequestMetadata, ApiRequest } from '../models';
+import type { SchemaNode, SampleRequestMetadata, ApiRequest, ApiOperation } from '../models';
 
 /**
  * Returns the default Content-Type for a SOAP version.
@@ -79,6 +79,53 @@ export const resolveEffectiveContentType = (
 
     // Tier 4: SOAP-version default (never empty)
     return soapDefault(iface?.soapVersion);
+};
+
+/**
+ * Rewrites existing requests in place when the interface-level Content-Type
+ * override changes (SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §5.4).
+ * Returns a NEW operations array (inputs are not mutated):
+ *
+ * - Sample requests (`name` starts with `sample_`, name `"Sample"`, or `readOnly`)
+ *   are ALWAYS rewritten to the new effective value.
+ * - Other requests are rewritten only if *inheriting*: `contentType` is empty,
+ *   equals the previous effective value (old override if set, else the SOAP
+ *   default), or equals the SOAP-version default.
+ * - User-customized requests (a non-empty value differing from both) are left
+ *   untouched, preserving tier-1 precedence.
+ *
+ * Rewritten requests get BOTH `contentType` and `headers["Content-Type"]` set
+ * to the new effective value (invariant, spec §6).
+ */
+export const rewriteRequestsForContentTypeChange = (
+    operations: ApiOperation[] | undefined | null,
+    oldOverride: string | undefined | null,
+    newOverride: string | undefined | null,
+    soapVersion?: string | null
+): ApiOperation[] => {
+    if (!operations) return operations || [];
+    const sd = soapDefault(soapVersion);
+    const prevEffective = (oldOverride && String(oldOverride).trim()) || sd;
+    const newEffective = (newOverride && String(newOverride).trim()) || sd;
+
+    return operations.map(op => {
+        if (!op || !Array.isArray(op.requests) || op.requests.length === 0) return op;
+        let changed = false;
+        const newRequests = op.requests.map(req => {
+            const isSample = req.name.startsWith('sample_') || req.name === 'Sample' || req.readOnly === true;
+            const inherits = isSample || !req.contentType
+                || req.contentType === prevEffective
+                || req.contentType === sd;
+            if (!inherits) return req;
+            changed = true;
+            const headers: Record<string, string> = { ...(req.headers || {}) };
+            const ctKey = Object.keys(headers).find(k => k.toLowerCase() === 'content-type');
+            if (ctKey) delete headers[ctKey];
+            headers['Content-Type'] = newEffective;
+            return { ...req, contentType: newEffective, headers };
+        });
+        return changed ? { ...op, requests: newRequests } : op;
+    });
 };
 
 /**

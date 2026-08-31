@@ -90,7 +90,12 @@ interface RequestTypeSelectorProps {
     requestType?: RequestType;
     bodyType?: BodyType;
     method?: HttpMethod | string;
+    /** Effective Content-Type for display (callers must pass the *resolved* value, never a bare request.contentType — see SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §5.3). Pass '' for "SOAP default (no explicit request value)". */
     contentType?: string;
+    /** The interface-level (project) Content-Type override; when set, its value is shown as "override: X" in the dropdown. */
+    interfaceOverride?: string;
+    /** The SOAP-version default (e.g. 'text/xml; charset=utf-8') — label for the "SOAP default" option. */
+    soapDefaultLabel?: string;
     onRequestTypeChange: (type: RequestType) => void;
     onBodyTypeChange: (type: BodyType) => void;
     onMethodChange: (method: HttpMethod | string) => void;
@@ -103,7 +108,9 @@ export const RequestTypeSelector: React.FC<RequestTypeSelectorProps> = ({
     requestType = 'soap',
     bodyType,
     method = 'POST',
-    contentType = 'application/soap+xml',
+    contentType = '',
+    interfaceOverride,
+    soapDefaultLabel,
     onRequestTypeChange,
     onBodyTypeChange,
     onMethodChange,
@@ -178,6 +185,7 @@ export const RequestTypeSelector: React.FC<RequestTypeSelectorProps> = ({
                     disabled={readOnly}
                     title="Content Type"
                 >
+                    <option value="">SOAP default {soapDefaultLabel ? `(${soapDefaultLabel})` : ''}{interfaceOverride ? ` — override: ${interfaceOverride}` : ''}</option>
                     {soapContentTypes.map(ct => (
                         <option key={ct.value} value={ct.value}>{ct.label}</option>
                     ))}

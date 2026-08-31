@@ -5,7 +5,7 @@ import { Container, ContextMenu, ContextMenuItem } from '../styles/App.styles';
 import { bridge, isTauri } from '../utils/bridge';
 import { updateProjectWithRename } from '../utils/projectUtils';
 import { captureLog } from '../utils/logger';
-import { generateInitialXmlForOperation } from '../utils/soapUtils';
+import { generateInitialXmlForOperation, soapDefault, rewriteRequestsForContentTypeChange } from '../utils/soapUtils';
 import { Sidebar } from './Sidebar';
 import { WorkspaceContext } from '../contexts/WorkspaceContext';
 import { SidebarContext } from '../contexts/SidebarContext';
@@ -331,6 +331,11 @@ const MainContent: React.FC = () => {
             requestName = `Request${requestNumber}.xml`;
         }
 
+        // Precedence (SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §5.2): project
+        // contentType override ?? op.input.contentType ?? SOAP-version
+        // default. No bare "application/soap+xml" fallback.
+        const newContentType: string = project.contentType || operation.input?.contentType || soapDefault(project.soapVersion);
+
         const newReq: ApiRequest = {
             ...(sampleRequest || {}),
             id: crypto.randomUUID(),
@@ -338,10 +343,13 @@ const MainContent: React.FC = () => {
             request: sampleRequest?.request || generateInitialXmlForOperation(operation),
             endpoint: sampleRequest?.endpoint || operation.originalEndpoint || "",
             method: sampleRequest?.method || "POST",
-            contentType: sampleRequest?.contentType || operation.input?.contentType || "application/soap+xml",
+            contentType: newContentType,
             dirty: true,
             readOnly: false,
         };
+        // Invariant (spec §6): keep the header in sync with the field so the
+        // locked Content-Type row shows exactly what will be sent.
+        newReq.headers = { ...(sampleRequest?.headers || {}), "Content-Type": newContentType };
 
         const updatedProject: UnifiedProject = {
             ...project,
@@ -360,6 +368,33 @@ const MainContent: React.FC = () => {
             setUnifiedSelectedNode({ type: "request", id: newReq.id || newReq.name });
         } catch (e) {
             console.error("[UnifiedExplorer] New request failed:", e);
+        }
+    }, [unifiedProjects]);
+    
+    const handleUnifiedProjectContentTypeChange = useCallback(async (projectName: string, contentType: string) => {
+        const project = unifiedProjects.find(p => p.name === projectName);
+        if (!project) return;
+        const oldValue = project.contentType || "";
+        if (oldValue === contentType) return;
+
+        // Propagate in place (SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §5.4): sample
+        // requests and inheriting requests are rewritten to the new effective
+        // value (field + Content-Type header); user-customized requests are
+        // untouched. Then persist immediately.
+        const updatedProject: UnifiedProject = {
+            ...project,
+            contentType: contentType || undefined,
+            operations: rewriteRequestsForContentTypeChange(project.operations, project.contentType, contentType, project.soapVersion),
+        };
+
+        try {
+            await bridge.invokeTauriCommand("save_unified_project", {
+                dirPath: project.name,
+                project: JSON.parse(JSON.stringify(updatedProject)),
+            });
+            setUnifiedProjects(prev => prev.map(p => p.name === projectName ? updatedProject : p));
+        } catch (e) {
+            console.error("[UnifiedExplorer] Content-type change failed:", e);
         }
     }, [unifiedProjects]);
     
@@ -1829,6 +1864,7 @@ const MainContent: React.FC = () => {
         unifiedProjects, unifiedSelectedNode,
         handleUnifiedSelectNode, handleUnifiedRefresh, handleUnifiedDeleteProject,
         handleUnifiedDeleteOperation, handleUnifiedDeleteRequest, handleUnifiedNewRequest,
+        handleUnifiedProjectContentTypeChange,
         handleUnifiedExport, handleUnifiedReorderOperation, handleUnifiedReorderRequest,
         activeView, handleSetActiveViewWrapper, sidebarExpanded, backendConnected,
         workspaceDirty, handleSaveUiState, setShowSettings, setShowHelp,
@@ -1927,6 +1963,7 @@ const MainContent: React.FC = () => {
                         onSelectNode={handleUnifiedSelectNode}
                         onRefreshProject={handleUnifiedRefresh}
                         onNewRequest={handleUnifiedNewRequest}
+                        onProjectContentTypeChange={handleUnifiedProjectContentTypeChange}
                         onWsdlLoaded={handleUnifiedWsdlLoaded}
                     />
                 </div>
