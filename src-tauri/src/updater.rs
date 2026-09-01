@@ -7,13 +7,24 @@
 //! has exited and re-opens it.
 
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tauri::Emitter;
 use tokio::io::AsyncWriteExt;
 use crate::settings_manager::load_config_internal;
+use crate::utils::resolve_config_dir;
 
 const GITHUB_API_URL: &str =
     "https://api.github.com/repos/slapperjoe/apinox/releases/latest";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// Timeouts for update traffic so a dead proxy or a blocked/filtered direct
+// egress can never hang the UI indefinitely (previously: no timeouts at all).
+/// Connect-phase timeout for both update clients (check + download).
+const UPDATE_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// Per-read timeout. Resets on every successful read, so it catches stalled
+/// connections without capping the *total* duration of a large installer
+/// download (the payload can be >100 MB on slow links).
+const UPDATE_READ_TIMEOUT: Duration = Duration::from_secs(60);
 
 // ── Serializable result returned to the frontend ───────────────────────────
 
@@ -73,7 +84,303 @@ fn is_newer(latest: &str, current: &str) -> bool {
     parse(latest) > parse(current)
 }
 
-// ── Shared reqwest client factory ──────────────────────────────────────────
+// ── Proxy-aware update client support ───────────────────────────────────────
+//
+// When APInox is "reading calls" its TLS-MITM proxy is the machine's proxy
+// (set_system_proxy points the OS proxy at 127.0.0.1:<apinox-port>), and on
+// corporate networks direct egress to GitHub is usually the *blocked* path —
+// so update traffic legitimately has to flow through APInox's own proxy.
+//
+// The updater clients are built with rustls + bundled webpki roots only; they
+// never consult the OS trust store. APInox's own CA is therefore not trusted
+// by them, and the MITM leaf the proxy presents for api.github.com fails with
+// `UnknownIssuer` — update check and installer download both fail even though
+// the user has "installed the APInox CA" in their browser/OS.
+//
+// The fix (scoped to update traffic only, client-side only — no OS proxy or
+// cert-store mutation, zero side effects):
+//   1. Root the APInox CA in the update clients' rustls root store via
+//      `add_root_certificate` (mirrors what soap::client does for request
+//      traffic). webpki roots stay in place, so non-MITM paths are unaffected.
+//   2. Detect when a *auto-discovered* proxy (system registry, WPAD/PAC, or
+//      env var) collides with an in-app listener — the self-proxy loop — and
+//      refuse to route through ourselves. An *explicitly configured*
+//      `network.proxy` is still honoured (user intent wins).
+//   3. Bound every attempt with connect/read timeouts and report which route
+//      was used (and why it failed) in the user-visible error.
+
+/// Parses a proxy URL (`http://host:port`) into its host and port components.
+fn parse_proxy_target(url: &str) -> Option<(&str, u16)> {
+    let rest = url
+        .trim()
+        .strip_prefix("socks5://")
+        .or_else(|| url.trim().strip_prefix("socks5h://"))
+        .or_else(|| url.trim().strip_prefix("https://"))
+        .or_else(|| url.trim().strip_prefix("http://"))
+        .unwrap_or(url.trim());
+    // Drop any path component (e.g. "http://proxy:3128/" from PAC scripts)
+    // so only the host[:port] authority is parsed.
+    let authority = rest.split('/').next().unwrap_or("");
+    let (host, port_part) = authority.rsplit_once(':')?;
+    let port = port_part.parse().ok()?;
+    // Normalise IPv6 hosts ("[::1]" → "::1") so the loopback check below works.
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    Some((host, port))
+}
+
+/// True when a proxy URL points at a loopback/wildcard address that is a
+/// candidate for one of APInox's own listeners.
+///
+/// Keying on loopback *addresses* (not on the port alone) keeps a legit
+/// `127.0.0.1:3128` Squid/Clash working: only its *port* is then checked
+/// against the in-app listener ports below.
+#[allow(dead_code)] // used on all platforms; host check is informational
+fn proxy_host_is_loopback_like(host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1" | "0.0.0.0")
+}
+
+/// In-app listener ports that update traffic must never be routed *through*.
+///
+/// The forward proxy and the mock server are the two listeners that MITM or
+/// terminate traffic; the defaults match `proxy_models` (`8888` / `9001`).
+#[allow(dead_code)] // used on all platforms; mock port is read where it exists
+pub fn in_app_listener_ports() -> Vec<u16> {
+    vec![
+        crate::proxy_models::ProxyConfig::default().port,
+        crate::proxy_models::MockConfig::default().port,
+    ]
+}
+
+/// True when `proxy_url` is an auto-discovered proxy that collides with an
+/// APInox in-app listener (the "self-proxy loop" — e.g. the OS proxy pointing
+/// at APInox's own proxy while it reads calls, *and* the port matching).
+#[allow(dead_code)] // used by tests and the self-proxy guard
+pub fn is_self_proxy(proxy_url: &str) -> bool {
+    match parse_proxy_target(proxy_url) {
+        Some((host, port)) => {
+            proxy_host_is_loopback_like(host) && in_app_listener_ports().contains(&port)
+        }
+        None => false,
+    }
+}
+
+/// Loads the APInox Root CA PEM from the config dir.
+///
+/// Returns `None` when the CA has never been generated (user has never run
+/// the proxy) or when it cannot be read — in both cases the update clients
+/// fall back to webpki-roots only, exactly like before the fix.
+#[allow(dead_code)] // used by both client factories and tests
+pub fn load_apinox_ca_pem() -> Option<Vec<u8>> {
+    let config_dir = resolve_config_dir().ok()?;
+    let path = config_dir.join("ca.cer");
+    if !path.is_file() {
+        return None;
+    }
+    Some(std::fs::read(&path).ok()?)
+}
+
+/// Applies the fix to an update-client builder (scoped to update traffic):
+/// switch to rustls (the client's TLS backend) and root the APInox CA next
+/// to the webpki roots, so a leaf signed by APInox's own CA — as presented
+/// by its MITM proxy — validates.
+#[allow(dead_code)] // used by build_client/build_direct_client and tests
+pub fn apply_apinox_ca_trust(
+    builder: reqwest::ClientBuilder,
+) -> reqwest::ClientBuilder {
+    let mut builder = builder.use_rustls_tls();
+    match load_apinox_ca_pem() {
+        Some(pem) => match reqwest::Certificate::from_pem_bundle(&pem) {
+            Ok(certs) => {
+                log::info!(
+                    "[Updater] Trusting APInox Root CA for update traffic ({} cert(s) from PEM bundle)",
+                    certs.len()
+                );
+                for cert in certs {
+                    builder = builder.add_root_certificate(cert);
+                }
+            }
+            Err(e) => log::warn!(
+                "[Updater] APInox CA PEM found but failed to parse ({}); update clients fall back to webpki roots only",
+                e
+            ),
+        },
+        None => {
+            log::debug!("[Updater] No APInox CA in config dir — update clients use webpki roots only");
+        }
+    }
+    builder
+}
+
+/// The proxy URL chosen for the proxy-aware update client, or `None` for a
+/// direct connection. `proxy_url` is `Some` when the source is an APInox
+/// user setting (explicitly configured, always honoured, reported to the UI).
+pub struct UpdateProxyDecision {
+    /// Proxy URL to route through, or `None` = connect directly.
+    pub proxy: Option<String>,
+    /// Where the decision came from: "apinox-settings", "system-registry",
+    /// "wpad-pac", "env", or "none".
+    pub source: String,
+    /// Set when an auto-discovered proxy was refused because it collides
+    /// with an in-app listener (self-proxy loop).
+    pub self_proxy_blocked: Option<String>,
+}
+
+/// Resolves the proxy for update traffic in priority order:
+///   1. APInox settings `network.proxy` — explicit user intent, always honoured
+///      (even if it *is* an in-app listener port — R1: honour explicit config)
+///   2. (Windows) system registry manual proxy
+///   3. (Windows) WPAD/PAC via .NET
+///   4. env `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY`
+///
+/// Auto-discovered sources (2–4) are refused when they collide with an
+/// in-app listener port: that is the self-proxy loop (update traffic would
+/// go through APInox's own proxy while APInox is the one updating).
+///
+/// `#[doc(hidden)] pub` so `examples/repro_update_client.rs` can drive the
+/// exact production decision logic in a controlled reproduction.
+#[doc(hidden)]
+pub fn resolve_update_proxy(
+    proxy_url: Option<String>,
+    sys_proxy: Option<String>,
+    wpad_proxy: Option<String>,
+    env_proxy: Option<String>,
+) -> UpdateProxyDecision {
+    // 1. Explicit APInox settings proxy wins unconditionally.
+    if let Some(p) = proxy_url.filter(|p| !p.trim().is_empty()) {
+        if is_self_proxy(&p) {
+            log::warn!(
+                "[Updater] APInox settings proxy '{p}' points at an APInox in-app listener; \
+                 update traffic will loop through APInox itself. Honouring the setting, \
+                 but updates will only succeed while APInox's own CA is trusted."
+            );
+        }
+        return UpdateProxyDecision {
+            proxy: Some(p),
+            source: "apinox-settings".to_string(),
+            self_proxy_blocked: None,
+        };
+    }
+
+    let mut decision = UpdateProxyDecision {
+        proxy: None,
+        source: "none".to_string(),
+        self_proxy_blocked: None,
+    };
+
+    for (candidate, source) in [
+        (sys_proxy.as_deref(), "system-registry"),
+        (wpad_proxy.as_deref(), "wpad-pac"),
+        (env_proxy.as_deref(), "env"),
+    ] {
+        let Some(c) = candidate.filter(|c| !c.trim().is_empty()) else {
+            continue;
+        };
+
+        if is_self_proxy(c) {
+            log::warn!(
+                "[Updater] Refusing to route update traffic through APInox's own listener \
+                 ({source} proxy '{c}' collides with an in-app listener port). \
+                 Update clients will connect directly instead."
+            );
+            decision.self_proxy_blocked =
+                Some(format!("{source} proxy '{c}' is an APInox in-app listener (self-proxy loop)"));
+            // Keep looking: a later source may yield a usable external proxy.
+            continue;
+        }
+
+        decision.proxy = Some(c.to_string());
+        decision.source = source.to_string();
+        break;
+    }
+
+    decision
+}
+
+/// Builds an HTTP client that honours (in priority order):
+///   1. The proxy configured in APInox settings (`network.proxy`)
+///   2. The Windows manual system proxy (HKCU + HKLM registry)
+///   3. WPAD / PAC file via .NET's GetSystemWebProxy() (PowerShell shim)
+///   4. Environment variables `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` (explicit check)
+///
+/// Update clients additionally root the APInox CA (see module docs) and carry
+/// connect/read timeouts.
+///
+/// `#[doc(hidden)] pub` so `examples/repro_update_client.rs` can drive the
+/// exact production client construction in a controlled reproduction.
+#[doc(hidden)]
+pub fn build_client() -> Result<reqwest::Client, String> {
+    // 1. APInox configured proxy takes highest priority (explicit, never refused).
+    let apinox_proxy = load_config_internal()
+        .ok()
+        .and_then(|c| c.network)
+        .and_then(|n| n.proxy)
+        .filter(|p| !p.is_empty());
+
+    // 2. Windows system proxy (HKCU and HKLM registry - covers manual and Group Policy).
+    #[cfg(target_os = "windows")]
+    let sys_proxy = read_windows_system_proxy();
+    #[cfg(not(target_os = "windows"))]
+    let sys_proxy: Option<String> = None;
+
+    // 3. WPAD / PAC — ask .NET for the effective proxy.
+    #[cfg(target_os = "windows")]
+    let wpad_proxy = resolve_wpad_proxy("https://github.com");
+    #[cfg(not(target_os = "windows"))]
+    let wpad_proxy: Option<String> = None;
+
+    // 4. Explicit environment variable fallback (HTTPS_PROXY, HTTP_PROXY, ALL_PROXY).
+    let env_proxy = std::env::var("HTTPS_PROXY")
+        .or_else(|_| std::env::var("HTTP_PROXY"))
+        .or_else(|_| std::env::var("ALL_PROXY"))
+        .ok();
+
+    let decision = resolve_update_proxy(apinox_proxy, sys_proxy, wpad_proxy, env_proxy);
+
+    let mut builder = reqwest::Client::builder().user_agent(format!("APInox/{APP_VERSION}"));
+    builder = apply_apinox_ca_trust(builder);
+    builder = builder
+        .connect_timeout(UPDATE_CONNECT_TIMEOUT)
+        .read_timeout(UPDATE_READ_TIMEOUT);
+
+    if let Some(proxy_url) = &decision.proxy {
+        log::debug!("[Updater] Routing update traffic via proxy (source: {}): {proxy_url}", decision.source);
+        match reqwest::Proxy::all(proxy_url) {
+            Ok(proxy) => { builder = builder.proxy(proxy); }
+            Err(e) => {
+                log::warn!("[Updater] Invalid proxy URL '{proxy_url}': {e}; update clients will connect directly");
+            }
+        }
+    } else {
+        // IMPORTANT: reqwest auto-detects proxy env vars (HTTPS_PROXY, …) unless
+        // the builder is told not to. After the self-proxy guard refused an
+        // auto-discovered proxy we must *not* let reqwest quietly pick it up
+        // again from the environment — that would defeat the guard.
+        builder = builder.no_proxy();
+        log::debug!("(source: {}); update clients will connect directly", decision.source);
+    }
+
+    builder.build().map_err(|e| format!("Failed to build HTTP client: {e}"))
+}
+
+/// Builds an HTTP client that bypasses all proxies.
+///
+/// Used as the first attempt for update checks so WPAD/PAC mis-detection
+/// does not block environments where direct egress to GitHub works.
+/// Also roots the APInox CA so a *direct* dial behind a transparent MITM
+/// that uses APInox's CA still validates.
+///
+/// `#[doc(hidden)] pub` for the controlled reproduction example.
+#[doc(hidden)]
+pub fn build_direct_client() -> Result<reqwest::Client, String> {
+    let builder = reqwest::Client::builder().user_agent(format!("APInox/{APP_VERSION}"));
+    let builder = apply_apinox_ca_trust(builder);
+    builder
+        .no_proxy()
+        .connect_timeout(UPDATE_CONNECT_TIMEOUT)
+        .read_timeout(UPDATE_READ_TIMEOUT)
+        .build()
+        .map_err(|e| format!("Failed to build direct HTTP client: {e}"))
+}
 
 /// Reads the Windows system proxy from the Internet Settings registry key.
 /// Returns `Some("http://host:port")` when a *manual* proxy is enabled, `None` otherwise.
@@ -203,84 +510,6 @@ fn resolve_wpad_proxy(target_url: &str) -> Option<String> {
     }
 }
 
-/// Builds an HTTP client that honours (in priority order):
-///   1. The proxy configured in APInox settings (`network.proxy`)
-///   2. The Windows manual system proxy (HKCU + HKLM registry)
-///   3. WPAD / PAC file via .NET's GetSystemWebProxy() (PowerShell shim)
-///   4. Environment variables `HTTPS_PROXY` / `HTTP_PROXY` (explicit check)
-fn build_client() -> Result<reqwest::Client, String> {
-    let mut builder = reqwest::Client::builder()
-        .user_agent(format!("APInox/{}", APP_VERSION));
-
-    // 1. APInox configured proxy takes highest priority.
-    let apinox_proxy = load_config_internal()
-        .ok()
-        .and_then(|c| c.network)
-        .and_then(|n| n.proxy)
-        .filter(|p| !p.is_empty());
-
-    if let Some(proxy_url) = apinox_proxy {
-        log::debug!("[Updater] Using APInox configured proxy: {}", proxy_url);
-        match reqwest::Proxy::all(&proxy_url) {
-            Ok(proxy) => { builder = builder.proxy(proxy); }
-            Err(e) => { log::warn!("[Updater] Invalid APInox proxy URL '{}': {}", proxy_url, e); }
-        }
-    } else {
-        // 2. Windows system proxy (HKCU and HKLM registry - covers manual and Group Policy).
-        #[cfg(target_os = "windows")]
-        let sys_proxy = read_windows_system_proxy();
-        #[cfg(not(target_os = "windows"))]
-        let sys_proxy: Option<String> = None;
-
-        if let Some(proxy_url) = sys_proxy {
-            log::debug!("[Updater] Using Windows system proxy: {}", proxy_url);
-            match reqwest::Proxy::all(&proxy_url) {
-                Ok(proxy) => { builder = builder.proxy(proxy); }
-                Err(e) => { log::warn!("[Updater] Invalid system proxy URL '{}': {}", proxy_url, e); }
-            }
-        } else {
-            // 3. WPAD / PAC — ask .NET for the effective proxy.
-            #[cfg(target_os = "windows")]
-            if let Some(wpad_proxy) = resolve_wpad_proxy("https://github.com") {
-                log::debug!("[Updater] Using WPAD/PAC proxy: {}", wpad_proxy);
-                match reqwest::Proxy::all(&wpad_proxy) {
-                    Ok(proxy) => { builder = builder.proxy(proxy); }
-                    Err(e) => { log::warn!("[Updater] Invalid WPAD proxy URL '{}': {}", wpad_proxy, e); }
-                }
-            }
-
-            // 4. Explicit environment variable fallback (HTTPS_PROXY, HTTP_PROXY, ALL_PROXY).
-            let env_proxy = std::env::var("HTTPS_PROXY")
-                .or_else(|_| std::env::var("HTTP_PROXY"))
-                .or_else(|_| std::env::var("ALL_PROXY"))
-                .ok();
-            if let Some(env_url) = env_proxy {
-                if !env_url.is_empty() {
-                    log::debug!("[Updater] Using environment proxy: {}", env_url);
-                    match reqwest::Proxy::all(&env_url) {
-                        Ok(proxy) => { builder = builder.proxy(proxy); }
-                        Err(e) => { log::warn!("[Updater] Invalid env proxy URL '{}': {}", env_url, e); }
-                    }
-                }
-            }
-        }
-    }
-
-    builder.build().map_err(|e| format!("Failed to build HTTP client: {}", e))
-}
-
-/// Builds an HTTP client that bypasses all proxies.
-///
-/// Used as the first attempt for update checks so WPAD/PAC mis-detection
-/// does not block environments where direct egress to GitHub works.
-fn build_direct_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .user_agent(format!("APInox/{}", APP_VERSION))
-        .no_proxy()
-        .build()
-        .map_err(|e| format!("Failed to build direct HTTP client: {}", e))
-}
-
 fn unavailable_result(reason: String) -> UpdateCheckResult {
     log::warn!("[Updater] Update check unavailable: {}", reason);
     UpdateCheckResult {
@@ -296,6 +525,40 @@ fn unavailable_result(reason: String) -> UpdateCheckResult {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+/// Human-readable description of the route the proxy-aware client resolves to —
+/// surfaced in user-visible update errors so the user (and we) can tell whether
+/// update traffic goes "direct", via "proxy `http://…`" (and which source
+/// picked it), or why an auto-discovered proxy was blocked.
+fn describe_update_route() -> String {
+    let apinox_proxy = load_config_internal()
+        .ok()
+        .and_then(|c| c.network)
+        .and_then(|n| n.proxy)
+        .filter(|p| !p.is_empty());
+
+    #[cfg(target_os = "windows")]
+    let sys_proxy = read_windows_system_proxy();
+    #[cfg(not(target_os = "windows"))]
+    let sys_proxy: Option<String> = None;
+
+    #[cfg(target_os = "windows")]
+    let wpad_proxy = resolve_wpad_proxy("https://github.com");
+    #[cfg(not(target_os = "windows"))]
+    let wpad_proxy: Option<String> = None;
+
+    let env_proxy = std::env::var("HTTPS_PROXY")
+        .or_else(|_| std::env::var("HTTP_PROXY"))
+        .or_else(|_| std::env::var("ALL_PROXY"))
+        .ok();
+
+    let decision = resolve_update_proxy(apinox_proxy, sys_proxy, wpad_proxy, env_proxy);
+    match (&decision.proxy, &decision.self_proxy_blocked) {
+        (Some(p), _) => format!("proxy {p} (source: {})", decision.source),
+        (None, Some(blocked)) => format!("direct — {blocked}"),
+        (None, None) => "direct".to_string(),
+    }
+}
+
 /// Makes a GET request, trying a direct (no-proxy) connection first.
 ///
 /// Falls back to the proxy-aware client when the direct attempt:
@@ -305,6 +568,11 @@ fn unavailable_result(reason: String) -> UpdateCheckResult {
 /// 404 is passed through without a retry because it has a specific meaning in
 /// the update-check context (no releases published yet), and a proxy will not
 /// change the answer.
+///
+/// Both clients root the APInox CA (so a MITM'd proxy route validates) and
+/// carry connect/read timeouts. Every error returned from here reports which
+/// route was used — "direct", "proxy `…` (source: …)", or the self-proxy
+/// block reason.
 async fn get_with_fallback(url: &str) -> Result<reqwest::Response, String> {
     let direct_client = build_direct_client()?;
     let direct_result = direct_client.get(url).send().await;
@@ -325,9 +593,7 @@ async fn get_with_fallback(url: &str) -> Result<reqwest::Response, String> {
         Err(e) => e.to_string(),
     };
     log::warn!(
-        "[Updater] Direct request to {} failed ({}), retrying via proxy-aware client",
-        url,
-        direct_reason
+        "[Updater] Direct request to {url} failed ({direct_reason}), retrying via proxy-aware client"
     );
 
     build_client()?
@@ -335,9 +601,9 @@ async fn get_with_fallback(url: &str) -> Result<reqwest::Response, String> {
         .send()
         .await
         .map_err(|proxy_err| {
+            let route = describe_update_route();
             format!(
-                "Direct request failed ({}) and proxy-aware request also failed ({})",
-                direct_reason, proxy_err
+                "Direct request failed ({direct_reason}) and the proxy-aware request also failed ({proxy_err}). Route: {route}."
             )
         })
 }
@@ -651,5 +917,365 @@ pub fn open_url_in_browser(app: tauri::AppHandle, url: String) -> Result<(), Str
     use tauri_plugin_opener::OpenerExt;
     app.opener()
         .open_url(&url, None::<&str>)
-        .map_err(|e| format!("Failed to open URL: {}", e))
+        .map_err(|e| format!("Failed to open URL: {e}"))
+}
+
+// ── Tests ───────────────────────────────────────────────────────────────────
+//
+// Tests that mutate the process-global `APINOX_CONFIG_DIR` env var (see
+// `utils::resolve_config_dir`) must take `CONFIG_DIR_TEST_LOCK` — the same
+// pattern `parsers::unified_explorer_commands` uses — because `cargo test`
+// runs tests concurrently in one process.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    /// Serialize tests that swap `APINOX_CONFIG_DIR` (process-global env).
+    static CONFIG_DIR_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// RAII guard: points `APINOX_CONFIG_DIR` at `dir` and restores the
+    /// previous value on drop, even on panic.
+    struct ConfigDirGuard {
+        prev: Option<String>,
+    }
+
+    impl ConfigDirGuard {
+        fn set(dir: &std::path::Path) -> Self {
+            let prev = std::env::var("APINOX_CONFIG_DIR").ok();
+            std::env::set_var("APINOX_CONFIG_DIR", dir);
+            Self { prev }
+        }
+    }
+
+    impl Drop for ConfigDirGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(v) => std::env::set_var("APINOX_CONFIG_DIR", v),
+                None => std::env::remove_var("APINOX_CONFIG_DIR"),
+            }
+        }
+    }
+
+    // ── is_newer ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_is_newer_basic() {
+        assert!(is_newer("2.0.0", "1.9.9"));
+        assert!(is_newer("1.10.0", "1.9.9")); // numeric, not lexicographic
+        assert!(is_newer("1.0.1", "1.0.0"));
+        assert!(is_newer("v2.0.0", "1.9.9")); // v-prefix stripped on both sides
+        assert!(!is_newer("v2.0.0", "v2.0.0")); // equal ⇒ not newer
+        assert!(!is_newer("1.9.9", "2.0.0"));
+        assert!(!is_newer("1.0.0", "1.0.0"));
+        assert!(!is_newer("1.0.0", "1.0.1"));
+        assert!(!is_newer("v1.0.0", "1.0.0"));
+    }
+
+    #[test]
+    fn test_is_newer_malformed_segments_default_to_zero() {
+        // "1.0-beta" → [1, 0, 0]; partial parses must not panic or misorder.
+        assert!(is_newer("1.0", "0.9"));
+        assert!(!is_newer("1.0", "1.0"));
+        assert!(is_newer("2", "1.5.3"));
+    }
+
+    // ── parse_proxy_target / self-proxy detection ───────────────────────────
+
+    #[test]
+    fn test_parse_proxy_target_prefixes() {
+        assert_eq!(parse_proxy_target("http://127.0.0.1:8888"), Some(("127.0.0.1", 8888)));
+        assert_eq!(parse_proxy_target("https://proxy.corp:3128"), Some(("proxy.corp", 3128)));
+        assert_eq!(parse_proxy_target("socks5://10.1.2.3:1080"), Some(("10.1.2.3", 1080)));
+        assert_eq!(parse_proxy_target("socks5h://[::1]:1080"), Some(("::1", 1080)));
+        assert_eq!(parse_proxy_target("127.0.0.1:8888"), Some(("127.0.0.1", 8888)));
+        assert_eq!(parse_proxy_target("http://localhost:8888/"), Some(("localhost", 8888)));
+    }
+
+    #[test]
+    fn test_parse_proxy_target_rejects_garbage() {
+        assert_eq!(parse_proxy_target("not-a-url"), None);
+        assert_eq!(parse_proxy_target("http://no-port-here"), None);
+        assert_eq!(parse_proxy_target("http://127.0.0.1:notaport"), None);
+        assert_eq!(parse_proxy_target(""), None);
+    }
+
+    #[test]
+    fn test_is_self_proxy_flags_inapp_listeners_only() {
+        // In-app listeners (loopback host + default listener port) → self.
+        assert!(is_self_proxy("http://127.0.0.1:8888"));
+        assert!(is_self_proxy("http://127.0.0.1:9001"));
+        assert!(is_self_proxy("http://localhost:8888"));
+        assert!(is_self_proxy("http://[::1]:8888".trim_start_matches('[')));
+        assert!(is_self_proxy("socks5://127.0.0.1:9001"));
+
+        // Legit local proxies on other ports must NOT be flagged.
+        assert!(!is_self_proxy("http://127.0.0.1:3128"));
+        // External proxies on a colliding port are not our listeners either.
+        assert!(!is_self_proxy("http://10.0.0.5:8888"));
+        // IPv6 loopback, bracketed (standard proxy-URL form).
+        assert!(is_self_proxy("http://[::1]:8888"));
+    }
+
+    #[test]
+    fn test_in_app_listener_ports_contains_defaults() {
+        let ports = in_app_listener_ports();
+        assert!(ports.contains(&crate::proxy_models::ProxyConfig::default().port));
+        assert!(ports.contains(&crate::proxy_models::MockConfig::default().port));
+    }
+
+    // ── resolve_update_proxy ────────────────────────────────────────────────
+
+    #[test]
+    fn test_resolve_explicit_settings_proxy_always_honoured() {
+        // R1: explicit user intent wins — even when it IS an in-app listener.
+        let d = resolve_update_proxy(
+            Some("http://127.0.0.1:8888".into()),
+            Some("http://127.0.0.1:9999".into()),
+            None,
+            None,
+        );
+        assert_eq!(d.proxy.as_deref(), Some("http://127.0.0.1:8888"));
+        assert_eq!(d.source, "apinox-settings");
+        assert!(d.self_proxy_blocked.is_none(), "explicit self-proxy is honoured, not blocked");
+    }
+
+    #[test]
+    fn test_resolve_explicit_proxy_beats_env() {
+        let d = resolve_update_proxy(
+            Some("http://proxy.corp:3128".into()),
+            None,
+            None,
+            Some("http://127.0.0.1:1080".into()),
+        );
+        assert_eq!(d.proxy.as_deref(), Some("http://proxy.corp:3128"));
+        assert_eq!(d.source, "apinox-settings");
+    }
+
+    #[test]
+    fn test_resolve_blocks_auto_discovered_self_proxy() {
+        // The field scenario: OS proxy = APInox's own listener while it reads calls.
+        let d = resolve_update_proxy(None, Some("http://127.0.0.1:8888".into()), None, None);
+        assert!(d.proxy.is_none(), "must not route through our own listener");
+        assert!(d
+            .self_proxy_blocked
+            .as_deref()
+            .is_some_and(|m| m.contains("127.0.0.1:8888") && m.contains("system-registry")));
+    }
+
+    #[test]
+    fn test_resolve_blocked_self_proxy_falls_through_to_next_source() {
+        // Self-proxy from the system registry is refused, but a later env source
+        // that is NOT self-proxy is still usable.
+        let d = resolve_update_proxy(
+            None,
+            Some("http://127.0.0.1:8888".into()),
+            None,
+            Some("http://corp-proxy:3128".into()),
+        );
+        assert_eq!(d.proxy.as_deref(), Some("http://corp-proxy:3128"));
+        assert_eq!(d.source, "env");
+        assert!(d.self_proxy_blocked.is_some());
+    }
+
+    #[test]
+    fn test_resolve_priority_sys_wpad_env() {
+        assert_eq!(
+            resolve_update_proxy(
+                None,
+                Some("http://a:1".into()),
+                Some("http://b:2".into()),
+                Some("http://c:3".into())
+            )
+            .source,
+            "system-registry"
+        );
+        assert_eq!(
+            resolve_update_proxy(None, None, Some("http://b:2".into()), Some("http://c:3".into()))
+                .source,
+            "wpad-pac"
+        );
+        assert_eq!(
+            resolve_update_proxy(None, None, None, Some("http://c:3".into())).source,
+            "env"
+        );
+    }
+
+    #[test]
+    fn test_resolve_no_sources_means_direct() {
+        let d = resolve_update_proxy(None, None, None, None);
+        assert!(d.proxy.is_none());
+        assert_eq!(d.source, "none");
+        assert!(d.self_proxy_blocked.is_none());
+    }
+
+    #[test]
+    fn test_resolve_empty_strings_are_ignored() {
+        let d = resolve_update_proxy(Some("".into()), Some("   ".into()), None, Some("".into()));
+        assert!(d.proxy.is_none());
+        assert_eq!(d.source, "none");
+    }
+
+    // ── CA discovery ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_load_apinox_ca_pem_absent_and_present() {
+        let _lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // No ca.cer yet (user never ran the proxy) → None, clients fall back.
+        let g = ConfigDirGuard::set(&tmp);
+        assert!(load_apinox_ca_pem().is_none());
+        drop(g);
+
+        // CA present (production layout: config dir / ca.cer) → Some(bytes).
+        let ca_pem = b"-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n";
+        std::fs::write(tmp.join("ca.cer"), ca_pem).unwrap();
+        let g = ConfigDirGuard::set(&tmp);
+        assert_eq!(load_apinox_ca_pem().as_deref(), Some(ca_pem.as_slice()));
+        drop(g);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_load_apinox_ca_pem_missing_config_dir_is_none() {
+        let _lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let g = ConfigDirGuard::set(&std::env::temp_dir().join("apinox-upd-nonexistent"));
+        assert!(load_apinox_ca_pem().is_none());
+        drop(g);
+    }
+
+    // ── Client construction ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_build_clients_with_and_without_ca() {
+        let _lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // Without a CA (fresh install): both clients still build — webpki fallback.
+        let g = ConfigDirGuard::set(&tmp);
+        build_direct_client().expect("direct client builds without a CA");
+        build_client().expect("proxy-aware client builds without a CA");
+        drop(g);
+
+        // With a CA: construction must not fail on the CA parse path.
+        let mgr = crate::certificates::manager::CertManager::new(tmp.clone());
+        mgr.generate().expect("generate test CA");
+        let g = ConfigDirGuard::set(&tmp);
+        build_direct_client().expect("direct client builds with a CA");
+        build_client().expect("proxy-aware client builds with a CA");
+        drop(g);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// End-to-end proof of the fix at the TLS layer, using production code paths:
+    ///
+    ///   - `CertManager::generate()` mints the APInox Root CA in a temp config dir
+    ///   - `SniResolver` (the real proxy resolver) signs a leaf for
+    ///     `api.github.com` with that CA — exactly what the MITM proxy presents
+    ///   - a rustls client whose root store is built from `load_apinox_ca_pem()`
+    ///     (the discovery path the fix wires into `build_direct_client`) completes
+    ///     the handshake → the MITM is transparent
+    ///   - the same handshake with an empty root store (the pre-fix client:
+    ///     webpki roots only, no APInox CA) MUST fail
+    ///   - then the rooted handshake succeeds again (same listener, same CA) —
+    ///     the CA, not anything else, is the differentiator
+    #[tokio::test]
+    async fn test_mitm_leaf_validates_only_when_apinox_ca_roots() {
+        use rustls::{ClientConfig, RootCertStore, ServerConfig};
+        use std::io::Cursor;
+        use std::sync::Arc;
+        use tokio::net::{TcpListener, TcpStream};
+        use tokio_rustls::{TlsAcceptor, TlsConnector};
+
+        let _lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        let mgr = Arc::new(crate::certificates::manager::CertManager::new(tmp.clone()));
+        mgr.generate().expect("generate test CA");
+        let g = ConfigDirGuard::set(&tmp);
+
+        // Discovery must find exactly the CA the server is about to sign with.
+        let discovered = load_apinox_ca_pem().expect("CA discovered from config dir");
+        assert_eq!(discovered, std::fs::read(mgr.cert_path()).unwrap());
+
+        // ── Server side: the real SNI resolver, real per-domain leaf ─────────
+        let resolver = Arc::new(crate::certificates::sni_resolver::SniResolver {
+            cert_manager: mgr.clone(),
+        });
+        let server_cfg = ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_protocol_versions(rustls::ALL_VERSIONS)
+        .unwrap()
+        .with_no_client_auth()
+        .with_cert_resolver(resolver);
+        let acceptor = TlsAcceptor::from(Arc::new(server_cfg));
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server_task = tokio::spawn(async move {
+            let mut listener = listener;
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                // Handshake failures are swallowed: a failed client aborts the
+                // connection before the server finishes, which is expected here.
+                let _ = acceptor.accept(stream).await;
+            }
+        });
+
+        // One TLS handshake against the shared listener, trusting only `roots`.
+        async fn handshake(
+            addr: &std::net::SocketAddr,
+            roots: &rustls::RootCertStore,
+        ) -> Result<(), std::io::Error> {
+            let cfg = ClientConfig::builder_with_provider(Arc::new(
+                rustls::crypto::ring::default_provider(),
+            ))
+            .with_protocol_versions(rustls::ALL_VERSIONS)
+            .unwrap()
+            .with_root_certificates(roots.clone())
+            .with_no_client_auth();
+            let connector = TlsConnector::from(Arc::new(cfg));
+            let server_name = rustls::pki_types::ServerName::try_from("api.github.com")
+                .unwrap()
+                .to_owned();
+            let tcp = TcpStream::connect(addr).await.unwrap();
+            connector.connect(server_name, tcp).await.map(|_| ())
+        }
+
+        // ── Client A: root store = APInox CA (what the fix installs) ─────────
+        let mut rooted = RootCertStore::empty();
+        let ca_certs: Vec<_> = rustls_pemfile::certs(&mut Cursor::new(&discovered))
+            .collect::<Result<_, _>>()
+            .unwrap();
+        for c in &ca_certs {
+            rooted.add(c.clone()).unwrap();
+        }
+        handshake(&addr, &rooted)
+            .await
+            .expect("rooted client must validate the MITM leaf signed by the APInox CA");
+
+        // ── Client B: empty root store (pre-fix: webpki only ⇒ no APInox CA) ─
+        handshake(&addr, &RootCertStore::empty())
+            .await
+            .expect_err(
+                "without the APInox CA the MITM leaf must FAIL (this was the production bug)",
+            );
+
+        // ── Client A again: same listener, same CA — CA is the differentiator ─
+        handshake(&addr, &rooted)
+            .await
+            .expect("rooted client must validate again after the unrooted failure");
+
+        server_task.abort();
+        drop(g);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }

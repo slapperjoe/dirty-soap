@@ -491,6 +491,7 @@ mod tests {
             body: Some("<Response/>".to_string()),
             fault: None,
             raw_xml: "".to_string(),
+            truncated: false,
         };
         
         assert!(success_response.is_success());
@@ -507,6 +508,7 @@ mod tests {
                 detail: None,
             }),
             raw_xml: "".to_string(),
+            truncated: false,
         };
         
         assert!(!fault_response.is_success());
