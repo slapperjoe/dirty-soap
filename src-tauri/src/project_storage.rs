@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 use crate::utils::resolve_config_dir;
 
 /// Returns the ~/.apinox/projects/ directory, creating it if needed.
@@ -783,6 +784,16 @@ struct UnifiedProperties {
     id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<String>,
+    /// SOAP version ("1.1" or "1.2") — preserved across save/load/refresh
+    #[serde(skip_serializing_if = "Option::is_none")]
+    soap_version: Option<String>,
+    /// WSDL binding name — preserved across save/load/refresh
+    #[serde(skip_serializing_if = "Option::is_none")]
+    binding_name: Option<String>,
+    /// Optional interface-level Content-Type override (see SOAP_INTERFACE_CONTENT_TYPE_SPEC).
+    /// `None`/empty = no override, requests fall through to the SOAP-version default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content_type: Option<String>,
 }
 
 /// Save a unified project (flat layout: no interfaces/ wrapper)
@@ -815,6 +826,12 @@ pub fn save_unified_project(dir_path: String, project: serde_json::Value) -> Res
         last_refreshed_at: project["lastRefreshedAt"].as_str().map(|s| s.to_string()),
         id: project["id"].as_str().map(|s| s.to_string()),
         format: Some("APInox-unified-v1".to_string()),
+        soap_version: project["soapVersion"].as_str().map(|s| s.to_string()),
+        binding_name: project["bindingName"].as_str().map(|s| s.to_string()),
+        content_type: project["contentType"]
+            .as_str()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.to_string()),
     };
     let props_val = serde_json::to_value(&props)
         .map_err(|e| format!("Failed to build properties value: {}", e))?;
@@ -960,6 +977,9 @@ pub fn load_unified_project(dir_path: String) -> Result<serde_json::Value, Strin
         "parsedAt": props.parsed_at,
         "lastRefreshedAt": props.last_refreshed_at,
         "id": props.id,
+        "soapVersion": props.soap_version,
+        "bindingName": props.binding_name,
+        "contentType": props.content_type,
         "operations": operations,
     }))
 }
@@ -1068,5 +1088,94 @@ mod tests {
 
         assert!(resolved.ends_with("CountryInfoServiceSoap"));
         assert!(resolved.is_absolute());
+    }
+
+    #[test]
+    fn save_load_unified_project_round_trips_content_type_soap_version_binding_name() {
+        let dir = std::env::temp_dir().join(format!("apinox-unified-ct-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        let project = serde_json::json!({
+            "name": "CtTestService",
+            "description": "ct test",
+            "source": "wsdl",
+            "sourceUrl": "http://example.com/test.wsdl",
+            "parsedAt": "2024-01-01T00:00:00+00:00",
+            "id": "ct-test-id",
+            "soapVersion": "1.2",
+            "bindingName": "CtTestSoap12",
+            "contentType": "application/soap+xml",
+            "operations": serde_json::json!([
+                {
+                    "name": "TestOp",
+                    "action": null,
+                    "input": null,
+                    "targetNamespace": null,
+                    "originalEndpoint": "http://example.com/svc",
+                    "fullSchema": null,
+                    "displayName": null,
+                    "requests": serde_json::json!([
+                        {
+                            "name": "sample_TestOp",
+                            "endpoint": "http://example.com/svc",
+                            "method": "POST",
+                            "contentType": "application/soap+xml; charset=utf-8",
+                            "request": "<soap:Envelope></soap:Envelope>"
+                        }
+                    ])
+                }
+            ]),
+        });
+
+        save_unified_project(dir.to_string_lossy().to_string(), project).expect("save should succeed");
+
+        // properties.json must carry the snake_case keys
+        let props_path = dir.join("properties.json");
+        let props_str = std::fs::read_to_string(&props_path).expect("properties.json written");
+        let props: serde_json::Value = serde_json::from_str(&props_str).unwrap();
+        assert_eq!(props["soap_version"], "1.2");
+        assert_eq!(props["binding_name"], "CtTestSoap12");
+        assert_eq!(props["content_type"], "application/soap+xml");
+
+        let loaded = load_unified_project(dir.to_string_lossy().to_string()).expect("load should succeed");
+        assert_eq!(loaded["soapVersion"], "1.2");
+        assert_eq!(loaded["bindingName"], "CtTestSoap12");
+        assert_eq!(loaded["contentType"], "application/soap+xml");
+        assert_eq!(loaded["sourceUrl"], "http://example.com/test.wsdl");
+        assert_eq!(loaded["operations"][0]["name"], "TestOp");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn save_unified_project_empty_content_type_is_not_persisted() {
+        let dir = std::env::temp_dir().join(format!("apinox-unified-ct-empty-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        let project = serde_json::json!({
+            "name": "CtEmptyService",
+            "source": "wsdl",
+            "soapVersion": "1.1",
+            "contentType": "",
+            "operations": serde_json::json!([
+                {
+                    "name": "OpA",
+                    "requests": serde_json::json!([]),
+                }
+            ]),
+        });
+
+        save_unified_project(dir.to_string_lossy().to_string(), project).expect("save should succeed");
+
+        let props_path = dir.join("properties.json");
+        let props: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&props_path).expect("properties.json written")).unwrap();
+        assert!(props.get("content_type").map(|v| v.is_null()).unwrap_or(true),
+            "empty contentType must not be persisted as a value");
+
+        let loaded = load_unified_project(dir.to_string_lossy().to_string()).expect("load should succeed");
+        assert!(loaded["contentType"].is_null());
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

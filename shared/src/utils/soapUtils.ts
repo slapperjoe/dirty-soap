@@ -4,7 +4,129 @@
  * Generates SOAP Envelope XML from operation input schemas.
  */
 
-import type { SchemaNode } from '../models';
+import type { SchemaNode, SampleRequestMetadata, ApiRequest, ApiOperation } from '../models';
+
+/**
+ * Returns the default Content-Type for a SOAP version.
+ * Mirrors `SoapVersion::content_type()` in `src-tauri/src/soap/envelope_builder.rs`.
+ *
+ * - SOAP 1.1 → `text/xml; charset=utf-8`
+ * - SOAP 1.2 → `application/soap+xml; charset=utf-8`
+ * - unknown/missing → SOAP 1.1 default
+ */
+export const soapDefault = (soapVersion?: string | null): string => {
+    return (soapVersion && String(soapVersion).trim() === '1.2')
+        ? 'application/soap+xml; charset=utf-8'
+        : 'text/xml; charset=utf-8';
+};
+
+/**
+ * Resolves the effective Content-Type for a request. Single source of truth.
+ *
+ * Precedence (first match wins):
+ *   1. Explicit request value — `request.headers["Content-Type"]` (case-insensitive,
+ *      non-empty) if present; else `request.contentType` field if non-empty.
+ *   2. Interface override — `iface.contentType` (unified: `project.contentType`).
+ *   3. Action default — `operation.sampleMetadata?.contentType` ?? `operation.input?.contentType`
+ *      ?? the operation's sample request `contentType`.
+ *   4. SOAP default — `soapDefault(iface.soapVersion)`.
+ *
+ * No charset is auto-appended to override values; the value is used exactly as stored.
+ * The `soapDefault` tier is never empty.
+ */
+export const resolveEffectiveContentType = (
+    request: { contentType?: string; headers?: Record<string, string> } | null,
+    operation: { sampleMetadata?: SampleRequestMetadata; input?: any; requests?: ApiRequest[] } | null,
+    iface: { contentType?: string; soapVersion?: string } | null
+): string => {
+    // Tier 1: explicit request value
+    if (request) {
+        if (request.headers) {
+            for (const [key, value] of Object.entries(request.headers)) {
+                if (key.toLowerCase() === 'content-type' && typeof value === 'string' && value.trim() !== '') {
+                    return value;
+                }
+            }
+        }
+        if (typeof request.contentType === 'string' && request.contentType.trim() !== '') {
+            return request.contentType;
+        }
+    }
+
+    // Tier 2: interface (project) override
+    if (iface && typeof iface.contentType === 'string' && iface.contentType.trim() !== '') {
+        return iface.contentType;
+    }
+
+    // Tier 3: action / sample default from the operation
+    if (operation) {
+        if (operation.sampleMetadata?.contentType) {
+            return operation.sampleMetadata.contentType;
+        }
+        const inputContentType = operation.input && typeof operation.input === 'object'
+            ? (operation.input as any).contentType
+            : undefined;
+        if (typeof inputContentType === 'string' && inputContentType.trim() !== '') {
+            return inputContentType;
+        }
+        const sampleRequest = Array.isArray(operation.requests)
+            ? operation.requests.find((r: any) => typeof r?.name === 'string' && r.name.startsWith('sample_'))
+            : undefined;
+        if (typeof sampleRequest?.contentType === 'string' && sampleRequest.contentType.trim() !== '') {
+            return sampleRequest.contentType;
+        }
+    }
+
+    // Tier 4: SOAP-version default (never empty)
+    return soapDefault(iface?.soapVersion);
+};
+
+/**
+ * Rewrites existing requests in place when the interface-level Content-Type
+ * override changes (SOAP_INTERFACE_CONTENT_TYPE_SPEC.md §5.4).
+ * Returns a NEW operations array (inputs are not mutated):
+ *
+ * - Sample requests (`name` starts with `sample_`, name `"Sample"`, or `readOnly`)
+ *   are ALWAYS rewritten to the new effective value.
+ * - Other requests are rewritten only if *inheriting*: `contentType` is empty,
+ *   equals the previous effective value (old override if set, else the SOAP
+ *   default), or equals the SOAP-version default.
+ * - User-customized requests (a non-empty value differing from both) are left
+ *   untouched, preserving tier-1 precedence.
+ *
+ * Rewritten requests get BOTH `contentType` and `headers["Content-Type"]` set
+ * to the new effective value (invariant, spec §6).
+ */
+export const rewriteRequestsForContentTypeChange = (
+    operations: ApiOperation[] | undefined | null,
+    oldOverride: string | undefined | null,
+    newOverride: string | undefined | null,
+    soapVersion?: string | null
+): ApiOperation[] => {
+    if (!operations) return operations || [];
+    const sd = soapDefault(soapVersion);
+    const prevEffective = (oldOverride && String(oldOverride).trim()) || sd;
+    const newEffective = (newOverride && String(newOverride).trim()) || sd;
+
+    return operations.map(op => {
+        if (!op || !Array.isArray(op.requests) || op.requests.length === 0) return op;
+        let changed = false;
+        const newRequests = op.requests.map(req => {
+            const isSample = req.name.startsWith('sample_') || req.name === 'Sample' || req.readOnly === true;
+            const inherits = isSample || !req.contentType
+                || req.contentType === prevEffective
+                || req.contentType === sd;
+            if (!inherits) return req;
+            changed = true;
+            const headers: Record<string, string> = { ...(req.headers || {}) };
+            const ctKey = Object.keys(headers).find(k => k.toLowerCase() === 'content-type');
+            if (ctKey) delete headers[ctKey];
+            headers['Content-Type'] = newEffective;
+            return { ...req, contentType: newEffective, headers };
+        });
+        return changed ? { ...op, requests: newRequests } : op;
+    });
+};
 
 /**
  * Builds the SOAP envelope wrapper around body content.
@@ -297,7 +419,7 @@ export const generateInitialXmlForOperation = (operation: any): string => {
  * @param operation - The operation with name, input, fullSchema, targetNamespace, action, originalEndpoint
  * @returns Object containing sampleXml and metadata
  */
-export const generateSampleWithMetadata = (operation: any): {
+export const generateSampleWithMetadata = (operation: any, iface?: { contentType?: string; soapVersion?: string } | null): {
     sampleXml: string;
     endpoint?: string;
     soapAction?: string;
@@ -308,12 +430,18 @@ export const generateSampleWithMetadata = (operation: any): {
         ? operation.requests.find((request: any) => typeof request?.name === "string" && request.name.startsWith("sample_"))
         : undefined;
     const sampleXml = operation.sampleMetadata?.sampleXml || sampleRequest?.request || generateInitialXmlForOperation(operation);
-    
+
     return {
         sampleXml,
         endpoint: operation.sampleMetadata?.endpoint || sampleRequest?.endpoint || operation.originalEndpoint,
         soapAction: operation.sampleMetadata?.soapAction || operation.action,
-        contentType: operation.sampleMetadata?.contentType || sampleRequest?.contentType || "text/xml; charset=utf-8",
+        // Resolve via the canonical precedence chain (sample request contentType tier falls back
+        // to the SOAP-version default when the sample carries no explicit value)
+        contentType: resolveEffectiveContentType(
+            sampleRequest || null,
+            operation,
+            iface || null
+        ),
         targetNamespace: operation.sampleMetadata?.targetNamespace || operation.targetNamespace || "http://tempuri.org/"
     };
 };
