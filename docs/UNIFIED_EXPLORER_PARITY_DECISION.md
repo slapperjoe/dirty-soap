@@ -1,10 +1,12 @@
 # Unified Explorer — Porting Parity Decision Document
 
-- **Status**: DRAFT FOR REVIEW (no code implemented; this doc is the decision artifact)
-- **Date**: 2026-09-02
-- **Repo/HEAD**: `/home/mark/code/apinox`, branch `main`, commit `3f7bc2f`
+- **Status**: DECIDED — recommendations incorporated 2026-09-02 (see §13); no code implemented yet; this doc is the decision artifact
+- **Date**: 2026-09-02 (recommendations update: 2026-09-02)
+- **Repo/HEAD**: `/home/mark/code/apinox`, branch `feat/unified-explorer-porting`, commit `9223669` (docs-only; code baseline `3f7bc2f`)
 - **Inputs**:
   - `docs/LEGACY_WORKSPACE_EXPLORER_INVENTORY.md` (t_a48a7584 — complete, read-only audit of the legacy workspace/sidebar system, 15 sections)
+  - `docs/UNIFIED_EXPLORER_PARITY_RECOMMENDATIONS.md` (t_5ef97703 — prioritized R-01…R-13, folded into this doc as §13)
+  - `docs/UNIFIED_EXPLORER_IMPLEMENTATION_AUDIT.md` (per-item evidence, A-1…A-7, R-g1…R-g5)
   - Direct read-only code verification of the legacy API explorer and the unified explorer (this pass). **Note**: the second planned inventory, t_ef1f6612 ("Audit api explorer features and sample APIs"), completed with an unrelated artifact (an AWS S3 CLI guide written by a worker on a different host) and produced **no usable inventory**. Every legacy API-explorer feature classified in this document was therefore re-verified directly against source at commit `3f7bc2f` before being listed. Line references below are from that commit.
 - **Scope**: Features of the legacy **Workspace** view and legacy **API Explorer** (EXPLORER) view, compared against the **Unified Explorer** (`UNIFIED_EXPLORER` rail view), to decide what must be ported so the unified explorer can replace them.
 - **Out of scope (scope decision, see §10)**: the separate rail views Tests, Workflows, Performance, History, Notes, Proxy & Traffic, Mock Server, File Watcher. These stay alongside the unified explorer as their own views and are not "explorer parity" items.
@@ -32,12 +34,12 @@
 
 **Unified Explorer** (`SidebarView.UNIFIED_EXPLORER`):
 - `components/explorer/UnifiedExplorerView.tsx` (wrapper), `UnifiedExplorerMain.tsx` (712 lines), `UnifiedExplorerSidebar.tsx` (566 lines).
-- Load path: top bar URL input (default = Country Info WSDL, `UnifiedExplorerMain.tsx:56`) + File button → `UnifiedExplorerView.handleLoadWsdl` → **`parse_wsdl_as_project` only** (`unified_explorer_commands.rs:17`), which calls `parse_wsdl` and returns `"No services found in WSDL"` for anything non-WSDL. File dialog filter is `['wsdl','xml']` only (`UnifiedExplorerMain.tsx:199`).
-- Project model: loading **immediately creates and persists** a `UnifiedProject` (duplicate `sourceUrl` triggers refresh — no staging "explored interfaces" step). Refresh merges, preserves user requests, renames removed operations to `[Legacy] <name>` (`unified_explorer_commands.rs:161–177`).
+- Load path: top bar URL input (default = Country Info WSDL, `UnifiedExplorerMain.tsx:56`) + File button → `UnifiedExplorerView.handleLoadWsdl` → **`parse_wsdl_as_project` only** (`src-tauri/src/parsers/unified_explorer_commands.rs:17`), which calls `parse_wsdl` and returns `"No services found in WSDL"` for anything non-WSDL. File dialog filter is `['wsdl','xml']` only (`UnifiedExplorerMain.tsx:199`).
+- Project model: loading **immediately creates and persists** a `UnifiedProject` (duplicate `sourceUrl` triggers refresh — no staging "explored interfaces" step). Refresh merges, preserves user requests, renames removed operations to `[Legacy] <name>` (`src-tauri/src/parsers/unified_explorer_commands.rs:161–177`).
 - Execute path: `handleExecuteRequest` → `execute_soap_request` **only** (`UnifiedExplorerMain.tsx:236`), hardcoded `language="xml"` editor, SOAP-only request construction. **No history write, no REST/GraphQL execution, no cancel.** Responses cached in React state and persisted as `lastResponse` inside the project file.
 - Sidebar: project → operation → request tree, DnD reorder (within a project / within an operation), context menu (project: Refresh WSDL / Export Project / Delete; operation: New Request / Delete; request: Copy URL / Copy Request XML / Delete). No rename.
 - Env vars: loaded via `get_settings` + `get_resolved_environment` on mount, passed into `execute_soap_request` (`UnifiedExplorerMain.tsx:64–79`).
-- Sample request templates: `SampleRequestPanel` used at `UnifiedExplorerMain.tsx:571`; `sample_<op>` requests generated in Rust (`build_operation_json`, `unified_explorer_commands.rs:246–271`) and hidden from tree lists via the `name.startsWith('sample_')` filter.
+- Sample request templates: `SampleRequestPanel` used at `UnifiedExplorerMain.tsx:571`; `sample_<op>` requests generated in Rust (`build_operation_json`, `src-tauri/src/parsers/unified_explorer_commands.rs:246–271`) and hidden from tree lists via the `name.startsWith('sample_')` filter.
 
 ## 3. Side-by-side comparison
 
@@ -52,15 +54,15 @@
 | F-07 | **GraphQL execution** (raw query wrapped as `{"query":...}`) | `bridge.ts:433–456` | **Missing** — same | **MISSING** (consequence of F-05) |
 | F-08 | **WSDL load via URL** | `loadWsdl` bridge → `parse_wsdl` | **Present** — `parse_wsdl_as_project` (with duplicate-URL → refresh behaviour) | PRESENT |
 | F-09 | **WSDL load via file** | import zone, filters wsdl/xml/json/yaml/yml | **Partial** — File button works but dialog filter is wsdl/xml only (`UnifiedExplorerMain.tsx:199`); no drag-drop zone | PARTIAL (extend filters when F-04/F-05 land) |
-| F-10 | **Cancel WSDL load** | Cancel button → `cancelWsdlLoad` | **Missing** — Load button only shows a spinner, no cancel | MISSING (low priority; see §8 order) |
+| F-10 | **Cancel WSDL load** | Cancel button → `cancelWsdlLoad` | **Missing** — Load button only shows a spinner, no cancel | MISSING (low priority; see §6 order) |
 | F-11 | **Cancel in-flight request** | `cancelRequest`/`cancelAllRequests` commands | **Missing** — no cancel UI or path in `UnifiedExplorerMain` | MISSING (low priority) |
 | F-12 | **Request execution (SOAP) + response viewer** | `useRequestExecution` / bridge SOAP path, full response panel | **Present** — `execute_soap_request` + `MonacoResponseViewer`, response cache per request + `lastResponse` persistence | PRESENT |
-| F-13 | **Request history write on execute** | `saveRequestHistory` → `add_history_entry` (bridge.ts:1232–1254) | **Missing** — unified execute never calls `add_history_entry`; the global History view won't record unified executions | MISSING (recommend port; see §11 Q6) |
+| F-13 | **History write on execute** | `saveRequestHistory` → `add_history_entry` (bridge.ts:1232–1254) | **Missing** — unified execute never calls `add_history_entry`; the global History view won't record unified executions | MISSING (recommend port; see §11 Q6, §13 R-08 — pulled forward to phase 2 SOAP path) |
 | F-14 | **Sample request templates** (`sample_<op>` generated on parse; Reset to default XML) | `SampleRequestPanel` + `generateXmlBody` | **Present** — same `SampleRequestPanel` at `UnifiedExplorerMain.tsx:571`; Rust `generate_sample_xml` | PRESENT |
 | F-15 | **Project tree** (projects/operations/requests, selection, expand) | `ProjectList` + `ServiceTree`/`FolderTree` | **Present** — unified tree with equivalent selection model | PRESENT |
 | F-16 | **Drag-drop reorder** | projects/ops/requests reorder + cross-operation/interface **move modal** | **Partial** — reorder within project/operation only; no cross-operation move | PARTIAL (acceptable; cross-move low value — §11 Q9) |
-| F-17 | **Context menus** | full menus (rename, delete, copy URL/XML/response, view sample schema, export) | **Partial** — subset: Refresh/Export/Delete (project), New Request/Delete (operation), Copy URL/Copy XML/Delete (request). **No rename anywhere.** | PARTIAL (rename gap — §11 Q8) |
-| F-18 | **Refresh WSDL / sync** | `refreshWsdl` + `applyWsdlSync` with **diff UI** (wsdlDiff) | **Present, different model** — `refresh_unified_project` re-parses and merges server-side, preserves user requests, `[Legacy]` prefix for removed ops; **no diff/apply UI** | PARTIAL (diff UI: see §11 Q7) |
+| F-17 | **Context menus** | full menus (rename, delete, copy URL/XML/response, view sample schema, export) | **Partial** — subset: Refresh/Export/Delete (project), New Request/Delete (operation), Copy URL/Copy XML/Delete (request). **No rename anywhere.** | PARTIAL (rename: Q8 confirmed — port, R-10 phase 5) |
+| F-18 | **Refresh WSDL / sync** | `refreshWsdl` + `applyWsdlSync` with **diff UI** (`WsdlSyncModal.tsx`) | **Present, different model** — `refresh_unified_project` re-parses and merges server-side, preserves user requests, `[Legacy]` prefix for removed ops; **no diff/apply UI** | PARTIAL (diff UI: see §11 Q7) |
 | F-19 | **Staging "explored interfaces" + Add to Project / Add All / Remove / Clear** | `NavigationContext.exploredInterfaces`, `useExplorer.ts`, `AddToProjectModal` | **Superseded by design** — unified load = persisted project immediately (duplicate URL → refresh); no staging step | DEPRECATED (intentional) |
 | F-20 | **Operation/interface detail panels** (SOAP action, input schema, binding, namespace, endpoint) | `ApiExplorerMain.tsx:125–239` | **Present** — richer grid in `UnifiedExplorerMain.tsx:505–568` (adds Content-Type, effective-content-type resolution) | PRESENT |
 | F-21 | **Environment variables** (active env, interpolation) | `EnvironmentSelector` header + env resolution | **Present** — `get_resolved_environment` loaded on mount, passed to execute | PRESENT |
@@ -93,17 +95,17 @@ Required first (task mandate):
 | F-06 REST execution in unified view | **MISSING — PORT** | 4 |
 | F-07 GraphQL execution in unified view | **MISSING — PORT** | 4 |
 | F-09 File import filters (add json/yaml/yml) + drag-drop | **PARTIAL — PORT delta** | 3 |
-| F-13 History write on unified execution | **MISSING — PORT (recommended)** | 4 |
+| F-13 History write on unified execution | **MISSING — PORT (recommended)** — SOAP path in phase 2, REST/GraphQL in phase 4 (§13 R-08) | 2 (+4) |
 | F-10 Cancel WSDL load | **MISSING — PORT (deferred, optional)** | 5 |
 | F-11 Cancel in-flight request | **MISSING — PORT (deferred, optional)** | 5 |
 | F-16 Cross-operation move | **PARTIAL — accept as-is (recommend no port)** | — |
-| F-17 Context menu rename gap | **PARTIAL — decide (§11 Q8)** | 5 |
-| F-18 WSDL refresh diff/apply UI | **PARTIAL — decide (§11 Q7)** | — |
+| F-17 Context menu rename gap | **PARTIAL — PORT (Q8 confirmed; R-10, additive, descopes cleanly if phases slip)** | 5 |
+| F-18 WSDL refresh diff/apply UI | **PARTIAL — SKIP this branch (Q7 confirmed)**; server-side merge is the new model; revisit via `WsdlSyncModal.tsx` if diff UX is requested | — |
 | F-23 WSDL load via proxy | **MISSING — PORT (deferred, optional)** | 5 |
 | F-08, F-12, F-14, F-15, F-20, F-21, F-22 | **PRESENT — no action** | — |
 | F-19 staging/Add-to-Project | **DEPRECATED — keep out of unified (superseded by load=project)** | — |
 | F-24, F-25, F-26, F-32 | **NOT WORTH — do not port** | — |
-| F-33 Project folders | **MISSING — PORT (deferred, decide Q12)** — not a required item; blocks nothing else | 5 |
+| F-33 Project folders | **MISSING — SKIP this branch (Q12 confirmed; R-13)** — manual-organization feature, orthogonal to required ports; revisit post-legacy-retirement if users ask | — |
 | F-27, F-28, F-29, F-30, F-31 | **DEPRECATED — remove during legacy-view retirement (separate cleanup task)** | 6 |
 
 Count: 33 items → 12 missing, 4 partial, 7 present, 6 deprecated, 4 not-worth. Every inventoried item is covered.
@@ -148,12 +150,12 @@ The format-detection + parsing logic today lives in `bridge.ts` (frontend) and p
 
 | Phase | Content | Depends on | Exit check |
 |---|---|---|---|
-| **0. Test floor** | Unit tests for `ScrapbookContext` CRUD (mocked bridge), `ScrapbookPanel` render/interactions, unified load-format error behaviour (Rust), sample-card component (before it exists, define the contract) | — | `npm test` green; new tests fail appropriately against unported code where TDD is used |
+| **0. Test floor** | Unit tests for `ScrapbookContext` CRUD (mocked bridge), `ScrapbookPanel` render/interactions, unified load-format error behaviour (Rust), sample-card component (before it exists, define the contract); **surface execution errors to the user (R-01)**; **send the real resolved operation to `execute_soap_request` instead of the nulled stub (R-02)** — both land here, before feature work | — | `npm test` green; new tests fail appropriately against unported code where TDD is used |
 | **1. Rust foundation** | `parse_spec_as_project` (or extended command) for OpenAPI/GraphQL → `UnifiedProject`; `sample_` naming; refresh merge for non-WSDL sources | Phase 0 | Rust unit tests: openapi spec, graphql introspection fixture, non-WSDL URL to legacy WSDL path still errors cleanly |
-| **2. Quick requests ⚑** | `ScrapbookPanel` into unified sidebar; `selectedNode`-style selection + editor surface; unified-aware auto-save capture; execution via existing SOAP path | Phase 0 | Manual: create/select/edit/delete/run a quick request from the unified view; persists across restart in `scrapbook.json`; existing legacy view unaffected (still working — legacy retirement is later) |
+| **2. Quick requests ⚑** | `ScrapbookPanel` into unified sidebar; `selectedNode`-style selection + editor surface; unified-aware auto-save capture (Q4(c)); execution via existing SOAP path; **history write** (`add_history_entry`) on the SOAP execute path (R-08, pulled forward) | Phase 0 | Manual: create/select/edit/delete/run a quick request from the unified view; persists across restart in `scrapbook.json`; every SOAP execution appears in global History; existing legacy view unaffected (still working — legacy retirement is later) |
 | **3. Sample APIs ⚑ + load routing** | 6 cards in unified empty state; wire WSDL cards to existing path; wire OpenAPI/GraphQL cards to Phase-1 command; file filters + drag-drop | Phase 1 | All 6 sample cards load and render operations in the unified tree (Petstore → operations per tag; SpaceX → Query/Mutation; Country Info/Calculator → WSDL ops) |
-| **4. Execution parity** | REST + GraphQL execution in `handleExecuteRequest` (reuse bridge `execute_rest_request` semantics incl. GraphQL query wrapping); editor language by content type; **history write** (`add_history_entry`) on every unified execution | Phase 3 | Petstore GET/POST run from unified view and appear in global History; GraphQL query runs; SOAP still works (regression) |
-| **5. Deferred parity** | Cancel WSDL load; cancel in-flight request; proxy toggle for WSDL load; context-menu rename (if Q8 says yes); project folders (if Q12 says port) | Phase 4 | each item's manual check |
+| **4. Execution parity** | REST + GraphQL execution in `handleExecuteRequest` (reuse bridge `execute_rest_request` semantics incl. GraphQL query wrapping); editor language by content type; **history write** (`add_history_entry`) extended to REST/GraphQL (SOAP already covered in phase 2, R-08) | Phase 3 | Petstore GET/POST run from unified view and appear in global History; GraphQL query runs; SOAP still works (regression) |
+| **5. Deferred parity** | Cancel WSDL load (R-11); cancel in-flight request (R-11); proxy toggle for WSDL load (R-12); context-menu rename (R-10 — Q8 confirmed, port; descopes cleanly if earlier phases slip); project folders explicitly descoped this branch (Q12 = skip, R-13) | Phase 4 | each item's manual check |
 | **6. Legacy retirement (separate task, after approval)** | Remove EXPLORER rail view + `ApiExplorerMain`/`ApiExplorerSidebar`/staging flow + dead code (F-28…F-31, F-25, F-27) once unified parity is accepted | Phase 5 | app runs without `EXPLORER` view; dead code gone; tests green |
 
 Phases 2 and 3 are the two REQUIRED items and are deliberately early; phase 3's cards only fully work for OpenAPI/GraphQL once phases 1+3+4 are all in, so the card UI should ship with a visible "loading" state and a clear error for formats not yet wired if it lands ahead of phase 4 (it shouldn't — order above avoids this).
@@ -172,7 +174,8 @@ Phases 2 and 3 are the two REQUIRED items and are deliberately early; phase 3's 
 - [ ] Quick Requests section visible in unified explorer sidebar; create/select/delete work; empty state and loading state render.
 - [ ] Selecting a quick request opens it editable (endpoint, headers, body) with Run; response renders in the unified response viewer.
 - [ ] Editing and saving a quick request persists to `scrapbook.json` (verify file contents after app restart).
-- [ ] Auto-capture: executing a request in the unified view appends/updates the corresponding scrapbook entry per the chosen capture rule (Q4).
+- [ ] Auto-capture: executing a request in the unified view appends/updates the corresponding scrapbook entry per the chosen capture rule (Q4(c) confirmed).
+- [ ] Every unified SOAP execution writes a history entry visible in the History view (R-08, pulled forward from phase 4).
 - [ ] Corrupt/missing `scrapbook.json` → empty state, no crash.
 
 **Sample APIs (phase 3)**
@@ -190,7 +193,7 @@ Phases 2 and 3 are the two REQUIRED items and are deliberately early; phase 3's 
 
 ## 8. Test coverage needs
 
-Current baseline (verified): `components/explorer/__tests__/unified_explorer.test.tsx` is a 14-line smoke test (1 test: sidebar renders "No projects yet"). `unified_explorer_commands.rs` has 7 unit tests. No tests touch scrapbook or the bridge load routing.
+Current baseline (verified): `components/explorer/__tests__/unified_explorer.test.tsx` is a 14-line smoke test (1 test: sidebar renders "No projects yet"). `src-tauri/src/parsers/unified_explorer_commands.rs` has 8 unit tests. No tests touch scrapbook or the bridge load routing.
 
 Required additions:
 
@@ -228,18 +231,18 @@ Manual/E2E script (for the verification report, mirroring the repo's update-prox
 4. History for unified executions goes to the **same global history store** (`add_history_entry`) — two history stores would be worse.
 5. `scrapbook.json` format is **frozen** — existing users' quick requests must survive.
 
-## 11. Open decisions for the team
+## 11. Decisions (Q1–Q12, confirmed 2026-09-02 per §13)
 
-| # | Question | Options | Recommendation |
+| # | Question | Options | Recommendation (confirmed) |
 |---|----------|---------|----------------|
 | Q1 | Where does the Quick Requests section live in the unified UI? | (a) bottom section of unified sidebar (legacy placement); (b) its own rail view; (c) both (sidebar section + rail) | (a) — least surface area, matches muscle memory |
 | Q2 | Where do the 6 sample cards render? | (a) unified empty state only; (b) empty state + a persistent "Samples" menu in the top bar | (a) for this branch; (b) is a cheap follow-up |
 | Q3 | Do the OpenAPI/GraphQL sample cards ship in the *same* PR as WSDL cards? | yes / no (WSDL cards first) | yes — half-shipped cards (4 dead of 6) are a worse state than waiting one phase |
 | Q4 | Auto-capture rule for quick requests in the unified view? | (a) every execution appends; (b) capture only on explicit "Save as quick request"; (c) every execution updates a request keyed by endpoint+operation, else appends | (c) — closest to legacy intent without unbounded growth |
 | Q5 | Refresh semantics for OpenAPI/GraphQL projects — same merge/`[Legacy]` behaviour as WSDL? | yes / define separately | yes, for consistency |
-| Q6 | History write for unified executions — confirmed in (phase 4) or split out? | include / split | include — a unified request that vanishes from History is a user-visible regression vs legacy |
-| Q7 | Port the WSDL refresh **diff/apply UI** (legacy `wsdlDiff`)? | port / skip (server-side merge is the new model) | skip for this branch — server-side merge is a superset for the common case; revisit if diff UX is requested |
-| Q8 | Context-menu **rename** (project/operation/request) in the unified view? | port now / defer | port now — its absence is the most conspicuous menu gap; low effort, additive |
+| Q6 | History write for unified executions — confirmed in (phase 4) or split out? | include / split | include — a unified request that vanishes from History is a user-visible regression vs legacy. **Confirmed with pull-forward: SOAP path lands in phase 2 (R-08), REST/GraphQL in phase 4; phase-4 acceptance criterion unchanged.** |
+| Q7 | Port the WSDL refresh **diff/apply UI** (legacy `WsdlSyncModal.tsx`)? | port / skip (server-side merge is the new model) | skip for this branch — server-side merge is a superset for the common case; revisit if diff UX is requested. **Confirmed: skip; if revisited, target `WsdlSyncModal.tsx`.** |
+| Q8 | Context-menu **rename** (project/operation/request) in the unified view? | port now / defer | port now — its absence is the most conspicuous menu gap; low effort, additive. **Confirmed: port (R-10), scheduled phase 5, descopes cleanly if earlier phases slip.** |
 | Q9 | Cross-operation request **move** (legacy modal)? | port / skip | skip — drag-drop reorder covers 95% of the use; low value per line count |
 | Q10 | `get_scrapbook_request` (registered, unused) — wire into port or delete? | wire / delete | delete in Phase 6 cleanup; the panel's own CRUD covers the need |
 | Q11 | Legacy EXPLORER view retirement — same PR as port or separate? | same / separate | separate PR (risk R10); this doc's Phase 6 is the trigger |
@@ -250,7 +253,7 @@ Manual/E2E script (for the verification report, mirroring the repo's update-prox
 - Branch: `feat/unified-explorer-porting` from `main` @ `3f7bc2f`.
 - Branch description should cite this document and mark the REQUIRED items: **Quick requests sidebar (F-01/F-02)**, **Sample API cards (F-03)** — plus the enabling work they depend on (F-04/F-05/F-06/F-07).
 - Checklist (one checkbox per line, mirroring §4/§6):
-  - [ ] Phase 0: test floor (ScrapbookContext/Panel tests, sample-card contract, Rust format-error tests)
+  - [ ] Phase 0: test floor (ScrapbookContext/Panel tests, sample-card contract, Rust format-error tests); surface execution errors to the user (R-01); send real resolved operation to `execute_soap_request` (R-02)
   - [ ] Phase 1: `parse_spec_as_project` for OpenAPI/GraphQL with `sample_` naming + refresh merge (Rust tests)
   - [ ] **Quick requests sidebar in unified explorer (REQUIRED)** — section renders, CRUD, edit+run surface
   - [ ] **Quick requests auto-save for unified selection model (REQUIRED)** — capture rule per Q4
@@ -258,13 +261,70 @@ Manual/E2E script (for the verification report, mirroring the repo's update-prox
   - [ ] OpenAPI/GraphQL load wiring + file filters (json/yaml/yml) + drag-drop
   - [ ] REST execution in unified view
   - [ ] GraphQL execution in unified view (query wrapping)
-  - [ ] History write on all unified executions
+  - [ ] History write on all unified executions (SOAP path in phase 2 per R-08; REST/GraphQL extended in phase 4)
   - [ ] Deferred: cancel WSDL load / cancel request / WSDL proxy toggle (or explicit descoping)
-  - [ ] Context-menu rename (if Q8 = yes)
-  - [ ] Project folders in unified model (if Q12 = port; else explicit descoping note in PR)
+  - [ ] Context-menu rename (Q8 = port, confirmed; R-10, descopes cleanly if earlier phases slip)
+  - [ ] Project folders: explicitly descoped this branch (Q12 = skip, R-13) — descoping note in PR
   - [ ] `UnifiedProject.source` union extended with `'graphql'` (additive type change)
   - [ ] Docs: helpContent sample APIs, AGENTS.md
   - [ ] Legacy retirement (separate PR, Phase 6): EXPLORER view + dead code F-27…F-31
   - [ ] Verification report: `npm test` + `cargo test` + manual E2E script from §8
 
 Every REQUIRED item is individually tracked in the checklist so branch work cannot complete with a required gap.
+
+## 13. Recommendations (incorporated 2026-09-02, from t_5ef97703)
+
+Full ranked detail: `docs/UNIFIED_EXPLORER_PARITY_RECOMMENDATIONS.md` (R-01…R-13, each mapped to a specific audit gap with impact/effort/risk/dependency ratings; all evidence re-verified live at `9223669` before drafting). This section is the decision-record summary; §4/§6/§11/§12 above are already updated to match.
+
+### 13.1 Decision (one paragraph)
+
+The unified explorer **will** replace the legacy Workspace/EXPLORER views. The two REQUIRED parity items — **quick requests (F-01/F-02)** and **sample API cards (F-03)** — are scheduled phases 2–3, with their enablers (OpenAPI/GraphQL load routing F-04/F-05, REST/GraphQL execution F-06/F-07) in phases 1 and 4. Everything else is either present, deprecated-by-design, explicitly descoped (Q7/Q9/Q12), or deferred to phase 5/6. Legacy retirement happens in a **separate PR** (Q11) after parity is accepted.
+
+### 13.2 Recommended path forward (ranked)
+
+| # | Rec | Gap | Phase | Impact | Effort | Risk | Deps |
+|---|-----|-----|-------|--------|--------|------|------|
+| R-01 | Surface execution errors to the user | A-7 / R-g3 | 0 | H | S | low | — |
+| R-02 | Send the real resolved operation on execute (drop nulled stub) | A-6 / R-g1 | 0 | M | S–M | low | — |
+| R-03 | Land the test floor (doc §8) | A-5 / §8 | 0 | M (enabler) | M | low | — |
+| R-04 | Correct doc factual discrepancies (A-1/A-2/A-4 — done in this update) | A-1/A-2/A-4 | 0 | M (enabler) | S | none | — |
+| R-05 | Quick requests sidebar + unified auto-save ⚑ | F-01, F-02 | 2 | H | M | low | R-03 |
+| R-08 | History write on unified execute (pulled forward to SOAP path) | F-13 / R-g2 | 2 (ext. 4) | H | S | low | — |
+| R-06 | OpenAPI + GraphQL load routing + file filters/drag-drop ⚑* | F-04, F-05, F-09 | 3 | H | L | M | R-04 |
+| R-07 | Six sample API cards in unified empty state ⚑ | F-03 | 3 | H | S | low | R-06 |
+| R-09 | REST + GraphQL execution dispatcher | F-06, F-07 | 4 | H | L | M | R-06, R-02 |
+| R-10 | Context-menu rename | F-17 / Q8 | 5 | M | S | low | — |
+| R-11 | Cancel WSDL load + cancel in-flight request | F-10, F-11 / R-g5 | 5 | L–M | M | M | — |
+| R-12 | WSDL load via proxy toggle | F-23 / R-g4 | 5 | M | S–M | M | — |
+| R-13 | Project folders — **explicit skip** | F-33 / Q12 | n/a | L | M | M | — |
+
+⚑ REQUIRED for branch DoD. ⚑* mandatory enabler. **One scheduled pull-forward**: R-08 (F-13) moves from phase 4 to the phase-2 SOAP path — low effort, high impact, closes the most concrete user-visible regression; phase-4 acceptance criteria are unchanged.
+
+**Immediate fixes (do first — independent, low-risk):** R-01 surface execution errors (`UnifiedExplorerMain.tsx:287–290` catch currently only `debugLog`s — a failed request produces zero user feedback); R-02 replace the nulled operation stub sent to `execute_soap_request` (`:238–248`) with the real `ownerOperation` fields, before the phase-4 dispatcher builds on the SOAP baseline; R-03 land the §8 test floor; R-04 doc corrections (applied by this update: `src-tauri/src/parsers/unified_explorer_commands.rs` path, 8 not 7 Rust unit tests, `WsdlSyncModal.tsx` not "wsdlDiff").
+
+### 13.3 Explicit non-goals (do NOT port)
+
+| Item | Reason |
+|---|---|
+| F-19 staging "explored interfaces" workflow | Superseded by unified load=project. |
+| F-16 cross-operation request move modal | Q9 — in-tree DnD reorder covers ~95% of use. |
+| F-18 WSDL refresh diff/apply UI | Q7 — server-side merge + `[Legacy]` rename is a superset for the common case. Skip this branch; if revisited, target `WsdlSyncModal.tsx`. |
+| F-24 WSDL URL history / F-25 View Sample Schema / F-26 Welcome panel / F-32 "(Preview)" naming & SOAP version badges | Not worth (low value, disabled upstream, or superseded by unified tree/`EmptyState`). |
+| F-33 project folders | Q12 confirmed skip this branch (R-13); revisit post-legacy-retirement. |
+| F-27–F-31 dead code (`get_scrapbook_request`, `CollectionList`, `WatcherPanel`, `SidebarView.SERVER` block, `WorkspaceContext` legacy wiring) | Removed in the Phase-6 legacy-retirement PR, not this branch. Do not wire `get_scrapbook_request` (Q10). |
+| Rail views: Tests / Workflows / Performance / History / Notes / Proxy & Traffic / Mock / Watcher | Out of scope by §10.1 — they remain independent views. |
+| `scrapbook.json` schema changes; non-additive `UnifiedProject` format changes | Hard constraints (frozen schema; additive-only `source` values). |
+
+### 13.4 Q1–Q12 decision confirmations
+
+All twelve open decisions are confirmed as recommended in §11, with one amendment: **Q6 — history write included, pulled forward to the SOAP path in phase 2 (R-08)** (phase-4 criterion unchanged). All others stand as written in §11: Q1(a), Q2(a), Q3, Q4(c), Q5, Q7 skip, Q8 port, Q9 skip, Q10 delete-in-phase-6, Q11 separate PR, Q12 skip.
+
+### 13.5 Remaining follow-up work
+
+**In-branch** — everything not yet checked in the §12 checklist (phase 0 immediate fixes R-01/R-02/R-03, then phases 1–5 per §6/§13.2).
+
+**Post-branch:**
+1. **Phase 6 — legacy EXPLORER retirement (separate PR, Q11)**: remove F-19, F-27…F-31 and the legacy `ApiExplorerMain` sample-card block once the unified view is the primary surface; update `AGENTS.md` to name the unified explorer primary.
+2. **Top-bar "Samples" menu** (Q2(b)) — cheap follow-up to the empty-state cards.
+3. **Revisit list (user-request driven)**: F-18 diff UI (via `WsdlSyncModal.tsx`), F-33 folders, F-24/F-25/F-26 if users ask, F-10/F-11 cancel if slow WSDLs are reported.
+4. **Proxy hardening** (R-12 context): the recent update-check fix (OS proxy + rustls/webpki roots) is the prior art for new network-path work in the explorer; reuse its root-store approach.
