@@ -408,8 +408,8 @@ export interface UnifiedProject {
     name: string;
     description?: string;
     /** Source type that created this project */
-    source: 'wsdl' | 'openapi' | 'manual';
-    /** URL of the WSDL/OpenAPI source (for refresh/sync) */
+    source: 'wsdl' | 'openapi' | 'graphql' | 'manual';
+    /** URL of the WSDL/OpenAPI/GraphQL source (for refresh/sync) */
     sourceUrl?: string;
     /** Timestamp when the WSDL/OpenAPI was first parsed */
     parsedAt: Date;

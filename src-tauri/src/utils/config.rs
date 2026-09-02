@@ -5,6 +5,17 @@
 
 use std::path::PathBuf;
 
+/// Process-wide lock serializing tests that swap the `APINOX_CONFIG_DIR`
+/// environment variable.
+///
+/// `cargo test` runs tests concurrently in ONE process, and
+/// `resolve_config_dir()` reads this process-global env var, so every test
+/// that mutates `APINOX_CONFIG_DIR` (any module) must hold this single lock
+/// for the duration of its set/restore window. Using per-module locks instead
+/// lets env mutations from different modules race (see the
+/// `unified_explorer_commands` vs `updater` regression this consolidates).
+pub static CONFIG_DIR_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Returns the APInox config directory as a `PathBuf`.
 ///
 /// Resolution order:

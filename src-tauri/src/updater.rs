@@ -949,7 +949,9 @@ mod tests {
     use tokio::net::TcpListener;
 
     /// Serialize tests that swap `APINOX_CONFIG_DIR` (process-global env).
-    static CONFIG_DIR_TEST_LOCK: Mutex<()> = Mutex::new(());
+    /// Process-wide lock shared with `parsers::unified_explorer_commands` —
+    /// a per-module lock here would race with env mutations in other modules.
+    use crate::utils::config::CONFIG_DIR_TEST_LOCK;
 
     /// Serialize tests that mutate proxy env vars (process-global).
     static PROXY_ENV_TEST_LOCK: Mutex<()> = Mutex::new(());

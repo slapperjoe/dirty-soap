@@ -589,6 +589,7 @@ pub fn run() {
             parsers::wsdl_commands::refresh_wsdl,
             parsers::wsdl_commands::apply_wsdl_sync,
             parsers::unified_explorer_commands::parse_wsdl_as_project,
+            parsers::unified_explorer_commands::parse_spec_as_project,
             parsers::unified_explorer_commands::refresh_unified_project,
             parsers::unified_explorer_commands::refresh_project_wsdl,
             parsers::unified_explorer_commands::delete_unified_project,
