@@ -305,7 +305,9 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             const { open } = await import('@tauri-apps/plugin-dialog');
             const selectedPath = await open({
                 multiple: false,
-                filters: [{ name: 'WSDL/XML Files', extensions: ['wsdl', 'xml'] }],
+                filters: [
+                    { name: 'API Definition Files', extensions: ['wsdl', 'xml', 'json', 'yaml', 'yml'] },
+                ],
             });
             if (!selectedPath) return;
             const fileUrl = `file://${selectedPath}`;
