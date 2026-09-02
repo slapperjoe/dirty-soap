@@ -6,10 +6,11 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { ScrapbookRequest, ScrapbookState } from '@shared/models';
+import { ScrapbookRequest, ScrapbookState, ApiRequest } from '@shared/models';
 import { FrontendCommand, BackendCommand } from '@shared/messages';
 import { debugLog } from '../utils/logger';
 import { bridge } from '../utils/bridge';
+import { resolveScrapbookCapture } from '../utils/unifiedScrapbookCapture';
 
 interface ScrapbookContextType {
     // State
@@ -18,11 +19,22 @@ interface ScrapbookContextType {
     loading: boolean;
 
     // Actions
-    createRequest: () => Promise<void>;
+    createRequest: () => Promise<ScrapbookRequest | null>;
     updateRequest: (id: string, updates: Partial<ScrapbookRequest>) => Promise<void>;
     deleteRequest: (id: string) => Promise<void>;
     selectRequest: (request: ScrapbookRequest | null) => void;
     refreshScrapbook: () => Promise<void>;
+    /**
+     * F-02 / R-05 (Q4(c)) — unified quick-request auto-capture.
+     *
+     * Called from the UNIFIED execute/save path after a successful execution.
+     * Capture rule (decision doc §11 Q4(c)): every execution UPDATES the
+     * existing scrapbook entry keyed by endpoint+operation (matched via
+     * `scrapbookCaptureKey`), else APPENDS a new entry. This is the unified
+     * selection model's replacement for the legacy `useScrapbookAutoSave`
+     * hook, which remains untouched (R4).
+     */
+    captureExecution: (request: ApiRequest, operationName?: string | null) => Promise<ScrapbookRequest | null>;
 }
 
 const ScrapbookContext = createContext<ScrapbookContextType | undefined>(undefined);
@@ -34,6 +46,17 @@ export const useScrapbook = () => {
     }
     return context;
 };
+
+/**
+ * Non-throwing variant of `useScrapbook` for surfaces that can degrade
+ * gracefully when rendered outside the provider (the unified explorer main
+ * surface in isolated component tests). In the app the `ScrapbookProvider`
+ * wraps everything (App.tsx), so this resolves to the same context as
+ * `useScrapbook`; the throwing `useScrapbook` contract is unchanged for
+ * surfaces that REQUIRE the provider (documented error path:
+ * use-outside-provider throws).
+ */
+export const useScrapbookOptional = () => useContext(ScrapbookContext);
 
 export const ScrapbookProvider = ({ children }: { children: ReactNode }) => {
     const [scrapbookRequests, setScrapbookRequests] = useState<ScrapbookRequest[]>([]);
@@ -120,9 +143,11 @@ export const ScrapbookProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     /**
-     * Create a new scrapbook request with defaults
+     * Create a new scrapbook request with defaults.
+     * Returns the created request (or null when the backend response does not
+     * confirm it) so the unified sidebar can select it immediately.
      */
-    const createRequest = useCallback(async () => {
+    const createRequest = useCallback(async (): Promise<ScrapbookRequest | null> => {
         try {
             const now = new Date().toISOString();
             const newRequest: ScrapbookRequest = {
@@ -158,7 +183,9 @@ export const ScrapbookProvider = ({ children }: { children: ReactNode }) => {
                     command: BackendCommand.ScrapbookUpdated,
                     state: response.state
                 });
+                return created || null;
             }
+            return null;
         } catch (error) {
             console.error('[Scrapbook] Failed to create request:', error);
             throw error;
@@ -232,6 +259,97 @@ export const ScrapbookProvider = ({ children }: { children: ReactNode }) => {
         setSelectedScrapbookRequest(request);
     }, []);
 
+    /**
+     * F-02 (Q4(c)) capture rule, applied on the unified execute/save path:
+     *
+     *   - every execution UPDATES the existing scrapbook entry keyed by
+     *     endpoint+operation (matched case-insensitively on the normalized
+     *     endpoint, case-sensitively on the operation name via
+     *     `scrapbookCaptureKey`),
+     *   - else APPENDS a new entry (no unbounded growth — re-running the same
+     *     endpoint+operation overwrites the entry in place).
+     *
+     * The `scrapbook.json` schema is frozen: a `ScrapbookRequest` carries no
+     * dedicated `operation` field, so for quick requests created from an
+     * operation the entry's `name` is the operation identifier. Capture is
+     * best-effort: a persistence failure is logged, never thrown, so an
+     * execution can never be broken by scrapbook I/O.
+     */
+    const captureExecution = useCallback(async (request: ApiRequest, operationName?: string | null): Promise<ScrapbookRequest | null> => {
+        const captured: ApiRequest = {
+            ...request,
+            name: operationName || request.name,
+        };
+        const decision = resolveScrapbookCapture(scrapbookRequests, captured, operationName);
+
+        try {
+            if (decision.mode === 'update') {
+                const existing = scrapbookRequests[decision.index!];
+                await updateRequest(existing.id, {
+                    name: captured.name,
+                    request: request.request,
+                    endpoint: request.endpoint,
+                    headers: request.headers,
+                    method: request.method,
+                    contentType: request.contentType,
+                    requestType: request.requestType,
+                    bodyType: request.bodyType,
+                });
+                const updated = (await refreshScrapbookSilently())?.find(r => r.id === existing.id);
+                return updated || existing;
+            }
+
+            const now = new Date().toISOString();
+            const newRequest: ScrapbookRequest = {
+                id: crypto.randomUUID(),
+                name: captured.name,
+                request: request.request || '',
+                requestType: request.requestType || 'soap',
+                method: request.method || 'POST',
+                bodyType: request.bodyType || 'xml',
+                contentType: request.contentType,
+                headers: request.headers,
+                endpoint: request.endpoint || '',
+                createdAt: now,
+                lastModified: now,
+            };
+            const response = await bridge.sendMessageAsync({
+                command: FrontendCommand.AddScrapbookRequest,
+                request: newRequest,
+            });
+            const created = response?.state?.requests?.find((r: ScrapbookRequest) => r.id === newRequest.id);
+            if (created) {
+                // Keep local state in sync without re-fetching; also emit the
+                // updated event so other consumers re-sync (same contract as
+                // createRequest).
+                setScrapbookRequests(response.state.requests);
+                bridge.emit({
+                    command: BackendCommand.ScrapbookUpdated,
+                    state: response.state,
+                });
+            }
+            return created || null;
+        } catch (error) {
+            console.error('[Scrapbook] Auto-capture failed:', error);
+            return null;
+        }
+    }, [scrapbookRequests, updateRequest]);
+
+    /**
+     * Re-fetch the current scrapbook from the backend (used by
+     * `captureExecution` to read back the just-updated entry).
+     */
+    const refreshScrapbookSilently = useCallback(async (): Promise<ScrapbookRequest[] | null> => {
+        try {
+            const response = await bridge.sendMessageAsync({
+                command: FrontendCommand.GetScrapbook,
+            });
+            return response?.state?.requests || [];
+        } catch {
+            return null;
+        }
+    }, []);
+
     return (
         <ScrapbookContext.Provider
             value={{
@@ -242,7 +360,8 @@ export const ScrapbookProvider = ({ children }: { children: ReactNode }) => {
                 updateRequest,
                 deleteRequest,
                 selectRequest,
-                refreshScrapbook
+                refreshScrapbook,
+                captureExecution
             }}
         >
             {children}

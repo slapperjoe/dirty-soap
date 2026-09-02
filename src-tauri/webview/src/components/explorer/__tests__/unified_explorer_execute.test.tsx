@@ -21,10 +21,13 @@ vi.mock('@apinox/request-editor/monaco', () => ({
 // The Tauri command bridge: capture execute_soap_request invocations.
 // NOTE: path is relative to THIS test file (__tests__/), so the component's
 // `../../utils/bridge` import resolves to `../../../utils/bridge` from here.
+// `bridge.emit` is exercised by the F-13 history write (unifiedHistory.ts)
+// after every successful execution.
 const invokeMock = vi.fn();
+const emitMock = vi.fn();
 vi.mock('../../../utils/bridge', () => ({
     invokeTauriCommand: (...args: any[]) => invokeMock(...args),
-    bridge: { sendMessage: vi.fn(), onMessage: vi.fn() },
+    bridge: { sendMessage: vi.fn(), onMessage: vi.fn(), emit: (...args: any[]) => emitMock(...args) },
     isVsCode: () => false,
 }));
 
@@ -165,5 +168,73 @@ describe('UnifiedExplorerMain execute (R-01 / R-02)', () => {
             // identical to the pre-change stub behavior for actionless ops.
             expect(executeCall![1].request.operation.action).toBeNull();
         });
+    });
+});
+
+describe('UnifiedExplorerMain history write (F-13 / R-08, phase 2 SOAP path)', () => {
+    it('a successful SOAP execute writes add_history_entry with correct fields and emits HistoryUpdate', async () => {
+        setupInvoke('resolve');
+        render(
+            <UnifiedExplorerMain
+                {...baseProps}
+                projects={[makeProject('req-1')]}
+                selectedNode={{ type: 'request', id: 'req-1' }}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: /run/i }));
+
+        // F-13: the history entry is persisted to the SINGLE global store.
+        await waitFor(() => {
+            const historyCall = invokeMock.mock.calls.find(c => c[0] === 'add_history_entry');
+            expect(historyCall).toBeDefined();
+            const entry = historyCall![1].entry;
+            expect(entry.id).toBeTruthy();
+            expect(typeof entry.timestamp).toBe('number');
+            expect(entry.requestName).toBe('req-1');
+            expect(entry.endpoint).toBe(TEST_ENDPOINT);
+            expect(entry.method).toBe('POST');
+            expect(entry.projectName).toBe('TestService');
+            expect(entry.interfaceName).toBe('TestService');
+            expect(entry.operationName).toBe('GetFoo');
+            expect(entry.requestBody).toBe('<foo/>');
+            expect(entry.headers).toEqual({});
+            expect(entry.status).toBe(200);
+            expect(entry.statusCode).toBe(200);
+            expect(typeof entry.duration).toBe('number');
+            expect(entry.responseBody).toBe('<ok/>');
+            expect(entry.responseHeaders).toEqual({});
+            expect(entry.responseSize).toBe('<ok/>'.length);
+            expect(entry.success).toBe(true);
+            expect(entry.starred).toBe(false);
+        });
+
+        // The live History view is updated via the HistoryUpdate event (same
+        // mechanism as the legacy path — useMessageHandler prepends the entry).
+        await waitFor(() => {
+            const emitCalls = emitMock.mock.calls.filter(c => c[0]?.command === 'historyUpdate');
+            expect(emitCalls.length).toBeGreaterThanOrEqual(1);
+            expect(emitCalls[emitCalls.length - 1][0].entry.requestName).toBe('req-1');
+        });
+    });
+
+    it('a failed SOAP execute does NOT write history (legacy parity: history is written from the resolved response only)', async () => {
+        setupInvoke('reject');
+        render(
+            <UnifiedExplorerMain
+                {...baseProps}
+                projects={[makeProject('req-1')]}
+                selectedNode={{ type: 'request', id: 'req-1' }}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: /run/i }));
+
+        await screen.findByTestId('execute-error-banner');
+        // No execution completed → no history entry, no HistoryUpdate event.
+        const historyCall = invokeMock.mock.calls.find(c => c[0] === 'add_history_entry');
+        expect(historyCall).toBeUndefined();
+        const historyUpdate = emitMock.mock.calls.find(c => c[0]?.command === 'historyUpdate');
+        expect(historyUpdate).toBeUndefined();
     });
 });

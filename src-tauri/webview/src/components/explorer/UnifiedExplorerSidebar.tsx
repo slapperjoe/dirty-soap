@@ -7,7 +7,7 @@ import {
     File,
     Server,
 } from 'lucide-react';
-import { UnifiedProject, ApiOperation, ApiRequest } from '@shared/models';
+import { UnifiedProject, ApiOperation, ApiRequest, ScrapbookRequest } from '@shared/models';
 import { SidebarContextMenu, CtxMenuSection, CtxMenuItem } from '../sidebar/shared/SidebarContextMenu';
 import {
     Copy,
@@ -17,6 +17,7 @@ import {
     Trash2 as Trash2Icon,
     RefreshCw as RefreshCwIcon,
 } from '../sidebar/shared/SidebarContextMenu';
+import { ScrapbookPanel } from '../sidebar/ScrapbookPanel';
 
 // Drag-and-drop helper functions (extracted to avoid TS1005 JSX brace ambiguity)
 const makeDragData = (data: { type: string; projectName: string; fromIndex: number; operationName?: string }): string => {
@@ -191,6 +192,20 @@ export interface UnifiedExplorerSidebarProps {
     onExportProject: (projectName: string) => void;
     onReorderOperation: (projectName: string, fromIndex: number, toIndex: number) => void;
     onReorderRequest: (projectName: string, operationName: string, fromIndex: number, toIndex: number) => void;
+    /**
+     * F-01 / R-05 — Quick Requests (scrapbook) section rendered as the bottom
+     * section of the unified sidebar (decision doc Q1(a): least surface area,
+     * matches the legacy placement in `ApiExplorerSidebar`).
+     */
+    scrapbook?: {
+        requests: ScrapbookRequest[];
+        selectedRequest: ScrapbookRequest | null;
+        loading: boolean;
+        onCreateRequest: () => void;
+        onSelectRequest: (request: ScrapbookRequest) => void;
+        onDeleteRequest: (id: string) => void;
+        onExecuteRequest: (request: ScrapbookRequest) => void;
+    };
 }
 
 export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
@@ -205,6 +220,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     onExportProject,
     onReorderOperation,
     onReorderRequest,
+    scrapbook,
 }) => {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
@@ -288,6 +304,15 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
         <div
             style={{
                 flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
+            }}
+        >
+        <div
+            style={{
+                flex: 1,
+                minHeight: 0,
                 overflowY: 'auto',
                 padding: '4px 0',
             }}
@@ -562,5 +587,34 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                 />
             )}
         </div>
+
+        {/* F-01 / R-05 — Quick Requests (scrapbook) bottom section.
+            Q1(a): rendered below the project tree, mirroring the legacy
+            placement in ApiExplorerSidebar. The tree scrolls in the flex
+            area above; this section keeps its own (short) scroll area so a
+            long scrapbook list never pushes the tree out of view. */}
+        {scrapbook && (
+            <div
+                data-testid="unified-quick-requests"
+                style={{
+                    flexShrink: 0,
+                    borderTop: '1px solid var(--apinox-border)',
+                    maxHeight: '40%',
+                    minHeight: 80,
+                    overflowY: 'auto',
+                }}
+            >
+                <ScrapbookPanel
+                    requests={scrapbook.requests}
+                    selectedRequest={scrapbook.selectedRequest}
+                    loading={scrapbook.loading}
+                    onCreateRequest={scrapbook.onCreateRequest}
+                    onSelectRequest={scrapbook.onSelectRequest}
+                    onDeleteRequest={scrapbook.onDeleteRequest}
+                    onExecuteRequest={scrapbook.onExecuteRequest}
+                />
+            </div>
+        )}
+    </div>
     );
 };

@@ -264,6 +264,7 @@ export const Sidebar: React.FC = () => {
                             onExportProject={unifiedProps.onExportProject}
                             onReorderOperation={unifiedProps.onReorderOperation}
                             onReorderRequest={unifiedProps.onReorderRequest}
+                            scrapbook={unifiedProps.scrapbook}
                         />
                     </div>
                 )}

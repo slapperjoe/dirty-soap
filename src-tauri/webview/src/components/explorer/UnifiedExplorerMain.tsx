@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     ArrowRight,
     Server,
@@ -10,11 +10,14 @@ import {
     FolderOpen,
 } from 'lucide-react';
 import { debugLog } from '../../utils/logger';
-import { UnifiedProject, ApiOperation, ApiRequest } from '@shared/models';
+import { useScrapbookOptional } from '../../contexts/ScrapbookContext';
+import { UnifiedProject, ApiOperation, ApiRequest, ScrapbookRequest } from '@shared/models';
 import { soapDefault, resolveEffectiveContentType } from '../../utils/soapUtils';
 import { invokeTauriCommand } from '../../utils/bridge';
 import { buildExecuteOperation } from '../../utils/executeOperation';
 import { detectLoadFormat } from '../../utils/loadRouting';
+import { isScrapbookNode } from '../../utils/unifiedScrapbookCapture';
+import { saveUnifiedHistoryEntry } from '../../utils/unifiedHistory';
 import { MonacoRequestEditorWithToolbar as MonacoRequestEditor, MonacoResponseViewer, HeadersPanel, AssertionsPanel, ExtractorsPanel } from '@apinox/request-editor/monaco';
 import { ExecutionResponse } from '@apinox/request-editor/monaco';
 import { EmptyState } from '../common/EmptyState';
@@ -29,6 +32,22 @@ export interface UnifiedExplorerMainProps {
     onNewRequest: (projectName: string, operationName: string) => void;
     /** Interface-level (project) Content-Type override change — propagates to all existing requests and persists the project. */
     onProjectContentTypeChange?: (projectName: string, contentType: string) => void;
+    /**
+     * F-02 (Q4(c)) — quick-request auto-capture hook. Called with the executed
+     * request and its owning operation name (if any) after every *successful*
+     * unified execution; the provider persists the entry via
+     * `ScrapbookContext.captureExecution` (update keyed by
+     * endpoint+operation, else append). Phase 2: the SOAP execute path is the
+     * only execution path (REST/GraphQL land in phase 4 with R-09).
+     */
+    onAfterExecute?: (request: ApiRequest, operationName?: string | null) => void | Promise<void>;
+    /**
+     * F-01 — registration callback for the *current* unified execute function.
+     * The Quick Requests panel lives in `UnifiedExplorerView` (a sibling of
+     * `UnifiedExplorerMain`), so the sidebar's execute button registers
+     * here and calls back into this component's real execute path.
+     */
+    onRegisterExecute?: (execute: (req: ApiRequest) => Promise<void>) => void;
 }
 
 interface UrlInputState {
@@ -54,6 +73,8 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     onLoadWsdl,
     onNewRequest,
     onProjectContentTypeChange,
+    onAfterExecute,
+    onRegisterExecute,
 }) => {
     const [urlInput, setUrlInput] = useState<UrlInputState>({ url: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL', loading: false, error: null });
     /** Response cache keyed by request ID — persists across request switches */
@@ -63,6 +84,10 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     const [envVariables, setEnvVariables] = useState<Record<string, string>>({});
     /** R-01: last execution failure, surfaced as a banner above the response viewer. */
     const [executeError, setExecuteError] = useState<string | null>(null);
+    /** F-01: the selected quick (scrapbook) request, kept in sync with the app-level ScrapbookContext. */
+    const [selectedScrapbook, setSelectedScrapbook] = useState<ScrapbookRequest | null>(null);
+    /** F-01: endpoint text for the selected quick request (editable; committed on Run/Save). */
+    const [scrapbookEndpoint, setScrapbookEndpoint] = useState<string>('');
 
     // Load resolved environment variables on mount
     useEffect(() => {
@@ -154,9 +179,84 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
         }
     }, [selectedNode, projects]);
 
+    // F-01: keep the selected quick request in sync with the app-level
+    // ScrapbookContext (selection is owned by the provider; this only mirrors
+    // it so the editor can render the selected entry's data). A deleted
+    // selected entry clears local state (the provider prunes its own selection
+    // on `scrapbookUpdated`).
+    //
+    // `scrapbookSyncRef` tracks the last-seeded (id, endpoint, body) so a
+    // reference-only re-sync (e.g. a headers save-back triggering
+    // `scrapbookUpdated`) never clobbers in-progress local edits — the editor
+    // is only re-seeded when switching entries or when the stored entry's
+    // data actually changed (save / auto-capture).
+    const scrapbookSyncRef = useRef<{ id: string | null; endpoint: string; body: string }>({ id: null, endpoint: '', body: '' });
+    const contextScrapbook = useScrapbookOptional()?.selectedScrapbookRequest ?? null;
+    const updateScrapbookRequest = useScrapbookOptional()?.updateRequest;
+    useEffect(() => {
+        const s = scrapbookSyncRef.current;
+        if (contextScrapbook && contextScrapbook.id !== s.id) {
+            scrapbookSyncRef.current = {
+                id: contextScrapbook.id,
+                endpoint: contextScrapbook.endpoint || '',
+                body: contextScrapbook.request || '',
+            };
+        } else if (!contextScrapbook && s.id !== null) {
+            scrapbookSyncRef.current = { id: null, endpoint: '', body: '' };
+        }
+        setSelectedScrapbook(contextScrapbook);
+    }, [contextScrapbook]);
+
+    // F-01: sync the quick-request editor when a `scrapbook` node is selected.
+    // The node id is the scrapbook request id (selection contract from
+    // `unifiedScrapbookCapture.isScrapbookNode`); the request data comes from
+    // the app-level ScrapbookContext via `selectedScrapbook` (kept in sync by
+    // the effect above). When no scrapbook is selected the editor is cleared.
+    useEffect(() => {
+        if (!isScrapbookNode(selectedNode) || !selectedNode) {
+            return;
+        }
+        if (selectedScrapbook && selectedScrapbook.id === selectedNode.id) {
+            const s = scrapbookSyncRef.current;
+            const changed =
+                s.id !== selectedScrapbook.id ||
+                selectedScrapbook.request !== s.body ||
+                (selectedScrapbook.endpoint || '') !== s.endpoint;
+            setEditingRequest(selectedScrapbook);
+            if (changed) {
+                // Switching entries, or the stored entry changed on the
+                // server side (save / auto-capture): re-seed the editor.
+                setEditingXml(selectedScrapbook.request || '');
+                setScrapbookEndpoint(selectedScrapbook.endpoint || '');
+                scrapbookSyncRef.current = {
+                    id: selectedScrapbook.id,
+                    endpoint: selectedScrapbook.endpoint || '',
+                    body: selectedScrapbook.request || '',
+                };
+            }
+        } else {
+            setEditingRequest(null);
+            setEditingXml('');
+            setScrapbookEndpoint('');
+            scrapbookSyncRef.current = { id: null, endpoint: '', body: '' };
+        }
+    }, [selectedNode, selectedScrapbook]);
+
     // Find selected entity
     const findSelected = () => {
         if (!selectedNode) return null;
+        // F-01: quick requests live outside the project tree — a
+        // `scrapbook` node is resolved against the app-level ScrapbookContext
+        // (mirrored in `selectedScrapbook`), not against `projects`.
+        if (selectedNode.type === 'scrapbook') {
+            if (selectedScrapbook && selectedScrapbook.id === selectedNode.id) {
+                return { type: 'scrapbook' as const, request: selectedScrapbook };
+            }
+            // Selection is known but the entry isn't loaded (or was deleted):
+            // still report the node so the main area renders the quick-request
+            // editor frame (empty until the data arrives), not the empty state.
+            return { type: 'scrapbook' as const, request: null };
+        }
         for (const project of projects) {
             if (selectedNode.type === 'project' && (project.id || project.name) === selectedNode.id) {
                 return { type: 'project' as const, project };
@@ -220,6 +320,10 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     const handleExecuteRequest = useCallback(async (req: ApiRequest, currentXml: string) => {
         setEditingRequest(req);
         const reqId = req.id || req.name || 'unknown';
+        // F-01: quick requests are executed through this same unified SOAP path
+        // (decision doc §5.1(4): route through the unified execute path; full
+        // REST/GraphQL quick-request support lands in phase 4 with R-09).
+        const isQuickRequest = isScrapbookNode(selectedNode);
 
         // Locate the owning project/operation so we can resolve the *effective*
         // Content-Type (interface override > stored value > SOAP default) — the UI
@@ -249,6 +353,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
         // stub shape only when ownerOperation is genuinely absent.
         const operation = buildExecuteOperation(ownerOperation, req);
 
+        const startTime = Date.now();
         try {
             const result = await invokeTauriCommand<ExecuteSoapResponse>('execute_soap_request', {
                 request: {
@@ -267,6 +372,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                     proxyUrl: null,
                 },
             });
+            const duration = Date.now() - startTime;
 
             const headers = Object.fromEntries(result.headers || []);
             const contentType = headers['content-type'] || headers['Content-Type'] || effectiveContentType;
@@ -281,15 +387,51 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             // Store in response cache so switching requests preserves it
             setResponses(prev => ({ ...prev, [reqId]: normalizedResponse }));
 
-            // Persist response to disk so it survives app restarts
-            (req as any).lastResponse = {
-                rawResponse: normalizedResponse.rawResponse,
-                status: normalizedResponse.status,
-                statusText: normalizedResponse.statusText,
-                headers: normalizedResponse.headers,
-                contentType: normalizedResponse.contentType,
-            };
-            await persistRequestUpdate(req, currentXml);
+            // F-13 / R-08 (phase 2, SOAP path): every unified SOAP execution
+            // writes an entry to the single global history store (parity with
+            // the legacy `saveRequestHistory` at bridge.ts:1232–1254). REST /
+            // GraphQL execution paths land in phase 4 (R-09).
+            const responseBody = normalizedResponse.rawResponse || '';
+            saveUnifiedHistoryEntry({
+                requestName: req.name || 'Request',
+                endpoint: req.endpoint || '',
+                method: req.method || 'POST',
+                projectName: ownerProject?.name || '',
+                interfaceName: ownerProject?.name || '',
+                operationName: ownerOperation?.name || (isQuickRequest ? '' : req.name),
+                requestBody: currentXml || req.request || '',
+                headers: req.headers || {},
+                statusCode: result.statusCode || (result.success ? 200 : 500),
+                duration,
+                responseBody,
+                responseHeaders: headers,
+                success: !!result.success,
+                error: result.success ? undefined : (result.error || undefined),
+            });
+
+            // Persist response to disk so it survives app restarts (project
+            // requests only — quick requests persist via the scrapbook store).
+            if (!isQuickRequest) {
+                (req as any).lastResponse = {
+                    rawResponse: normalizedResponse.rawResponse,
+                    status: normalizedResponse.status,
+                    statusText: normalizedResponse.statusText,
+                    headers: normalizedResponse.headers,
+                    contentType: normalizedResponse.contentType,
+                };
+                await persistRequestUpdate(req, currentXml);
+            }
+
+            // F-02 / R-05 (Q4(c)): auto-capture every successful execution into
+            // the scrapbook — update the entry keyed by endpoint+operation,
+            // else append. Best-effort: failures never break the execution.
+            if (result.success && onAfterExecute) {
+                try {
+                    await onAfterExecute(req, ownerOperation?.name ?? null);
+                } catch (e: any) {
+                    console.error('[UnifiedExplorerMain] Auto-capture failed:', e);
+                }
+            }
 
             debugLog('[UnifiedExplorerMain] Request executed', req.name);
             setExecuteError(null);
@@ -299,14 +441,63 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             // a failed request gave zero feedback in the unified view).
             setExecuteError(e?.message || String(e) || 'Request execution failed');
         }
-    }, [envVariables, persistRequestUpdate]);
+    }, [envVariables, persistRequestUpdate, projects, selectedNode, onAfterExecute]);
+
+    // F-01: Run button for the quick-request editor. Executes the selected
+    // scrapbook entry (with the current endpoint text) through the unified
+    // SOAP path; the response renders in the same response viewer.
+    const handleExecuteQuickRequest = useCallback(async () => {
+        if (!selectedScrapbook) return;
+        const req: ApiRequest = {
+            ...selectedScrapbook,
+            endpoint: scrapbookEndpoint || selectedScrapbook.endpoint,
+        };
+        const bodyXml = editingXml || req.request || '';
+        await handleExecuteRequest({ ...req, request: bodyXml }, bodyXml);
+    }, [selectedScrapbook, scrapbookEndpoint, editingXml, handleExecuteRequest]);
 
     const handleSaveRequest = useCallback(async () => {
         if (!editingRequest) return;
+        // F-01: quick requests save back through the app-level ScrapbookContext
+        // (updateRequest → `update_scrapbook_request` → scrapbook.json).
+        if (isScrapbookNode(selectedNode) && selectedScrapbook?.id) {
+            const sbReq = selectedScrapbook;
+            const updated: ScrapbookRequest = {
+                ...sbReq,
+                request: editingXml,
+                endpoint: scrapbookEndpoint,
+                lastModified: new Date().toISOString(),
+            };
+            setEditingRequest(updated);
+            try {
+                if (updateScrapbookRequest) {
+                    await updateScrapbookRequest(sbReq.id, {
+                        request: editingXml,
+                        endpoint: scrapbookEndpoint,
+                    });
+                }
+                debugLog('[UnifiedExplorerMain] Quick request saved', sbReq.name);
+            } catch (e: any) {
+                setExecuteError(`Failed to save quick request: ${e?.message || String(e)}`);
+            }
+            return;
+        }
         editingRequest.request = editingXml;
         await persistRequestUpdate(editingRequest, editingXml);
         debugLog('[UnifiedExplorerMain] Request body saved', editingRequest.name);
-    }, [editingRequest, editingXml, persistRequestUpdate]);
+    }, [editingRequest, editingXml, persistRequestUpdate, selectedNode, selectedScrapbook, scrapbookEndpoint, updateScrapbookRequest]);
+
+    // F-01: expose the current unified execute path to the Quick Requests
+    // panel (lives in UnifiedExplorerView, a sibling of this component).
+    // Re-registered whenever the handler changes (env vars / selection /
+    // projects).
+    useEffect(() => {
+        if (onRegisterExecute) {
+            onRegisterExecute(async (req: ApiRequest) => {
+                await handleExecuteRequest(req, req.request || '');
+            });
+        }
+    }, [onRegisterExecute, handleExecuteRequest]);
 
     const selected = findSelected();
     const currentReqId = editingRequest?.id || editingRequest?.name;
@@ -612,6 +803,159 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                 </div>
                             </div>
                         ))}
+                    </div>
+                ) : selected.type === 'scrapbook' ? (
+                    /* Quick Request (scrapbook) editor — F-01 / R-05.
+                       Endpoint + headers + body, with Run/Save-back via the
+                       app-level ScrapbookContext. Execution routes through the
+                       unified SOAP path (phase 2); response renders in the
+                       same response viewer as project requests. */
+                    <div data-testid="quick-request-editor" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                        {/* Quick request header + editable endpoint */}
+                        <div style={{
+                            padding: '12px 16px',
+                            borderBottom: '1px solid var(--apinox-border)',
+                            backgroundColor: 'var(--apinox-panel-background)',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                <FileCode size={18} />
+                                <span style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {selected.request?.name || 'Quick Request'}
+                                </span>
+                                {selected.request && (
+                                    <span style={{ fontSize: 12, opacity: 0.7, whiteSpace: 'nowrap' }}>
+                                        {selected.request.method || 'POST'} • {selected.request.contentType || 'application/soap+xml'}
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <label htmlFor="quick-request-endpoint" style={{ fontSize: 12, opacity: 0.7, flexShrink: 0 }}>
+                                    Endpoint
+                                </label>
+                                <input
+                                    id="quick-request-endpoint"
+                                    data-testid="quick-request-endpoint"
+                                    type="text"
+                                    value={scrapbookEndpoint}
+                                    onChange={(e) => setScrapbookEndpoint(e.target.value)}
+                                    placeholder="https://example.com/soap/service"
+                                    style={{
+                                        flex: 1,
+                                        padding: '6px 10px',
+                                        backgroundColor: 'var(--apinox-input-background)',
+                                        color: 'var(--apinox-input-foreground)',
+                                        border: '1px solid var(--apinox-input-border)',
+                                        borderRadius: 4,
+                                        outline: 'none',
+                                        fontSize: 13,
+                                    }}
+                                />
+                                <button
+                                    data-testid="quick-request-run"
+                                    onClick={handleExecuteQuickRequest}
+                                    disabled={!editingRequest}
+                                    style={{
+                                        padding: '6px 14px',
+                                        backgroundColor: 'var(--apinox-button-primary-background)',
+                                        color: 'var(--apinox-button-primary-foreground)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        cursor: editingRequest ? 'pointer' : 'not-allowed',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        opacity: editingRequest ? 1 : 0.5,
+                                    }}
+                                >
+                                    <Play size={14} />
+                                    Run
+                                </button>
+                                <button
+                                    data-testid="quick-request-save"
+                                    onClick={handleSaveRequest}
+                                    disabled={!editingRequest}
+                                    style={{
+                                        padding: '6px 14px',
+                                        backgroundColor: 'var(--apinox-button-secondary-background)',
+                                        color: 'var(--apinox-button-secondary-foreground)',
+                                        border: '1px solid var(--apinox-button-secondary-border)',
+                                        borderRadius: 4,
+                                        cursor: editingRequest ? 'pointer' : 'not-allowed',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        opacity: editingRequest ? 1 : 0.5,
+                                    }}
+                                >
+                                    <Calendar size={14} />
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                        {executeError && (
+                            <div
+                                role="alert"
+                                data-testid="execute-error-banner"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 8,
+                                    padding: '6px 12px',
+                                    backgroundColor: 'var(--apinox-error-background, rgba(192, 57, 43, 0.15))',
+                                    color: 'var(--apinox-errorForeground, #f48771)',
+                                    borderBottom: '1px solid var(--apinox-error-border, var(--apinox-errorForeground))',
+                                    fontSize: 12,
+                                }}
+                            >
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{executeError}</span>
+                                <button
+                                    onClick={() => setExecuteError(null)}
+                                    aria-label="Dismiss error"
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'inherit',
+                                        cursor: 'pointer',
+                                        fontSize: 14,
+                                        lineHeight: 1,
+                                        padding: '0 4px',
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
+                        <div style={{ flex: currentResponse ? '0 0 50%' : 1, minHeight: 0, overflow: 'hidden' }}>
+                            <MonacoRequestEditor
+                                value={editingXml}
+                                requestId={editingRequest?.id || editingRequest?.name}
+                                language={(editingRequest?.contentType || '').includes('json') ? 'json' : 'xml'}
+                                onChange={(value: string) => setEditingXml(value)}
+                                headers={editingRequest?.headers || {}}
+                                contentType={editingRequest?.contentType || 'application/soap+xml'}
+                                onHeadersChange={(headers) => {
+                                    const updated = { ...editingRequest!, headers };
+                                    setEditingRequest(updated);
+                                    // Save-back through the scrapbook store (headers
+                                    // persist on change, matching the project-request
+                                    // editor behaviour).
+                                    if (updated.id && updateScrapbookRequest) {
+                                        updateScrapbookRequest(updated.id, { headers }).catch((e: any) => {
+                                            console.error('[UnifiedExplorerMain] Failed to save quick request headers:', e);
+                                        });
+                                    }
+                                }}
+                            />
+                        </div>
+                        {currentResponse && (
+                            <div style={{ flex: '0 0 50%', minHeight: 0, overflow: 'hidden', borderTop: '1px solid var(--apinox-border)' }}>
+                                <MonacoResponseViewer
+                                    value={currentResponse.rawResponse || ''}
+                                    language={currentResponse.contentType?.includes('json') ? 'json' : 'xml'}
+                                />
+                            </div>
+                        )}
                     </div>
                 ) : selected.type === 'request' ? (
                     /* Request Editor - uses MonacoRequestEditorWithToolbar which has built-in Body + Headers tabs */

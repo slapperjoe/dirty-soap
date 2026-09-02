@@ -181,6 +181,16 @@ export interface SidebarUnifiedProps {
     onExportProject: (projectName: string) => void;
     onReorderOperation: (projectName: string, fromIndex: number, toIndex: number) => void;
     onReorderRequest: (projectName: string, operationName: string, fromIndex: number, toIndex: number) => void;
+    /** F-01 / R-05 — Quick Requests (scrapbook) bottom section (Q1(a)). */
+    scrapbook?: {
+        requests: import('@shared/models').ScrapbookRequest[];
+        selectedRequest: import('@shared/models').ScrapbookRequest | null;
+        loading: boolean;
+        onCreateRequest: () => void;
+        onSelectRequest: (request: import('@shared/models').ScrapbookRequest) => void;
+        onDeleteRequest: (id: string) => void;
+        onExecuteRequest: (request: import('@shared/models').ScrapbookRequest) => void;
+    };
 }
 
 // ============================================================================

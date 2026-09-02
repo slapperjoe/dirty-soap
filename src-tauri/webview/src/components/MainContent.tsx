@@ -13,7 +13,7 @@ import type { AddToProjectDestination } from './proxy/AddToProjectDialog';
 import type { TrafficLog } from './proxy/TrafficViewer';
 import type { PickRequestItem } from './modals/PickRequestModal';
 import type { BulkImportResult } from './modals/BulkImportModal';
-import { ApiRequest, TestCase, TestStep, SidebarView, RequestHistoryEntry, WsdlDiff, ApiInterface, ApiOperation, Workflow, WorkflowStep, ApinoxProject, UnifiedProject } from '@shared/models';
+import { ApiRequest, TestCase, TestStep, SidebarView, RequestHistoryEntry, WsdlDiff, ApiInterface, ApiOperation, Workflow, WorkflowStep, ApinoxProject, UnifiedProject, ScrapbookRequest } from '@shared/models';
 import { BackendCommand, FrontendCommand } from '@shared/messages';
 import { PERF_REQUEST_ID_PREFIX } from '../constants';
 import { useMessageHandler } from '../hooks/useMessageHandler';
@@ -23,6 +23,7 @@ import { useUI } from '../contexts/UIContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { usePerformance } from '../contexts/PerformanceContext';
 import { useTestRunner } from '../contexts/TestRunnerContext';
+import { useScrapbook } from '../contexts/ScrapbookContext';
 import { useExplorer } from '../hooks/useExplorer';
 import { useContextMenu } from '../hooks/useContextMenu';
 import { useSidebarCallbacks } from '../hooks/useSidebarCallbacks';
@@ -247,6 +248,68 @@ const MainContent: React.FC = () => {
     const handleUnifiedSelectNode = useCallback((type: string, id: string) => {
         setUnifiedSelectedNode({ type, id });
     }, []);
+    
+    // ──────────────────────────────────────────────────────────────────────────
+    // F-01 / R-05 — Quick Requests (scrapbook) for the unified explorer.
+    //
+    // State lives in the app-level ScrapbookProvider (shared with the legacy
+    // view — R4: the legacy `useScrapbookAutoSave` hook and legacy scrapbook
+    // CRUD are untouched; this is the NEW unified surface reusing the same
+    // store). The sidebar Quick Requests section (UnifiedExplorerSidebar's
+    // bottom section, Q1(a)) receives these handlers via `unifiedProps`;
+    // execution routes through UnifiedExplorerMain's unified SOAP path
+    // (registered via `unifiedExecuteRef`), which also performs the history
+    // write (F-13) and auto-capture (F-02, Q4(c)).
+    // ──────────────────────────────────────────────────────────────────────────
+    const {
+        scrapbookRequests,
+        selectedScrapbookRequest,
+        loading: scrapbookLoading,
+        createRequest: createScrapbookRequest,
+        selectRequest: selectScrapbookRequest,
+        deleteRequest: deleteScrapbookRequest,
+    } = useScrapbook();
+    /** F-01: the unified execute function, registered by UnifiedExplorerMain. */
+    const [unifiedExecuteFn, setUnifiedExecuteFn] = useState<((req: ApiRequest) => Promise<void>) | null>(null);
+    const registerUnifiedExecute = useCallback((execute: (req: ApiRequest) => Promise<void>) => {
+        setUnifiedExecuteFn(execute);
+    }, []);
+
+    const handleUnifiedScrapbookCreate = useCallback(async () => {
+        try {
+            const created = await createScrapbookRequest();
+            if (created) {
+                selectScrapbookRequest(created);
+                setUnifiedSelectedNode({ type: 'scrapbook', id: created.id });
+            }
+        } catch (e) {
+            console.error('[UnifiedExplorer] Failed to create quick request:', e);
+        }
+    }, [createScrapbookRequest, selectScrapbookRequest]);
+
+    const handleUnifiedScrapbookSelect = useCallback((request: ScrapbookRequest) => {
+        selectScrapbookRequest(request);
+        setUnifiedSelectedNode({ type: 'scrapbook', id: request.id });
+    }, [selectScrapbookRequest]);
+
+    const handleUnifiedScrapbookDelete = useCallback((id: string) => {
+        deleteScrapbookRequest(id).catch((e) => {
+            console.error('[UnifiedExplorer] Failed to delete quick request:', e);
+        });
+        // If the deleted entry is the selected node, clear the unified
+        // selection so the main view leaves the quick-request editor.
+        setUnifiedSelectedNode(prev => (prev && prev.type === 'scrapbook' && prev.id === id) ? null : prev);
+    }, [deleteScrapbookRequest]);
+
+    const handleUnifiedScrapbookExecute = useCallback((request: ScrapbookRequest) => {
+        selectScrapbookRequest(request);
+        setUnifiedSelectedNode({ type: 'scrapbook', id: request.id });
+        if (unifiedExecuteFn) {
+            unifiedExecuteFn(request).catch((e) => {
+                console.error('[UnifiedExplorer] Quick request execution failed:', e);
+            });
+        }
+    }, [unifiedExecuteFn, selectScrapbookRequest]);
     
     const handleUnifiedRefresh = useCallback(async (projectName: string) => {
         const project = unifiedProjects.find(p => p.name === projectName);
@@ -1818,6 +1881,16 @@ const MainContent: React.FC = () => {
             onExportProject: handleUnifiedExport,
             onReorderOperation: handleUnifiedReorderOperation,
             onReorderRequest: handleUnifiedReorderRequest,
+            // F-01 / R-05 — Quick Requests bottom section (Q1(a))
+            scrapbook: {
+                requests: scrapbookRequests,
+                selectedRequest: selectedScrapbookRequest,
+                loading: scrapbookLoading,
+                onCreateRequest: handleUnifiedScrapbookCreate,
+                onSelectRequest: handleUnifiedScrapbookSelect,
+                onDeleteRequest: handleUnifiedScrapbookDelete,
+                onExecuteRequest: handleUnifiedScrapbookExecute,
+            },
         },
         activeView,
         onChangeView: handleSetActiveViewWrapper,
@@ -1868,6 +1941,10 @@ const MainContent: React.FC = () => {
         handleUnifiedDeleteOperation, handleUnifiedDeleteRequest, handleUnifiedNewRequest,
         handleUnifiedProjectContentTypeChange,
         handleUnifiedExport, handleUnifiedReorderOperation, handleUnifiedReorderRequest,
+        scrapbookRequests, selectedScrapbookRequest, scrapbookLoading,
+        handleUnifiedScrapbookCreate, handleUnifiedScrapbookSelect,
+        handleUnifiedScrapbookDelete, handleUnifiedScrapbookExecute,
+        registerUnifiedExecute,
         activeView, handleSetActiveViewWrapper, sidebarExpanded, backendConnected,
         workspaceDirty, handleSaveUiState, setShowSettings, setShowHelp,
         isMobileDrawerOpen, isMobilePlatform, setIsMobileDrawerOpen, hasUpdate,
@@ -1967,6 +2044,7 @@ const MainContent: React.FC = () => {
                         onNewRequest={handleUnifiedNewRequest}
                         onProjectContentTypeChange={handleUnifiedProjectContentTypeChange}
                         onWsdlLoaded={handleUnifiedWsdlLoaded}
+                        onRegisterExecute={registerUnifiedExecute}
                     />
                 </div>
             )}
