@@ -18,6 +18,14 @@ import { buildExecuteOperation } from '../../utils/executeOperation';
 import { detectLoadFormat } from '../../utils/loadRouting';
 import { isScrapbookNode } from '../../utils/unifiedScrapbookCapture';
 import { saveUnifiedHistoryEntry } from '../../utils/unifiedHistory';
+import {
+    resolveRequestType,
+    buildRestGraphQlInvokeArgs,
+    normalizeRestGraphQlResponse,
+    editorLanguageForRequest,
+    findOwnerRequest,
+    ExecuteRestResponse,
+} from '../../utils/unifiedExecute';
 import { MonacoRequestEditorWithToolbar as MonacoRequestEditor, MonacoResponseViewer, HeadersPanel, AssertionsPanel, ExtractorsPanel } from '@apinox/request-editor/monaco';
 import { ExecutionResponse } from '@apinox/request-editor/monaco';
 import { EmptyState } from '../common/EmptyState';
@@ -322,26 +330,23 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     const handleExecuteRequest = useCallback(async (req: ApiRequest, currentXml: string) => {
         setEditingRequest(req);
         const reqId = req.id || req.name || 'unknown';
-        // F-01: quick requests are executed through this same unified SOAP path
-        // (decision doc §5.1(4): route through the unified execute path; full
-        // REST/GraphQL quick-request support lands in phase 4 with R-09).
+        // Phase 4 (R-09): quick requests are executed through this same
+        // unified path, which now dispatches by request type — SOAP
+        // requests (including quick requests, whose type is undeclared in
+        // the frozen scrapbook.json schema) take the byte-identical R-02
+        // SOAP baseline; REST and GraphQL requests route to
+        // `execute_rest_request` (legacy bridge.ts:433–505 semantics).
         const isQuickRequest = isScrapbookNode(selectedNode);
+        const requestType = resolveRequestType(req);
 
-        // Locate the owning project/operation so we can resolve the *effective*
-        // Content-Type (interface override > stored value > SOAP default) — the UI
-        // must send exactly what it displays (SOAP_INTERFACE_CONTENT_TYPE_SPEC.md).
-        let ownerProject: UnifiedProject | undefined;
-        let ownerOperation: ApiOperation | undefined;
-        for (const project of projects) {
-            for (const op of (project.operations || [])) {
-                if ((op.requests || []).some(r => (r.id || r.name) === reqId)) {
-                    ownerProject = project;
-                    ownerOperation = op;
-                    break;
-                }
-            }
-            if (ownerProject) break;
-        }
+        // Locate the owning project/operation. For SOAP this resolves the
+        // *effective* Content-Type (interface override > stored value > SOAP
+        // default — the UI must send exactly what it displays,
+        // SOAP_INTERFACE_CONTENT_TYPE_SPEC.md); for REST/GraphQL it supplies
+        // the history entry's project/operation names.
+        const owner = findOwnerRequest(projects, reqId);
+        const ownerProject = owner?.project;
+        const ownerOperation = owner?.operation;
         const effectiveContentType = resolveEffectiveContentType(req, ownerOperation ?? null, {
             contentType: ownerProject?.contentType,
             soapVersion: ownerProject?.soapVersion,
@@ -350,13 +355,93 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
         // R-01: clear any previous failure; a new execution starts clean.
         setExecuteError(null);
 
-        // R-02: send the real resolved operation (action/input/targetNamespace/
-        // fullSchema) instead of a hardcoded nulled stub. Falls back to the
-        // stub shape only when ownerOperation is genuinely absent.
-        const operation = buildExecuteOperation(ownerOperation, req);
-
         const startTime = Date.now();
         try {
+            if (requestType !== 'soap') {
+                // ── REST / GraphQL (R-09, F-06/F-07) ─────────────────────────
+                // `execute_rest_request` with the legacy bridge's flat-arg
+                // semantics: body only for GraphQL or body methods; raw
+                // GraphQL queries wrapped as {"query": …} (util keeps the
+                // rule in one testable place).
+                const invokeArgs = buildRestGraphQlInvokeArgs({
+                    method: req.method || (requestType === 'graphql' ? 'POST' : 'GET'),
+                    url: req.endpoint || '',
+                    headers: req.headers || {},
+                    body: currentXml || req.request || null,
+                    variables: req.graphqlConfig?.variables,
+                    isGraphQL: requestType === 'graphql',
+                });
+                const result = await invokeTauriCommand<ExecuteRestResponse>(
+                    'execute_rest_request',
+                    invokeArgs,
+                );
+                const duration = Date.now() - startTime;
+                const headers = result.headers || {};
+                const normalizedResponse: ExecutionResponse = {
+                    ...normalizeRestGraphQlResponse(result, req.contentType),
+                    time: result.time_taken_ms,
+                };
+                setResponses(prev => ({ ...prev, [reqId]: normalizedResponse }));
+
+                // F-13 / R-08 (phase 4 extension): every REST/GraphQL
+                // execution writes an entry to the SAME single global
+                // history store (doc §10.4 / Q6), mirroring the legacy
+                // `saveRequestHistory` call at bridge.ts:475–489.
+                const responseBody = normalizedResponse.rawResponse || '';
+                saveUnifiedHistoryEntry({
+                    requestName: req.name || 'Request',
+                    endpoint: req.endpoint || '',
+                    method: invokeArgs.method,
+                    projectName: ownerProject?.name || '',
+                    interfaceName: ownerProject?.name || '',
+                    operationName: ownerOperation?.name || (isQuickRequest ? '' : req.name),
+                    requestBody: invokeArgs.body || '',
+                    headers: req.headers || {},
+                    statusCode: result.status ?? 0,
+                    duration,
+                    responseBody,
+                    responseHeaders: headers,
+                    success: !!result.success,
+                    error: result.success ? undefined : (result.error || undefined),
+                });
+
+                // Persist response to disk (project requests only — quick
+                // requests persist via the scrapbook store).
+                if (!isQuickRequest) {
+                    (req as any).lastResponse = {
+                        rawResponse: normalizedResponse.rawResponse,
+                        status: normalizedResponse.status,
+                        statusText: normalizedResponse.statusText,
+                        headers: normalizedResponse.headers,
+                        contentType: normalizedResponse.contentType,
+                    };
+                    await persistRequestUpdate(req, currentXml);
+                }
+
+                // F-02 / R-05 (Q4(c)): auto-capture every successful
+                // execution into the scrapbook (endpoint+operation keyed,
+                // else append). Best-effort: failures never break the run.
+                if (result.success && onAfterExecute) {
+                    try {
+                        await onAfterExecute(req, ownerOperation?.name ?? null);
+                    } catch (e: any) {
+                        console.error('[UnifiedExplorerMain] Auto-capture failed:', e);
+                    }
+                }
+
+                debugLog('[UnifiedExplorerMain] Request executed', req.name);
+                setExecuteError(null);
+                return;
+            }
+
+            // ── SOAP (R-02 faithful baseline — byte-identical; do not change
+            //     the payload) ───────────────────────────────────────────────
+            // R-02: send the real resolved operation (action/input/
+            // targetNamespace/fullSchema) instead of a hardcoded nulled stub.
+            // Falls back to the stub shape only when ownerOperation is
+            // genuinely absent.
+            const operation = buildExecuteOperation(ownerOperation, req);
+
             const result = await invokeTauriCommand<ExecuteSoapResponse>('execute_soap_request', {
                 request: {
                     operation,
@@ -391,8 +476,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
 
             // F-13 / R-08 (phase 2, SOAP path): every unified SOAP execution
             // writes an entry to the single global history store (parity with
-            // the legacy `saveRequestHistory` at bridge.ts:1232–1254). REST /
-            // GraphQL execution paths land in phase 4 (R-09).
+            // the legacy `saveRequestHistory` at bridge.ts:1232–1254).
             const responseBody = normalizedResponse.rawResponse || '';
             saveUnifiedHistoryEntry({
                 requestName: req.name || 'Request',
@@ -932,7 +1016,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                             <MonacoRequestEditor
                                 value={editingXml}
                                 requestId={editingRequest?.id || editingRequest?.name}
-                                language={(editingRequest?.contentType || '').includes('json') ? 'json' : 'xml'}
+                                language={editorLanguageForRequest(editingRequest)}
                                 onChange={(value: string) => setEditingXml(value)}
                                 headers={editingRequest?.headers || {}}
                                 contentType={editingRequest?.contentType || 'application/soap+xml'}
@@ -1050,7 +1134,7 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                             <MonacoRequestEditor
                                 value={editingXml}
                                 requestId={editingRequest?.id || editingRequest?.name}
-                                language="xml"
+                                language={editorLanguageForRequest(editingRequest)}
                                 onChange={(value: string) => setEditingXml(value)}
                                 headers={editingRequest?.headers || {}}
                                 contentType={resolveEffectiveContentType(selected.request, selected.operation, { contentType: selected.project.contentType, soapVersion: selected.project.soapVersion })}
