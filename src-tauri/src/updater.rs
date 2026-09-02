@@ -529,6 +529,7 @@ fn unavailable_result(reason: String) -> UpdateCheckResult {
 /// surfaced in user-visible update errors so the user (and we) can tell whether
 /// update traffic goes "direct", via "proxy `http://…`" (and which source
 /// picked it), or why an auto-discovered proxy was blocked.
+#[allow(dead_code)] // used on all platforms; tests on non-Windows too
 fn describe_update_route() -> String {
     let apinox_proxy = load_config_internal()
         .ok()
@@ -926,6 +927,9 @@ pub fn open_url_in_browser(app: tauri::AppHandle, url: String) -> Result<(), Str
 // `utils::resolve_config_dir`) must take `CONFIG_DIR_TEST_LOCK` — the same
 // pattern `parsers::unified_explorer_commands` uses — because `cargo test`
 // runs tests concurrently in one process.
+// Tests that mutate proxy env vars (`HTTPS_PROXY` / `HTTP_PROXY` /
+// `ALL_PROXY` / `NO_PROXY`, which `build_client` reads) must take
+// `PROXY_ENV_TEST_LOCK` for the same reason.
 
 #[cfg(test)]
 mod tests {
@@ -934,6 +938,9 @@ mod tests {
 
     /// Serialize tests that swap `APINOX_CONFIG_DIR` (process-global env).
     static CONFIG_DIR_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Serialize tests that mutate proxy env vars (process-global).
+    static PROXY_ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     /// RAII guard: points `APINOX_CONFIG_DIR` at `dir` and restores the
     /// previous value on drop, even on panic.
@@ -1275,6 +1282,446 @@ mod tests {
             .expect("rooted client must validate again after the unrooted failure");
 
         server_task.abort();
+        drop(g);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // ── In-process MITM proxy (end-to-end integration tests) ───────────────
+    //
+    // Mirrors `examples/repro_proxy_server.rs` (the controlled-reproduction
+    // harness): the REAL `CertManager` CA generation, the REAL `SniResolver`
+    // per-domain leaf signing, and the same hyper HTTP/1 + rustls
+    // `TlsAcceptor` CONNECT/TLS-MITM structure as `proxy::server::run_proxy` —
+    // but the upstream "GitHub" is replaced by a fixed 200 JSON fixture, and
+    // everything runs in-process on loopback, so the production update
+    // clients can be driven end-to-end with zero egress.
+    //
+    // Target host `update.test` is deliberately the RFC 6761 reserved
+    // `.test` TLD: it never resolves, so the direct (no-proxy) attempt in
+    // `get_with_fallback` fails deterministically — mirroring the field
+    // topology where direct egress to GitHub is blocked and the OS proxy
+    // (APInox's own MITM proxy while "reading calls") is the only route.
+
+    /// A GitHub Releases API response stand-in served by `TestProxy`.
+    /// `assets` is included so the fixture also parses on Windows/macOS,
+    /// where `GitHubRelease` requires the field.
+    const GH_FIXTURE: &[u8] = br#"{
+        "tag_name": "v99.0.0",
+        "html_url": "https://update.test/release/1",
+        "body": "Test release notes for the in-process update-proxy integration tests.",
+        "assets": []
+    }"#;
+
+    /// In-process MITM proxy (real CA + real SNI leaf signing).
+    struct TestProxy {
+        addr: std::net::SocketAddr,
+        connect_hits: Arc<AtomicUsize>,
+        handle: tokio::task::JoinHandle<()>,
+    }
+
+    impl TestProxy {
+        /// Generates the APInox Root CA in `ca_dir` (the production
+        /// `CertManager::generate`) and starts serving CONNECT/TLS-MITM on
+        /// `127.0.0.1:port`. Every tunneled (or plain-HTTP) request gets
+        /// `GH_FIXTURE` back.
+        async fn start(port: u16, ca_dir: &std::path::Path) -> std::io::Result<Self> {
+            let mgr = Arc::new(crate::certificates::manager::CertManager::new(ca_dir.to_path_buf()));
+            mgr
+                .generate()
+                .map_err(|e| std::io::Error::other(format!("CA generation failed: {e}")))?;
+
+            let resolver = Arc::new(crate::certificates::sni_resolver::SniResolver {
+                cert_manager: mgr,
+            });
+            let server_cfg = rustls::ServerConfig::builder_with_provider(Arc::new(
+                rustls::crypto::ring::default_provider(),
+            ))
+            .with_protocol_versions(rustls::ALL_VERSIONS)
+            .expect("rustls protocol versions")
+            .with_no_client_auth()
+            .with_cert_resolver(resolver);
+            let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_cfg));
+
+            let listener = TcpListener::bind(("127.0.0.1", port)).await?;
+            let addr = listener.local_addr()?;
+            let connect_hits = Arc::new(AtomicUsize::new(0));
+            let hits_for_listener = connect_hits.clone();
+
+            let handle = tokio::spawn(async move {
+                let mut listener = listener;
+                loop {
+                    let (stream, _peer) = match listener.accept().await {
+                        Ok(v) => v,
+                        Err(_) => continue,
+                    };
+                    let io = TokioIo::new(stream);
+                    let acceptor = acceptor.clone();
+                    let hits = hits_for_listener.clone();
+                    tokio::spawn(async move {
+                        let svc = service_fn(move |req: Request<Incoming>| {
+                            let acceptor = acceptor.clone();
+                            let hits = hits.clone();
+                            async move {
+                                Ok::<_, Infallible>(test_proxy_handle(req, acceptor, hits).await)
+                            }
+                        });
+                        let _ = hyper::server::conn::http1::Builder::new()
+                            .preserve_header_case(true)
+                            .title_case_headers(true)
+                            .serve_connection(io, svc)
+                            .with_upgrades()
+                            .await;
+                    });
+                }
+            });
+
+            Ok(Self { addr, connect_hits, handle })
+        }
+
+        fn connect_hits(&self) -> usize {
+            self.connect_hits.load(Ordering::Relaxed)
+        }
+    }
+
+    impl Drop for TestProxy {
+        fn drop(&mut self) {
+            self.handle.abort(); // also drops the listener it owns
+        }
+    }
+
+    async fn test_proxy_handle(
+        req: Request<Incoming>,
+        acceptor: tokio_rustls::TlsAcceptor,
+        hits: Arc<AtomicUsize>,
+    ) -> Response<Full<Bytes>> {
+        if req.method() == Method::CONNECT {
+            hits.fetch_add(1, Ordering::Relaxed);
+            tokio::spawn(async move {
+                let upgraded = match hyper::upgrade::on(req).await {
+                    Ok(u) => u,
+                    Err(_) => return,
+                };
+                let stream = match acceptor.accept(TokioIo::new(upgraded)).await {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+                let io = TokioIo::new(stream);
+                let svc = service_fn(|_req: Request<Incoming>| async {
+                    Ok::<_, Infallible>(test_proxy_fixture_response())
+                });
+                let _ = hyper::server::conn::http1::Builder::new()
+                    .preserve_header_case(true)
+                    .title_case_headers(true)
+                    .serve_connection(io, svc)
+                    .with_upgrades()
+                    .await;
+            });
+            Response::builder()
+                .status(StatusCode::OK)
+                .body(Full::new(Bytes::new()))
+                .unwrap()
+        } else {
+            test_proxy_fixture_response()
+        }
+    }
+
+    fn test_proxy_fixture_response() -> Response<Full<Bytes>> {
+        Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", "application/json")
+            .header("content-length", GH_FIXTURE.len())
+            .body(Full::new(Bytes::from_static(GH_FIXTURE)))
+            .unwrap()
+    }
+
+    /// RAII guard: pins the four proxy env vars to exactly `vars`
+    /// (None = unset) and restores the previous values on drop, so
+    /// `build_client()` sees precisely what the test configures.
+    const PROXY_ENV_VARS: [&str; 4] = ["HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "NO_PROXY"];
+
+    struct ProxyEnvGuard {
+        prev: [Option<String>; 4],
+    }
+
+    impl ProxyEnvGuard {
+        fn set(vars: [Option<&str>; 4]) -> Self {
+            let prev: [Option<String>; 4] = PROXY_ENV_VARS
+                .iter()
+                .map(|v| std::env::var(v).ok())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            for (v, val) in PROXY_ENV_VARS.iter().zip(vars.iter()) {
+                match val {
+                    Some(s) => std::env::set_var(v, s),
+                    None => std::env::remove_var(v),
+                }
+            }
+            Self { prev }
+        }
+    }
+
+    impl Drop for ProxyEnvGuard {
+        fn drop(&mut self) {
+            for (v, val) in PROXY_ENV_VARS.iter().zip(self.prev.iter()) {
+                match val {
+                    Some(s) => std::env::set_var(v, s),
+                    None => std::env::remove_var(v),
+                }
+            }
+        }
+    }
+
+    /// Convenience: assert the four proxy env vars equal `expected`
+    /// (None = unset) — the "OS proxy state intact" check.
+    fn assert_proxy_env(expected: [Option<&str>; 4]) {
+        for (v, want) in PROXY_ENV_VARS.iter().zip(expected.iter()) {
+            let got = std::env::var(v).ok();
+            let ok = match want {
+                Some(w) => got.as_deref() == Some(*w),
+                None => got.is_none(),
+            };
+            assert!(
+                ok,
+                "proxy env state changed: {v} expected {:?}, found {:?}",
+                want,
+                got
+            );
+        }
+    }
+
+    // ── Integration: update traffic end-to-end through the MITM proxy ──────
+
+    /// Acceptance: "update succeeds with OS proxy enabled" / "APInox
+    /// call-reading does not block the update".
+    ///
+    /// Field topology in one process: the OS proxy (here: `HTTPS_PROXY`,
+    /// which `set_system_proxy` installs while APInox reads calls) points at
+    /// a TLS-MITM proxy presenting a leaf signed by the APInox CA; direct
+    /// egress to the target is dead (NXDOMAIN). The production
+    /// `get_with_fallback` must fail over from the direct client to the
+    /// proxy-aware client, validate the MITM leaf via the rooted APInox CA
+    /// (the fix), and return the release JSON.
+    #[tokio::test]
+    async fn test_update_succeeds_through_mitm_proxy_when_os_proxy_enabled() {
+        let _cfg_lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _env_lock = PROXY_ENV_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let proxy = TestProxy::start(0, &tmp)
+            .await
+            .expect("in-process MITM proxy starts");
+        let proxy_url = format!("http://{}", proxy.addr);
+        let g = ConfigDirGuard::set(&tmp);
+        let genv = ProxyEnvGuard::set([Some(proxy_url.as_str()), None, None, None]);
+
+        // The proxy-aware client routes through the OS proxy it discovered.
+        let route = describe_update_route();
+        assert!(route.contains(&format!("proxy {proxy_url}")), "route: {route}");
+        assert!(route.contains("source: env"), "route: {route}");
+
+        // Production update path: direct first (fails — update.test never
+        // resolves), then the proxy client validates the MITM leaf via the
+        // APInox CA the fix roots into both clients.
+        let resp = get_with_fallback("https://update.test/releases/latest")
+            .await
+            .expect("update check must succeed through the APInox MITM proxy once the APInox CA is trusted");
+        assert_eq!(resp.status(), reqwest::StatusCode::OK);
+        let release: GitHubRelease = resp.json().await.expect("fixture parses as a GitHub release");
+        assert_eq!(release.tag_name, "v99.0.0");
+        assert!(
+            is_newer(&release.tag_name, APP_VERSION),
+            "v99.0.0 must register as an update over {APP_VERSION}"
+        );
+        assert!(
+            proxy.connect_hits() > 0,
+            "update traffic must have flowed through the proxy (CONNECT hits: {})",
+            proxy.connect_hits()
+        );
+
+        // The update flow is read-only with respect to proxy state: the OS
+        // proxy is exactly what it was before, and no other proxy var was
+        // introduced.
+        assert_proxy_env([Some(proxy_url.as_str()), None, None, None]);
+
+        drop(genv);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// Acceptance: "proxy state is restored after success AND failure".
+    ///
+    /// Runs the full success path (live MITM proxy) and then the full
+    /// failure path (OS proxy on a dead port, direct egress NXDOMAIN — both
+    /// attempts die), and asserts afterwards that the OS proxy state (env)
+    /// and the APInox settings are byte-for-byte what they were before: the
+    /// update machinery never mutates proxy or settings state.
+    #[tokio::test]
+    async fn test_proxy_state_invariant_after_update_success_and_failure() {
+        let _cfg_lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _env_lock = PROXY_ENV_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let proxy = TestProxy::start(0, &tmp)
+            .await
+            .expect("in-process MITM proxy starts");
+        let g = ConfigDirGuard::set(&tmp);
+        // The update flow must never create a settings file.
+        assert!(!tmp.join("config.jsonc").exists(), "precondition: no settings file yet");
+
+        // Settings snapshot before any update activity (temp dir ⇒ defaults).
+        let pre_config = load_config_internal()
+            .map(|c| serde_json::to_string(&c).expect("config serializes"))
+            .unwrap_or_default();
+
+        // Phase 1 — success: OS proxy enabled, live MITM proxy, CA trusted.
+        let proxy_url = format!("http://{}", proxy.addr);
+        let genv = ProxyEnvGuard::set([Some(proxy_url.as_str()), None, None, None]);
+        let resp = get_with_fallback("https://update.test/releases/latest")
+            .await
+            .expect("success path through the proxy");
+        assert_eq!(resp.status(), reqwest::StatusCode::OK);
+        let _body = resp.text().await.expect("response body readable");
+        assert_proxy_env([Some(proxy_url.as_str()), None, None, None]);
+
+        // Phase 2 — failure: OS proxy points at a dead port (connect refused);
+        // direct egress is NXDOMAIN. Both attempts must fail, and the error
+        // must report the route it used.
+        let genv = ProxyEnvGuard::set([Some("http://127.0.0.1:1"), None, None, None]);
+        let err = get_with_fallback("https://update.test/releases/latest")
+            .await
+            .expect_err("both routes must fail in this topology");
+        assert!(
+            err.contains("Route: proxy http://127.0.0.1:1 (source: env)"),
+            "failure must report the route used: {err}"
+        );
+
+        // After success AND failure: OS proxy state and settings are exactly
+        // as they were. (The guard still holds phase 2's value — proving the
+        // production code never overwrote it.)
+        assert_proxy_env([Some("http://127.0.0.1:1"), None, None, None]);
+        let post_config = load_config_internal()
+            .map(|c| serde_json::to_string(&c).expect("config serializes"))
+            .unwrap_or_default();
+        assert_eq!(pre_config, post_config, "update traffic must not mutate settings");
+        assert!(!tmp.join("config.jsonc").exists(), "update flow must not create a settings file");
+
+        drop(genv);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// Acceptance: "NO_PROXY or direct bypass is used for update traffic" —
+    /// the self-proxy guard at the client level.
+    ///
+    /// While APInox reads calls, the OS proxy can point at APInox's own
+    /// listener (an in-app default port). Auto-discovered, that is the
+    /// self-proxy loop: `build_client` must refuse it and connect DIRECTLY
+    /// (reqwest `no_proxy()` — which also disables env-var auto-detection),
+    /// instead of looping update traffic through itself. The failure then
+    /// reports "direct — … (self-proxy loop)" and is a DNS failure for the
+    /// target (a direct dial was made), not a proxy hop.
+    #[tokio::test]
+    async fn test_self_proxy_env_blocked_and_direct_bypass_used() {
+        let _cfg_lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _env_lock = PROXY_ENV_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        // CA present, like a user who has run the proxy (field state).
+        let mgr = crate::certificates::manager::CertManager::new(tmp.clone());
+        mgr.generate().expect("generate test CA");
+        let g = ConfigDirGuard::set(&tmp);
+
+        // OS proxy = APInox's own forward-proxy listener (default port).
+        let self_proxy_url = format!("http://127.0.0.1:{}", in_app_listener_ports()[0]);
+        let genv = ProxyEnvGuard::set([Some(self_proxy_url.as_str()), None, None, None]);
+
+        // Decision: the auto-discovered self-proxy is refused.
+        let route = describe_update_route();
+        assert!(route.starts_with("direct —"), "route: {route}");
+        assert!(route.contains("self-proxy loop"), "route: {route}");
+        assert!(route.contains(&self_proxy_url), "route: {route}");
+
+        // The production flow still attempts direct egress and fails on DNS
+        // for the target — proving it never took the (self) proxy path.
+        let err = get_with_fallback("https://update.test/releases/latest")
+            .await
+            .expect_err("direct egress is blocked in this topology");
+        assert!(err.contains("Route: direct —"), "error: {err}");
+        assert!(err.contains("self-proxy loop"), "error: {err}");
+        assert!(
+            err.contains("dns"),
+            "direct dial must have been attempted (DNS failure), not a proxy hop: {err}"
+        );
+
+        // Proxy state untouched.
+        assert_proxy_env([Some(self_proxy_url.as_str()), None, None, None]);
+
+        drop(genv);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// R1 at the end-to-end level: an EXPLICITLY configured `network.proxy`
+    /// pointing at an APInox in-app listener is still honoured (user intent
+    /// wins over the self-proxy guard) — and because the clients root the
+    /// APInox CA, the update genuinely succeeds through APInox's own proxy.
+    #[tokio::test]
+    async fn test_explicit_settings_self_proxy_honoured_end_to_end() {
+        let _cfg_lock = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _env_lock = PROXY_ENV_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+
+        let tmp = std::env::temp_dir().join(format!("apinox-upd-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // `is_self_proxy` only flags in-app DEFAULT listener ports, so the
+        // test proxy must listen on one of them; fall back to the second
+        // default if a dev instance occupies the first.
+        let port = in_app_listener_ports()
+            .iter()
+            .copied()
+            .find(|p| std::net::TcpListener::bind(("127.0.0.1", *p)).is_ok())
+            .expect("an in-app default listener port is bindable in this environment");
+        let proxy = TestProxy::start(port, &tmp)
+            .await
+            .expect("in-process MITM proxy starts on the in-app default port");
+        let g = ConfigDirGuard::set(&tmp);
+
+        // Explicit setting (no env proxy at all).
+        std::fs::write(
+            tmp.join("config.jsonc"),
+            format!(
+                "{{\n  \"version\": 1,\n  \"network\": {{\n    \"proxy\": \"http://127.0.0.1:{port}\"\n  }}\n}}\n"
+            ),
+        )
+        .unwrap();
+        let genv = ProxyEnvGuard::set([None, None, None, None]);
+
+        // Explicit settings proxy wins and is NOT blocked, even though it is
+        // APInox's own listener.
+        let route = describe_update_route();
+        assert!(route.contains("source: apinox-settings"), "route: {route}");
+        assert!(route.contains(&format!("proxy http://127.0.0.1:{port}")), "route: {route}");
+
+        // Direct attempt dies (NXDOMAIN); the proxy client honours the
+        // explicit setting and succeeds through APInox's own MITM proxy
+        // thanks to the rooted CA.
+        let resp = get_with_fallback("https://update.test/releases/latest")
+            .await
+            .expect("explicit self-proxy + trusted APInox CA must let the update succeed through APInox's own proxy");
+        assert_eq!(resp.status(), reqwest::StatusCode::OK);
+        let release: GitHubRelease = resp.json().await.expect("fixture parses as a GitHub release");
+        assert_eq!(release.tag_name, "v99.0.0");
+        assert!(proxy.connect_hits() > 0, "explicit proxy route must have been used");
+
+        // Settings untouched by the update flow (it only reads them).
+        let after = std::fs::read_to_string(tmp.join("config.jsonc")).unwrap();
+        assert!(after.contains(&format!("\"proxy\": \"http://127.0.0.1:{port}\"")));
+
+        drop(genv);
         drop(g);
         let _ = std::fs::remove_dir_all(&tmp);
     }
