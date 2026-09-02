@@ -13,6 +13,8 @@ import { debugLog } from '../../utils/logger';
 import { UnifiedProject, ApiOperation, ApiRequest } from '@shared/models';
 import { soapDefault, resolveEffectiveContentType } from '../../utils/soapUtils';
 import { invokeTauriCommand } from '../../utils/bridge';
+import { buildExecuteOperation } from '../../utils/executeOperation';
+import { detectLoadFormat } from '../../utils/loadRouting';
 import { MonacoRequestEditorWithToolbar as MonacoRequestEditor, MonacoResponseViewer, HeadersPanel, AssertionsPanel, ExtractorsPanel } from '@apinox/request-editor/monaco';
 import { ExecutionResponse } from '@apinox/request-editor/monaco';
 import { EmptyState } from '../common/EmptyState';
@@ -59,6 +61,8 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     const [editingRequest, setEditingRequest] = useState<ApiRequest | null>(null);
     const [editingXml, setEditingXml] = useState<string>('');
     const [envVariables, setEnvVariables] = useState<Record<string, string>>({});
+    /** R-01: last execution failure, surfaced as a banner above the response viewer. */
+    const [executeError, setExecuteError] = useState<string | null>(null);
 
     // Load resolved environment variables on mount
     useEffect(() => {
@@ -182,6 +186,11 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             setUrlInput(prev => ({ ...prev, error: 'Please enter a URL' }));
             return;
         }
+        // R-03: load routing decision (URL/file extension → WSDL vs OpenAPI vs
+        // GraphQL). Phase 0 surfaces the decision in the debug log; Phase 1
+        // routes 'openapi'/'graphql' to parse_spec_as_project.
+        const loadFormat = detectLoadFormat(urlInput.url.trim());
+        debugLog('[UnifiedExplorerMain] Load routing', { url: urlInput.url.trim(), format: loadFormat });
         setUrlInput(prev => ({ ...prev, loading: true, error: null }));
         try {
             await onLoadWsdl(urlInput.url.trim());
@@ -232,20 +241,18 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             soapVersion: ownerProject?.soapVersion,
         });
 
+        // R-01: clear any previous failure; a new execution starts clean.
+        setExecuteError(null);
+
+        // R-02: send the real resolved operation (action/input/targetNamespace/
+        // fullSchema) instead of a hardcoded nulled stub. Falls back to the
+        // stub shape only when ownerOperation is genuinely absent.
+        const operation = buildExecuteOperation(ownerOperation, req);
+
         try {
             const result = await invokeTauriCommand<ExecuteSoapResponse>('execute_soap_request', {
                 request: {
-                    operation: {
-                        name: req.name,
-                        action: null,
-                        input: null,
-                        output: {},
-                        targetNamespace: null,
-                        originalEndpoint: req.endpoint || null,
-                        fullSchema: null,
-                        description: null,
-                        portName: null,
-                    },
+                    operation,
                     soapVersion: ownerProject?.soapVersion || '1.1',
                     endpoint: req.endpoint || null,
                     rawXml: currentXml || req.request || '',
@@ -285,8 +292,12 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             await persistRequestUpdate(req, currentXml);
 
             debugLog('[UnifiedExplorerMain] Request executed', req.name);
+            setExecuteError(null);
         } catch (e: any) {
             debugLog('[UnifiedExplorerMain] Request execution failed', String(e));
+            // R-01: surface the failure to the user (previously debugLog-only —
+            // a failed request gave zero feedback in the unified view).
+            setExecuteError(e?.message || String(e) || 'Request execution failed');
         }
     }, [envVariables, persistRequestUpdate]);
 
@@ -650,6 +661,45 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                 Save
                             </button>
                         </div>
+                        {/* R-01: execution error surface — inline banner above the
+                            editor/response pane so a failed request is visible
+                            (previously a failure produced no user feedback). */}
+                        {executeError && (
+                            <div
+                                role="alert"
+                                data-testid="execute-error-banner"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 8,
+                                    padding: '6px 12px',
+                                    backgroundColor: 'var(--apinox-error-background, rgba(192, 57, 43, 0.15))',
+                                    color: 'var(--apinox-errorForeground, #f48771)',
+                                    borderBottom: '1px solid var(--apinox-error-border, var(--apinox-errorForeground))',
+                                    fontSize: 12,
+                                }}
+                            >
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {executeError}
+                                </span>
+                                <button
+                                    onClick={() => setExecuteError(null)}
+                                    aria-label="Dismiss error"
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'inherit',
+                                        cursor: 'pointer',
+                                        fontSize: 14,
+                                        lineHeight: 1,
+                                        padding: '0 4px',
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
                         <div style={{ flex: currentResponse ? '0 0 50%' : 1, minHeight: 0, overflow: 'hidden' }}>
                             <MonacoRequestEditor
                                 value={editingXml}

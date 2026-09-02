@@ -17,6 +17,10 @@ describe('Delete Pattern - Sidebar', () => {
     const defaultProps = {
         projects: mockProjects,
         savedProjects: new Set<string>(),
+        // Required by ProjectList since the unified explorer (53c76ab): the
+        // per-project save-error map + its setter (SaveButton $hasError).
+        saveErrors: new Map<string, string>(),
+        setSaveErrors: vi.fn(),
         onAddProject: vi.fn(),
         loadProject: vi.fn(),
         saveProject: vi.fn(),

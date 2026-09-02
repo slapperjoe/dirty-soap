@@ -17,7 +17,11 @@ vi.mock('lucide-react', () => ({
     Clock: () => <span data-testid="icon-clock" />,
     FileCode: () => <span data-testid="icon-file-code" />,
     ArrowRight: () => <span data-testid="icon-arrow-right" />,
-    FileText: () => <span data-testid="icon-file-text" />
+    FileText: () => <span data-testid="icon-file-text" />,
+    // SidebarContextMenu re-exports Pencil from lucide-react and renders it as
+    // the context-menu item icon; without it the menu crashes with
+    // "Element type is invalid ... got: undefined".
+    Pencil: () => <span data-testid="icon-pencil" />
 }));
 
 describe('TestsUi', () => {
@@ -95,8 +99,19 @@ describe('TestsUi', () => {
         expect(screen.getByText('Add suite to project:')).toBeInTheDocument();
         expect(screen.getByText('Project 1')).toBeInTheDocument();
 
+        // Current component: picking a project opens an inline suite-name
+        // input (pre-filled with a suggested name) instead of adding the suite
+        // immediately. Submit on blur calls onAddSuite(project, name).
         fireEvent.click(screen.getByText('Project 1'));
-        expect(defaultProps.onAddSuite).toHaveBeenCalledWith('Project 1');
+
+        const nameInput = screen.getByPlaceholderText('Suite Name');
+        fireEvent.blur(nameInput);
+
+        expect(defaultProps.onAddSuite).toHaveBeenCalledTimes(1);
+        const [projectName, suiteName] = (defaultProps.onAddSuite as any).mock.calls[0];
+        expect(projectName).toBe('Project 1');
+        expect(suiteName).toBeTruthy();
+        expect(typeof suiteName).toBe('string');
     });
 
     it('should handle context menu rename for case', () => {
@@ -125,23 +140,27 @@ describe('TestsUi', () => {
     });
 
     it('should handle run actions', () => {
-        // Need to select suite/case to see run buttons usually? 
-        // Looking at code: `{isSuiteSelected && ...}` for suite actions.
-        // But code logic: `const isSuiteSelected = selectedSuiteId === suite.id && selectedCaseId === null;`
-        // We need to simulate selection state inside component?
-        // `TestsUi` has internal state `selectedSuiteId`.
+        // Current component: the Run buttons only render for the SELECTED
+        // suite/case (isSuiteSelected / isSelected), which the parent controls
+        // via the selectedTestSuite / selectedTestCase props (the sidebar only
+        // fires the onSelect* callbacks). Drive the props to reveal the buttons.
+        const { rerender } = render(<TestsUi {...defaultProps} />);
 
-        render(<TestsUi {...defaultProps} />);
-
-        // Select Suite first to reveal buttons
-        fireEvent.click(screen.getByText('Suite 1')); // Sets selectedSuiteId
+        // Select the suite (parent sets selectedTestSuite) to reveal suite actions.
+        rerender(<TestsUi {...defaultProps} selectedTestSuite={{ id: 'suite-1' } as any} />);
 
         const runSuiteBtn = screen.getByTitle('Run Suite');
         fireEvent.click(runSuiteBtn);
         expect(defaultProps.onRunSuite).toHaveBeenCalledWith('suite-1');
 
-        // Select Case to reveal buttons
-        fireEvent.click(screen.getByText('Case 1')); // Sets selectedCaseId
+        // Select the case (parent sets selectedTestCase) to reveal case actions.
+        rerender(
+            <TestsUi
+                {...defaultProps}
+                selectedTestSuite={{ id: 'suite-1' } as any}
+                selectedTestCase={{ id: 'case-1' } as any}
+            />
+        );
 
         const runCaseBtn = screen.getByTitle('Run Test Case');
         fireEvent.click(runCaseBtn);

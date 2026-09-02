@@ -18,6 +18,25 @@ vi.mock('../../utils/bridge', () => ({
     }
 }));
 
+// The WsdlParsed handler sources setExploredInterfaces from useNavigation()
+// (NavigationContext), not from the injected state, so the test observes it
+// here. Only the hooks the handler uses are replaced; the provider still
+// renders and satisfies useNavigation's "must be inside provider" check.
+const mockNavSetExploredInterfaces = vi.fn();
+const mockNavSetActiveView = vi.fn();
+const mockNavSetExplorerExpanded = vi.fn();
+vi.mock('../../contexts/NavigationContext', async () => {
+    const actual = await vi.importActual('../../contexts/NavigationContext');
+    return {
+        ...actual,
+        useNavigation: () => ({
+            setExploredInterfaces: mockNavSetExploredInterfaces,
+            setActiveView: mockNavSetActiveView,
+            setExplorerExpanded: mockNavSetExplorerExpanded
+        })
+    };
+});
+
 // Mock __APP_VERSION__
 vi.mock('react', async () => {
     const actual = await vi.importActual('react');
@@ -109,7 +128,15 @@ describe('useMessageHandler', () => {
             services: wsdlData
         });
 
-        expect(mockState.setExploredInterfaces).toHaveBeenCalled();
+        // setExploredInterfaces is now sourced from useNavigation() (see the
+        // NavigationContext mock above), not from the injected mockState.
+        expect(mockNavSetExploredInterfaces).toHaveBeenCalled();
+        // The interface is derived from the service's default port.
+        const calledInterfaces = mockNavSetExploredInterfaces.mock.calls[0][0];
+        expect(Array.isArray(calledInterfaces)).toBe(true);
+        expect(calledInterfaces).toHaveLength(1);
+        expect(calledInterfaces[0].name).toBe('TestService');
+        expect(calledInterfaces[0].type).toBe('wsdl');
         expect(mockState.setExplorerExpanded).toHaveBeenCalledWith(true);
     });
 

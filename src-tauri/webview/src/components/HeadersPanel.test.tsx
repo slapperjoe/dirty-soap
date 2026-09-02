@@ -2,21 +2,22 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { HeadersPanel } from '@apinox/request-editor';
 
-// Mock MonacoSingleLineInput since it requires Monaco
-vi.mock('@apinox/request-editor', async () => {
-    const actual = await vi.importActual('@apinox/request-editor');
-    return {
-        ...actual,
-        MonacoSingleLineInput: ({ value, onChange, placeholder }: any) => (
-            <input
-                data-testid={`input-${placeholder}`}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
-            />
-        )
-    };
-});
+// Mock MonacoSingleLineInput since it requires Monaco.
+// The panel imports it by its SOURCE-relative path (./MonacoSingleLineInput
+// within @apinox/request-editor), which vitest resolves to an absolute file
+// id — so mock that same resolved id via a path relative to THIS test file
+// (mocking the '@apinox/request-editor' barrel does not intercept the panel's
+// internal import).
+vi.mock('../../../../packages/request-editor/src/components/MonacoSingleLineInput', () => ({
+    MonacoSingleLineInput: ({ value, onChange, placeholder }: any) => (
+        <input
+            data-testid={`input-${placeholder}`}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+        />
+    )
+}));
 
 describe('HeadersPanel', () => {
     it('should render empty state when no headers', () => {
