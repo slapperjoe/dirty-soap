@@ -934,7 +934,19 @@ pub fn open_url_in_browser(app: tauri::AppHandle, url: String) -> Result<(), Str
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::Infallible;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Mutex;
+    use std::sync::Arc;
+    // In-process MITM proxy integration-test dependencies (mirrors
+    // examples/repro_proxy_server.rs): hyper HTTP/1 + rustls TlsAcceptor.
+    use bytes::Bytes;
+    use http_body_util::Full;
+    use hyper::body::Incoming;
+    use hyper::service::service_fn;
+    use hyper::{Method, Request, Response, StatusCode};
+    use hyper_util::rt::TokioIo;
+    use tokio::net::TcpListener;
 
     /// Serialize tests that swap `APINOX_CONFIG_DIR` (process-global env).
     static CONFIG_DIR_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -1348,7 +1360,7 @@ mod tests {
             let hits_for_listener = connect_hits.clone();
 
             let handle = tokio::spawn(async move {
-                let mut listener = listener;
+                let listener = listener;
                 loop {
                     let (stream, _peer) = match listener.accept().await {
                         Ok(v) => v,
@@ -1572,13 +1584,15 @@ mod tests {
         assert!(!tmp.join("config.jsonc").exists(), "precondition: no settings file yet");
 
         // Settings snapshot before any update activity (temp dir ⇒ defaults).
+        // Compared as a JSON Value (not a string): `environments` is a
+        // HashMap, whose serialised key order is nondeterministic.
         let pre_config = load_config_internal()
-            .map(|c| serde_json::to_string(&c).expect("config serializes"))
+            .map(|c| serde_json::to_value(&c).expect("config serializes"))
             .unwrap_or_default();
 
         // Phase 1 — success: OS proxy enabled, live MITM proxy, CA trusted.
         let proxy_url = format!("http://{}", proxy.addr);
-        let genv = ProxyEnvGuard::set([Some(proxy_url.as_str()), None, None, None]);
+        let _genv = ProxyEnvGuard::set([Some(proxy_url.as_str()), None, None, None]);
         let resp = get_with_fallback("https://update.test/releases/latest")
             .await
             .expect("success path through the proxy");
@@ -1603,7 +1617,7 @@ mod tests {
         // production code never overwrote it.)
         assert_proxy_env([Some("http://127.0.0.1:1"), None, None, None]);
         let post_config = load_config_internal()
-            .map(|c| serde_json::to_string(&c).expect("config serializes"))
+            .map(|c| serde_json::to_value(&c).expect("config serializes"))
             .unwrap_or_default();
         assert_eq!(pre_config, post_config, "update traffic must not mutate settings");
         assert!(!tmp.join("config.jsonc").exists(), "update flow must not create a settings file");
@@ -1645,17 +1659,18 @@ mod tests {
         assert!(route.contains("self-proxy loop"), "route: {route}");
         assert!(route.contains(&self_proxy_url), "route: {route}");
 
-        // The production flow still attempts direct egress and fails on DNS
-        // for the target — proving it never took the (self) proxy path.
+        // The production flow still attempts direct egress and fails
+        // (NXDOMAIN for update.test) — proving it never took the (self)
+        // proxy path. (reqwest's error Display is "error sending request
+        // for url (…)" and does not surface the source chain, so the
+        // "Direct request failed" clause + the "Route: direct — …" report
+        // are the observable evidence that a direct dial was attempted.)
         let err = get_with_fallback("https://update.test/releases/latest")
             .await
             .expect_err("direct egress is blocked in this topology");
+        assert!(err.contains("Direct request failed"), "error: {err}");
         assert!(err.contains("Route: direct —"), "error: {err}");
         assert!(err.contains("self-proxy loop"), "error: {err}");
-        assert!(
-            err.contains("dns"),
-            "direct dial must have been attempted (DNS failure), not a proxy hop: {err}"
-        );
 
         // Proxy state untouched.
         assert_proxy_env([Some(self_proxy_url.as_str()), None, None, None]);
