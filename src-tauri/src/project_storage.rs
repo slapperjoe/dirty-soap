@@ -188,6 +188,21 @@ pub async fn save_project(project: serde_json::Value) -> Result<String, String> 
     fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create project directory: {}", e))?;
 
+    // Phase B (t_86c34d38): once a dir is in the unified format, the unified
+    // store (save_unified_project) is its canonical writer. The legacy
+    // ProjectContext auto-loads migrated (unified-format) projects into its
+    // in-memory list and auto-saves them; letting save_project run here would
+    // (a) rewrite properties.json from `APInox-unified-v1` back to
+    // `APInox-v1` (demoting the project so the unified store no longer lists it)
+    // and (b) clobber tests/ + folders/ that the unified store owns. So the
+    // legacy save is a no-op for unified dirs — the legacy nested `interfaces/`
+    // is preserved on disk (non-destructive migration) for PROXY/WORKFLOWS to
+    // keep READING. Fully moving PROXY/WORKFLOWS writes onto the unified model
+    // is a separate follow-up (the full bulk/SoapUI/PROXY unified-model re-point).
+    if is_unified_format_path(&dir) {
+        return Ok(dir.to_string_lossy().to_string());
+    }
+
     save_properties(&dir, &project)?;
     save_interfaces(&dir, &project)?;
     save_test_suites(&dir, &project)?;
@@ -231,6 +246,12 @@ fn save_interfaces(dir: &Path, project: &serde_json::Value) -> Result<(), String
 }
 
 /// Save all test suites, cleaning up orphaned directories.
+///
+/// Shared by BOTH the legacy store (`save_project`) and the unified store
+/// (`save_unified_project`) — the `tests/` subdir layout is identical. The
+/// guard that prevents the legacy auto-save from clobbering a unified project's
+/// suites lives in `save_project` (which no-ops for unified dirs), NOT here:
+/// `save_unified_project` must be able to write suites through this path.
 fn save_test_suites(dir: &Path, project: &serde_json::Value) -> Result<(), String> {
     let tests_dir = dir.join("tests");
     fs::create_dir_all(&tests_dir)
@@ -246,6 +267,8 @@ fn save_test_suites(dir: &Path, project: &serde_json::Value) -> Result<(), Strin
 }
 
 /// Save all folders, replacing any previously written folder files.
+/// Shared by both the legacy and unified stores (identical `folders/` layout);
+/// the unified-dir guard is in `save_project` (see save_test_suites).
 fn save_folders(dir: &Path, project: &serde_json::Value) -> Result<(), String> {
     let folders_dir = dir.join("folders");
     fs::create_dir_all(&folders_dir)
@@ -1828,6 +1851,62 @@ mod tests {
         assert_eq!(loaded["operations"].as_array().unwrap().len(), 2);
         assert_eq!(loaded["testSuites"].as_array().unwrap().len(), 1);
         assert_eq!(loaded["folders"].as_array().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn save_project_is_noop_for_unified_format_dirs() {
+        // Phase B (t_86c34d38): the legacy ProjectContext auto-loads migrated
+        // (unified-format) projects and auto-saves them. Once a dir is unified,
+        // the unified store is its canonical writer, so a legacy save must be a
+        // no-op — otherwise it would (a) demote properties.json from
+        // `APInox-unified-v1` back to `APInox-v1` and (b) clobber tests/ +
+        // folders/ that the unified store (TESTS view) owns.
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        // Create a unified-format project dir at base/SaveGuard with a suite.
+        let unified = serde_json::json!({
+            "name": "SaveGuard",
+            "source": "manual",
+            "parsedAt": "2024-01-01T00:00:00+00:00",
+            "operations": [],
+            "testSuites": [ { "name": "G", "id": "sg", "testCases": [] } ]
+        });
+        save_unified_project(base.join("SaveGuard").to_string_lossy().into(), unified)
+            .expect("save unified");
+        assert!(is_unified_format_path(&base.join("SaveGuard")));
+
+        // Simulate the legacy ProjectContext auto-save writing a STALE legacy
+        // object (empty interfaces, NO testSuites) for the same project name.
+        let stale_legacy = serde_json::json!({
+            "name": "SaveGuard",
+            "id": "sg",
+            "interfaces": []
+        });
+        save_project(stale_legacy).await.expect("legacy save (expected no-op)");
+
+        // properties.json must still be unified (not demoted to APInox-v1).
+        let props_str = std::fs::read_to_string(base.join("SaveGuard").join("properties.json"))
+            .expect("properties.json present");
+        let props: serde_json::Value = serde_json::from_str(&props_str).expect("parse props");
+        assert_eq!(
+            props["format"], "APInox-unified-v1",
+            "legacy save must not demote a unified dir back to APInox-v1"
+        );
+
+        // The unified store's test suite must be intact (not clobbered by the
+        // stale legacy object, which had no suites).
+        let loaded = load_unified_project(base.join("SaveGuard").to_string_lossy().into())
+            .expect("load unified");
+        assert_eq!(
+            loaded["testSuites"].as_array().unwrap().len(), 1,
+            "tests/ must not be clobbered by a legacy save"
+        );
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
     }
 
     #[test]
