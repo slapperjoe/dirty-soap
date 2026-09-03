@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useTestCaseHandlers } from '../hooks/useTestCaseHandlers';
 import { useRequestExecution } from '../hooks/useRequestExecution';
 import { useProject } from './ProjectContext';
+import { useUnifiedProjects } from './UnifiedProjectContext';
 import { useSelection } from './SelectionContext';
 import { useUI } from './UIContext';
 import { useNavigation } from './NavigationContext';
@@ -56,7 +57,17 @@ export const TestRunnerProvider = ({ children }: { children: ReactNode }) => {
     const [testExecution, setTestExecution] = useState<Record<string, Record<string, TestExecutionState>>>({});
 
     // Dependencies
-    const { projects, setProjects, saveProject, selectedProjectName, setWorkspaceDirty } = useProject();
+    // Phase B (t_86c34d38): the TESTS suite subsystem reads/writes the UNIFIED
+    // store (test suites were relocated to UnifiedProject.testSuites). `useProject`
+    // is still used for the legacy selections (selectedProjectName, workspace
+    // dirty) + the legacy setProjects that the request-execution WORKSPACE path
+    // writes to (test-case step edits went to the unified store instead).
+    const { setProjects, selectedProjectName, setWorkspaceDirty } = useProject();
+    const {
+        projects: unifiedProjects,
+        setProjects: setUnifiedProjects,
+        saveProject: saveUnifiedProject
+    } = useUnifiedProjects();
     const {
         selectedTestCase,
         selectedStep,
@@ -210,9 +221,9 @@ export const TestRunnerProvider = ({ children }: { children: ReactNode }) => {
     const noOpCloseContextMenu = () => { };
 
     const testCaseHandlers = useTestCaseHandlers({
-        projects,
-        setProjects,
-        saveProject,
+        projects: unifiedProjects,
+        setProjects: setUnifiedProjects,
+        saveProject: saveUnifiedProject,
         selectedTestCase,
         selectedStep,
         setSelectedTestCase,
@@ -241,6 +252,10 @@ export const TestRunnerProvider = ({ children }: { children: ReactNode }) => {
         setSelectedRequest,
         setProjects,
         setWorkspaceDirty,
+        // Phase B (t_86c34d38): test-case step edits persist to the UNIFIED store
+        // (suites relocated); the legacy workspace path keeps using setProjects.
+        unifiedProjects,
+        setUnifiedProjects,
         testExecution,
         selectedPerformanceSuiteId,
         config,

@@ -6,17 +6,21 @@
  */
 
 import { useCallback } from 'react';
-import { ApinoxProject, TestCase, TestSuite } from '@shared/models';
+import { UnifiedProject, TestCase, TestSuite } from '@shared/models';
 import { BackendCommand } from '@shared/messages';
 import { bridge } from '../utils/bridge';
 import { debugLog } from '../utils/logger';
 
 interface UseSidebarCallbacksParams {
-    projects: ApinoxProject[];
-    setProjects: React.Dispatch<React.SetStateAction<ApinoxProject[]>>;
+    // Phase B (t_86c34d38): the TESTS suite CRUD (add/delete/toggle/rename) now
+    // operates on the UNIFIED store (test suites relocated to
+    // UnifiedProject.testSuites). Persisted by the UnifiedProjectContext
+    // auto-save (dirty flag), matching the legacy auto-save pattern.
+    projects: UnifiedProject[];
+    setProjects: React.Dispatch<React.SetStateAction<UnifiedProject[]>>;
     deleteConfirm: string | null;
     setDeleteConfirm: React.Dispatch<React.SetStateAction<string | null>>;
-    saveProject: (project: ApinoxProject) => void;
+    saveProject: (project: UnifiedProject) => void;
     config: any;
 }
 

@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { ApinoxProject, TestStep, TestCase, TestStepType, RequestExtractor } from '@shared/models';
+import { UnifiedProject, TestStep, TestCase, TestStepType, RequestExtractor } from '@shared/models';
 import { bridge } from '../utils/bridge';
 import {
     deleteTestStep,
@@ -20,14 +20,18 @@ interface UseWorkspaceCallbacksParams {
     selectedTestCase: TestCase | null;
     selectedStep: TestStep | null;
     testExecution: Record<string, Record<string, any>>;
-    projects: ApinoxProject[];
+    // Phase B (t_86c34d38): test-step CRUD now operates on the UNIFIED store
+    // (test suites were relocated to UnifiedProject.testSuites). The pure
+    // projectUpdateHelpers are model-agnostic (ProjectLike), so the same
+    // functions work on UnifiedProject[].
+    projects: UnifiedProject[];
     setSelectedStep: React.Dispatch<React.SetStateAction<TestStep | null>>;
     setSelectedRequest: React.Dispatch<React.SetStateAction<any>>;
     setResponse: React.Dispatch<React.SetStateAction<any>>;
 
     // Project state
-    setProjects: React.Dispatch<React.SetStateAction<ApinoxProject[]>>;
-    saveProject: (project: ApinoxProject) => void;
+    setProjects: React.Dispatch<React.SetStateAction<UnifiedProject[]>>;
+    saveProject: (project: UnifiedProject) => void;
 
     // UI State
     layoutMode: 'vertical' | 'horizontal';

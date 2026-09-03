@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EmptyState } from '../common/EmptyState';
-import { ApinoxProject } from '@shared/models';
+import { UnifiedProject } from '@shared/models';
 import { FlaskConical, Play } from 'lucide-react';
 import { Modal, Button } from './Modal';
 import { SPACING_XS, SPACING_SM, SPACING_MD } from '../../styles/spacing';
@@ -49,7 +49,7 @@ const SecondaryButton = styled(Button)`
 `;
 
 interface AddToTestCaseModalProps {
-    projects: ApinoxProject[];
+    projects: UnifiedProject[];
     onClose: () => void;
     onAdd: (target: { type: 'new' | 'existing', suiteId?: string, caseId?: string }) => void;
 }

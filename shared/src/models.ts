@@ -432,6 +432,10 @@ export interface UnifiedProject {
     testSuites?: TestSuite[];
     /** User-created folders (Phase B, t_86c34d38: carried over from the legacy ApinoxProject so migration doesn't drop user folder/requests). */
     folders?: ApinoxFolder[];
+    /** Phase B (t_86c34d38): in-memory unsaved-changes flag (mirrors ApinoxProject.dirty) — drives the unified auto-save. */
+    dirty?: boolean;
+    /** Phase B (t_86c34d38): marks the project read-only (mirrors ApinoxProject.readOnly; preserved for migrated read-only legacy projects). */
+    readOnly?: boolean;
 }
 
 // Test Runner Types

@@ -71,7 +71,9 @@ export interface SidebarSelectionProps {
 }
 
 export interface SidebarTestsProps {
-    projects: ApinoxProject[];
+    // Phase B (t_86c34d38): the TESTS suite tree renders from the UNIFIED
+    // store (test suites relocated to UnifiedProject.testSuites).
+    projects: UnifiedProject[];
     selectedTestSuite?: import('@shared/models').TestSuite | null;
     selectedTestCase?: TestCase | null;
     onAddSuite: (projectName: string) => void;

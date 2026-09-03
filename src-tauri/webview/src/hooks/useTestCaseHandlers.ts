@@ -7,7 +7,7 @@
 
 import { useCallback } from 'react';
 import {
-    ApinoxProject,
+    UnifiedProject,
     ApiInterface,
     ApiOperation,
     ApiRequest,
@@ -23,9 +23,9 @@ import { BackendCommand, FrontendCommand } from '@shared/messages';
 import { getInitialXml } from '@shared/utils/xmlUtils';
 
 interface UseTestCaseHandlersParams {
-    projects: ApinoxProject[];
-    setProjects: React.Dispatch<React.SetStateAction<ApinoxProject[]>>;
-    saveProject: (project: ApinoxProject) => void;
+    projects: UnifiedProject[];
+    setProjects: React.Dispatch<React.SetStateAction<UnifiedProject[]>>;
+    saveProject: (project: UnifiedProject) => void;
     selectedTestCase: TestCase | null;
     selectedStep: TestStep | null;
     setSelectedTestCase: React.Dispatch<React.SetStateAction<TestCase | null>>;
@@ -128,7 +128,7 @@ export function useTestCaseHandlers({
         }
 
         let updatedStep: TestStep | null = null;
-        let updatedProjectOrNull: ApinoxProject | null = null;
+        let updatedProjectOrNull: UnifiedProject | null = null;
 
         const nextProjects = projects.map(p => {
             const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
@@ -193,7 +193,7 @@ export function useTestCaseHandlers({
         if (!selectedTestCase || !selectedStep) return;
 
         let updatedStep: TestStep | null = null;
-        let updatedProjectOrNull: ApinoxProject | null = null;
+        let updatedProjectOrNull: UnifiedProject | null = null;
 
         const nextProjects = projects.map(p => {
             const suite = p.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
@@ -255,12 +255,25 @@ export function useTestCaseHandlers({
     }, [projects, selectedTestCase, selectedStep, setProjects, saveProject, setSelectedStep, setSelectedRequest]);
 
     const handleGenerateTestSuite = useCallback((target: ApiInterface | ApiOperation) => {
-        // Find the project containing this target
-        let targetProject: ApinoxProject | null = null;
+        // Phase B (t_86c34d38): find the UNIFIED project containing this target.
+        // The target is an ApiOperation (the unified context-menu "Generate Test
+        // Suite" item) or an ApiInterface (legacy); match it against the project's
+        // flat operations[] by reference or by name.
+        let targetProject: UnifiedProject | null = null;
+        // An ApiInterface carries an `operations[]` array; an ApiOperation does not.
+        const isOperation = !Array.isArray((target as any).operations);
         for (const p of projects) {
-            if (p.interfaces.some(i => i === target || i.operations.some(o => o === target))) {
+            const op = (p.operations || []).find(o => o === target || o.name === (target as ApiOperation).name);
+            if (op) {
                 targetProject = p;
                 break;
+            }
+            // Interface targets (legacy path): match by project-level operation names.
+            if ((target as ApiInterface).operations) {
+                if ((target as ApiInterface).operations.some((o: any) => (p.operations || []).some(po => po.name === o.name))) {
+                    targetProject = p;
+                    break;
+                }
             }
         }
         if (!targetProject) return;
@@ -268,13 +281,19 @@ export function useTestCaseHandlers({
         // Identify Operations
         let operationsToProcess: ApiOperation[] = [];
         let baseName = '';
-        if ((target as any).operations) {
-            operationsToProcess = (target as ApiInterface).operations;
-            baseName = target.name;
-        } else {
+        if (isOperation) {
             operationsToProcess = [target as ApiOperation];
-            baseName = target.name;
+            baseName = (target as ApiOperation).name;
+        } else {
+            // Interface target: generate for every operation in the project whose
+            // name matches the interface's operations (unified has no interfaces[]).
+            const ifaceOps = (target as ApiInterface).operations || [];
+            operationsToProcess = (targetProject.operations || []).filter(op =>
+                ifaceOps.some((o: any) => o.name === op.name)
+            );
+            baseName = (target as ApiInterface).name;
         }
+        if (operationsToProcess.length === 0) return;
 
         // Create Suite
         const newSuite: TestSuite = {
@@ -336,7 +355,8 @@ export function useTestCaseHandlers({
 
         // Save Logic
         setProjects(prev => prev.map(p => {
-            if (p.id === targetProject!.id || p.fileName === targetProject!.fileName) {
+            // Unified projects are keyed by their stable `name` (the on-disk dir).
+            if (p.name === targetProject!.name) {
                 const updated = { ...p, testSuites: [...(p.testSuites || []), newSuite], dirty: true };
                 setTimeout(() => saveProject(updated), 0);
                 return updated;

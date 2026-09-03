@@ -37,6 +37,12 @@ interface UnifiedProjectContextValue {
      * the result. Mirrors the legacy `updateProject` helper.
      */
     updateProject: (name: string, updater: (p: UnifiedProject) => UnifiedProject) => Promise<void>;
+
+    /** Find a test suite by id across all unified projects (Phase B: TESTS suite source). */
+    findSuiteById: (suiteId: string) => { suite: import('@shared/models').TestSuite; project: UnifiedProject } | null;
+
+    /** Find a test case by id across all unified projects, with its parent suite. */
+    findCaseById: (caseId: string) => { case: import('@shared/models').TestCase; suite: import('@shared/models').TestSuite; project: UnifiedProject } | null;
 }
 
 const UnifiedProjectContext = createContext<UnifiedProjectContextValue | undefined>(undefined);
@@ -66,13 +72,18 @@ export function UnifiedProjectProvider({ children }: { children: ReactNode }) {
         // Send a plain-JSON copy (Date fields → ISO strings) so the backend
         // round-trips cleanly, matching MainContent's existing save calls.
         const payload = JSON.parse(JSON.stringify(project));
-        const saved: any = await bridge.invokeTauriCommand('save_unified_project', {
-            dirPath: project.name,
-            project: payload,
-        });
-        // The backend may return the canonical persisted project; prefer it so
-        // disk and in-memory state stay in sync.
-        setProjects(prev => prev.map(p => (p.name === project.name ? (saved && typeof saved === 'object' && saved.name ? (saved as UnifiedProject) : project) : p)));
+        try {
+            await bridge.invokeTauriCommand('save_unified_project', {
+                dirPath: project.name,
+                project: payload,
+            });
+            // Persisted — clear the dirty flag so the auto-save doesn't re-save
+            // (mirrors the legacy ProjectContext saveProject dirty lifecycle).
+            setProjects(prev => prev.map(p => (p.name === project.name ? { ...p, ...project, dirty: false } : p)));
+        } catch (e) {
+            console.error('[UnifiedProjectContext] save_unified_project failed:', e);
+            throw e;
+        }
     }, []);
 
     const updateProject = useCallback(async (name: string, updater: (p: UnifiedProject) => UnifiedProject) => {
@@ -105,8 +116,53 @@ export function UnifiedProjectProvider({ children }: { children: ReactNode }) {
         })();
     }, [refresh]);
 
+    // -------------------------------------------------------------------------
+    // AUTO-SAVE (Phase B, t_86c34d38)
+    // The TESTS view now edits suites on the UNIFIED store. Persist dirty unified
+    // projects (mirrors the legacy ProjectContext auto-save), debounced 1s.
+    // save_unified_project writes tests/ + folders/ + operations — the unified
+    // store is the canonical writer for migrated projects.
+    // -------------------------------------------------------------------------
+    React.useEffect(() => {
+        const dirtyProjects = projects.filter(p => p.dirty && !p.readOnly && p.name !== 'Samples');
+        if (dirtyProjects.length === 0) return;
+        const timer = setTimeout(() => {
+            dirtyProjects.forEach(p => {
+                saveProject(p).catch(() => { /* logged in saveProject */ });
+            });
+        }, 1000); // 1s debounce
+        return () => clearTimeout(timer);
+    }, [projects, saveProject]);
+
+    // -------------------------------------------------------------------------
+    // SUITE LOOKUP HELPERS (Phase B, t_86c34d38)
+    // The TESTS subsystem looked suites up in the legacy ApinoxProject[] (via
+    // useProject). Post-decoupling it looks them up here (the unified store).
+    // Shared by useTestCaseHandlers / useWorkspaceCallbacks / MainContent so the
+    // find logic lives in one place.
+    // -------------------------------------------------------------------------
+    /** Find a test suite by id across all unified projects. */
+    const findSuiteById = useCallback((suiteId: string): { suite: import('@shared/models').TestSuite; project: UnifiedProject } | null => {
+        for (const project of projects) {
+            const suite = project.testSuites?.find(s => s.id === suiteId);
+            if (suite) return { suite, project };
+        }
+        return null;
+    }, [projects]);
+
+    /** Find a test case by id across all unified projects (with its parent suite). */
+    const findCaseById = useCallback((caseId: string): { case: import('@shared/models').TestCase; suite: import('@shared/models').TestSuite; project: UnifiedProject } | null => {
+        for (const project of projects) {
+            for (const suite of project.testSuites || []) {
+                const tc = suite.testCases?.find(c => c.id === caseId);
+                if (tc) return { case: tc, suite, project };
+            }
+        }
+        return null;
+    }, [projects]);
+
     return (
-        <UnifiedProjectContext.Provider value={{ projects, setProjects, refresh, saveProject, updateProject }}>
+        <UnifiedProjectContext.Provider value={{ projects, setProjects, refresh, saveProject, updateProject, findSuiteById, findCaseById }}>
             {children}
         </UnifiedProjectContext.Provider>
     );

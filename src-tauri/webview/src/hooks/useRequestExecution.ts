@@ -14,6 +14,7 @@ import { getInitialXml } from '@shared/utils/xmlUtils';
 import { PERF_REQUEST_ID_PREFIX, DEBOUNCE_MS } from '../constants';
 import {
     ApinoxProject,
+    UnifiedProject,
     ApiInterface,
     ApiOperation,
     ApiRequest,
@@ -120,6 +121,11 @@ interface UseRequestExecutionParams {
     setSelectedRequest: React.Dispatch<React.SetStateAction<ApiRequest | null>>;
     setProjects: React.Dispatch<React.SetStateAction<ApinoxProject[]>>;
     setWorkspaceDirty: React.Dispatch<React.SetStateAction<boolean>>;
+    // Phase B (t_86c34d38): the UNIFIED store — test-case step edits persist here
+    // (test suites were relocated to UnifiedProject.testSuites). Absent in the
+    // non-decoupled path; falls back to the legacy projects when not provided.
+    unifiedProjects?: UnifiedProject[];
+    setUnifiedProjects?: React.Dispatch<React.SetStateAction<UnifiedProject[]>>;
 
     // Other
     testExecution: Record<string, Record<string, { response?: any }>>;
@@ -157,6 +163,7 @@ export function useRequestExecution({
     setSelectedRequest,
     setProjects,
     setWorkspaceDirty,
+    setUnifiedProjects,
     testExecution,
     selectedPerformanceSuiteId,
     config,
@@ -403,15 +410,15 @@ export function useRequestExecution({
 
         projectUpdateTimer.current = setTimeout(() => {
 
-            setProjects(prev => {
-
-                const updatedProjects = prev.map(p => {
-                    // 1. Is it a Test Case modification?
-                    if (selectedTestCase) {
-                        // ... Test Case Logic ...
-                        // Need to duplicate logic here or assume it's stable?
-                        // I'll copy the logic logic to be safe.
-
+            // Phase B (t_86c34d38): test-case step edits persist to the UNIFIED
+            // store (test suites were relocated to UnifiedProject.testSuites).
+            // The unified store is the source of truth for test steps, so the
+            // legacy `setProjects` path below must NOT also rewrite them (it
+            // would race the unified save with a stale in-memory copy).
+            let testStepHandled = false;
+            if (selectedTestCase && setUnifiedProjects) {
+                setUnifiedProjects(prev => {
+                    const updatedProjects = prev.map(p => {
                         let caseUpdated = false;
                         const updatedSuites = p.testSuites?.map(s => {
                             const tcIndex = s.testCases?.findIndex(tc => tc.id === selectedTestCase.id) ?? -1;
@@ -444,47 +451,60 @@ export function useRequestExecution({
                         });
 
                         if (caseUpdated) {
+                            testStepHandled = true;
+                            // `dirty: true` triggers the UnifiedProjectContext
+                            // auto-save (debounced) — no explicit save here,
+                            // matching the legacy handleRequestUpdate pattern.
                             return { ...p, testSuites: updatedSuites, dirty: true };
                         }
-                    }
-
-                    // 2. Standard Project Request Modification
-                    if (p.name !== selectedProjectName && !selectedTestCase) return p;
-
-                    let requestFound = false;
-                    const updatedProject = {
-                        ...p,
-                        dirty: true,
-                        interfaces: p.interfaces.map(i => {
-                            // Optimization: Only scan relevant interface if known? 
-                            // Just scan all for correctness.
-                            return {
-                                ...i,
-                                operations: i.operations.map(o => {
-                                    return {
-                                        ...o,
-                                        requests: o.requests.map(r => {
-                                            if (r.id === updated.id) {
-                                                requestFound = true;
-                                                return dirtyUpdated;
-                                            }
-                                            return r;
-                                        })
-                                    };
-                                })
-                            };
-                        }),
-                        folders: p.folders ? updateFolderRequestInExecution(p.folders, updated.id || updated.name, dirtyUpdated, (found) => { requestFound = requestFound || found; }) : p.folders
-                    };
-
-                    return updatedProject;
+                        return p;
+                    });
+                    return updatedProjects;
                 });
+            }
 
-                return updatedProjects;
-            });
+            // Legacy path: standard project request modification. Skipped for
+            // handled test-step edits (the unified store owns them).
+            if (!testStepHandled) {
+                setProjects(prev => {
+
+                    const updatedProjects = prev.map(p => {
+                        // 2. Standard Project Request Modification
+                        let requestFound = false;
+                        const updatedProject = {
+                            ...p,
+                            dirty: true,
+                            interfaces: p.interfaces.map(i => {
+                                // Optimization: Only scan relevant interface if known? 
+                                // Just scan all for correctness.
+                                return {
+                                    ...i,
+                                    operations: i.operations.map(o => {
+                                        return {
+                                            ...o,
+                                            requests: o.requests.map(r => {
+                                                if (r.id === updated.id) {
+                                                    requestFound = true;
+                                                    return dirtyUpdated;
+                                                }
+                                                return r;
+                                            })
+                                        };
+                                    })
+                                };
+                            }),
+                            folders: p.folders ? updateFolderRequestInExecution(p.folders, updated.id || updated.name, dirtyUpdated, (found) => { requestFound = requestFound || found; }) : p.folders
+                        };
+
+                        return updatedProject;
+                    });
+
+                    return updatedProjects;
+                });
+            }
         }, DEBOUNCE_MS);
 
-    }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setSelectedRequest, setWorkspaceDirty, selectedPerformanceSuiteId, config, setConfig]);
+    }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setUnifiedProjects, setSelectedRequest, setWorkspaceDirty, selectedPerformanceSuiteId, config, setConfig]);
 
     const handleResetRequest = useCallback(() => {
         if (selectedRequest && selectedOperation) {

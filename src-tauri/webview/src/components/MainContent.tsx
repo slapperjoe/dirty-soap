@@ -240,7 +240,15 @@ const MainContent: React.FC = () => {
     // migrates any legacy APInox-v1 dirs to unified on mount (idempotent,
     // non-destructive) then loads the unified list. The names below are aliased
     // from the context so the ~16 call sites in this component are unchanged.
-    const { projects: unifiedProjects, setProjects: setUnifiedProjects } = useUnifiedProjects();
+    const {
+        projects: unifiedProjects,
+        setProjects: setUnifiedProjects,
+        // Phase B (t_86c34d38): the TESTS subsystem (step CRUD, suite CRUD,
+        // add-to-test-case) persists through the UNIFIED store — the unified
+        // saveProject (save_unified_project) is distinct from the legacy one
+        // (save_project) that the rest of the workspace still uses.
+        saveProject: saveUnifiedProject
+    } = useUnifiedProjects();
     const [unifiedSelectedNode, setUnifiedSelectedNode] = useState<{ type: string; id: string } | null>(null);
     
     // Unified Explorer Handlers
@@ -914,11 +922,13 @@ const MainContent: React.FC = () => {
         handleRenameTestStep,
         handleSaveUiState
     } = useSidebarCallbacks({
-        projects,
-        setProjects,
+        // Phase B (t_86c34d38): TESTS suite CRUD (add/delete/toggle/rename)
+        // operates on the UNIFIED store (suites relocated).
+        projects: unifiedProjects,
+        setProjects: setUnifiedProjects,
         deleteConfirm,
         setDeleteConfirm,
-        saveProject,
+        saveProject: saveUnifiedProject,
         config
     });
 
@@ -931,8 +941,8 @@ const MainContent: React.FC = () => {
         // Cleanup selection if needed
         // If selected test case belongs to this suite, clear it.
         if (selectedTestCase) {
-            // Find parent suite of selectedTestCase
-            const project = projects.find(p => p.testSuites?.some(s => s.testCases?.some(tc => tc.id === selectedTestCase.id)));
+            // Find parent suite of selectedTestCase (unified store — Phase B)
+            const project = unifiedProjects.find(p => p.testSuites?.some(s => s.testCases?.some(tc => tc.id === selectedTestCase.id)));
             const suite = project?.testSuites?.find(s => s.testCases?.some(tc => tc.id === selectedTestCase.id));
             if (suite?.id === suiteId) {
                 setSelectedTestCase(null);
@@ -956,14 +966,14 @@ const MainContent: React.FC = () => {
     // ONLY in Tests view to avoid re-selecting after user clears selection for navigation
     useEffect(() => {
         if (activeView !== SidebarView.TESTS) return;
-        // Flatten all test cases from all projects/suites
-        const allCases = projects.flatMap(p =>
+        // Flatten all test cases from all projects/suites (unified store — Phase B)
+        const allCases = unifiedProjects.flatMap(p =>
             (p.testSuites || []).flatMap(s => s.testCases || [])
         );
         if (allCases.length > 0 && !selectedTestCase) {
             setSelectedTestCase(allCases[0]);
         }
-    }, [projects, selectedTestCase, setSelectedTestCase, activeView]);
+    }, [unifiedProjects, selectedTestCase, setSelectedTestCase, activeView]);
 
     // Sync selectedTestCase with authoritative projects state when projects changes
     // This fixes stale data (e.g. scriptContent) after projectLoaded updates projects
@@ -971,7 +981,7 @@ const MainContent: React.FC = () => {
         if (!selectedTestCase) return;
 
         // Find the matching test case in the current projects state
-        for (const proj of projects) {
+        for (const proj of unifiedProjects) {
             for (const suite of (proj.testSuites || [])) {
                 const freshTestCase = suite.testCases?.find(tc => tc.id === selectedTestCase.id);
                 if (freshTestCase && freshTestCase !== selectedTestCase) {
@@ -981,7 +991,7 @@ const MainContent: React.FC = () => {
                 }
             }
         }
-    }, [projects, selectedTestCase, setSelectedTestCase]);
+    }, [unifiedProjects, selectedTestCase, setSelectedTestCase]);
 
     const handleReplayRequest = (entry: RequestHistoryEntry) => {
         const req: ApiRequest = {
@@ -1146,13 +1156,16 @@ const MainContent: React.FC = () => {
     } = useWorkspaceCallbacks({
         selectedTestCase,
         selectedStep,
-        projects,
+        // Phase B (t_86c34d38): test-step CRUD persists to the UNIFIED store
+        // (suites relocated to UnifiedProject.testSuites); the pure
+        // projectUpdateHelpers are model-agnostic.
+        projects: unifiedProjects,
         testExecution,
         setSelectedStep,
         setSelectedRequest,
         setResponse,
-        setProjects,
-        saveProject,
+        setProjects: setUnifiedProjects,
+        saveProject: saveUnifiedProject,
         layoutMode,
         setLayoutMode,
         showLineNumbers,
@@ -1436,8 +1449,8 @@ const MainContent: React.FC = () => {
     // Sync selectedTestCase with latest projects state
     useEffect(() => {
         if (selectedTestCase) {
-            // Re-hydrate stale selectedTestCase
-            for (const p of projects) {
+            // Re-hydrate stale selectedTestCase (unified store — Phase B)
+            for (const p of unifiedProjects) {
                 if (p.testSuites) {
                     for (const s of p.testSuites) {
                         const updatedCase = s.testCases?.find(tc => tc.id === selectedTestCase.id);
@@ -1458,7 +1471,7 @@ const MainContent: React.FC = () => {
     useEffect(() => {
         if (selectedStep && selectedTestCase) {
             // Re-hydrate stale selectedStep from the current testCase
-            for (const p of projects) {
+            for (const p of unifiedProjects) {
                 if (p.testSuites) {
                     for (const s of p.testSuites) {
                         const updatedCase = s.testCases?.find(tc => tc.id === selectedTestCase.id);
@@ -1474,14 +1487,14 @@ const MainContent: React.FC = () => {
                 }
             }
         }
-    }, [projects, selectedStep, selectedTestCase]);
+    }, [unifiedProjects, selectedStep, selectedTestCase]);
 
     // Sync selectedTestSuite - clear if deleted
     useEffect(() => {
         if (selectedTestSuite) {
             // Check if the selected test suite still exists in projects
             let suiteExists = false;
-            for (const p of projects) {
+            for (const p of unifiedProjects) {
                 if (p.testSuites) {
                     const foundSuite = p.testSuites.find(s => s.id === selectedTestSuite.id);
                     if (foundSuite) {
@@ -1499,7 +1512,7 @@ const MainContent: React.FC = () => {
                 setSelectedTestSuite(null);
             }
         }
-    }, [projects, selectedTestSuite]);
+    }, [unifiedProjects, selectedTestSuite]);
 
     // Auto-save projects when workspace becomes dirty
     useEffect(() => {
@@ -1624,7 +1637,10 @@ const MainContent: React.FC = () => {
         moveTestStep: handleMoveStep,
         addTestStep: handleAddStep,
         backToTestCase: () => { setSelectedStep(null); setSelectedRequest(null); },
-        openStepRequest: (req: ApiRequest) => { setSelectedRequest(req); setActiveView(SidebarView.PROJECTS); },
+        // Phase B (t_86c34d38): opening a test-step request no longer jumps to
+        // the deleted PROJECTS view — the shared request editor (WorkspaceLayout
+        // fall-through) renders it while the user stays in TESTS.
+        openStepRequest: (req: ApiRequest) => { setSelectedRequest(req); },
         // PERFORMANCE
         handleAddPerformanceSuite,
         handleDeletePerformanceSuite,
@@ -1738,7 +1754,9 @@ const MainContent: React.FC = () => {
             setDeleteConfirm,
         },
         testsProps: {
-            projects,
+            // Phase B (t_86c34d38): the TESTS suite tree renders from the
+            // UNIFIED store (suites relocated to UnifiedProject.testSuites).
+            projects: unifiedProjects,
             selectedTestSuite,
             selectedTestCase,
             onAddSuite: handleAddSuite,
@@ -1751,7 +1769,7 @@ const MainContent: React.FC = () => {
             onSelectSuite: handleSelectTestSuite,
             onSelectTestCase: handleSelectTestCase,
             onSelectTestStep: (caseId: string, stepId: string) => {
-                const project = projects.find(p => p.testSuites?.some(s => s.testCases?.some(tc => tc.id === caseId)));
+                const project = unifiedProjects.find(p => p.testSuites?.some(s => s.testCases?.some(tc => tc.id === caseId)));
                 const suite = project?.testSuites?.find(s => s.testCases?.some(tc => tc.id === caseId));
                 const testCase = suite?.testCases?.find(tc => tc.id === caseId);
                 const step = testCase?.steps?.find(s => s.id === stepId);
@@ -2191,7 +2209,7 @@ const MainContent: React.FC = () => {
                 addToTestCaseModal.open && addToTestCaseModal.request && (
                     <Suspense fallback={null}>
                         <AddToTestCaseModal
-                            projects={projects}
+                            projects={unifiedProjects}
                             onClose={() => setAddToTestCaseModal({ open: false, request: null })}
                             onAdd={(target) => {
                                 const req = addToTestCaseModal.request!;
@@ -2211,7 +2229,9 @@ const MainContent: React.FC = () => {
                                     }
                                 };
 
-                                setProjects(prev => prev.map(p => {
+                                // Phase B (t_86c34d38): new test steps persist to
+                                // the UNIFIED store (suites relocated).
+                                setUnifiedProjects(prev => prev.map(p => {
                                     const suite = target.suiteId ? p.testSuites?.find(s => s.id === target.suiteId) :
                                         p.testSuites?.find(s => s.testCases.some(tc => tc.id === target.caseId));
 
@@ -2243,11 +2263,10 @@ const MainContent: React.FC = () => {
                                     });
 
                                     const newProj = { ...p, testSuites: updatedTestSuites, dirty: true };
-                                    setTimeout(() => saveProject(newProj), 0);
+                                    setTimeout(() => saveUnifiedProject(newProj), 0);
                                     return newProj;
                                 }));
                                 setAddToTestCaseModal({ open: false, request: null });
-                                setActiveView(SidebarView.PROJECTS);
                             }}
                         />
                     </Suspense>
@@ -2430,7 +2449,7 @@ const MainContent: React.FC = () => {
                     <ImportTestCaseModal
                         open={importToPerformanceModal.open}
                         suiteId={importToPerformanceModal.suiteId}
-                        projects={projects}
+                        projects={unifiedProjects}
                         onClose={() => setImportToPerformanceModal({ open: false, suiteId: null })}
                     />
                 </Suspense>

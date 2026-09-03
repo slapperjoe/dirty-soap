@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Play, Plus, Trash2, ChevronDown, ChevronRight, FlaskConical, FolderOpen, ListChecks, Clock, FileCode, ArrowRight, FileText } from 'lucide-react';
-import { ApinoxProject, TestSuite } from '@shared/models';
+import { UnifiedProject, TestSuite } from '@shared/models';
 import { SidebarContextMenu, CtxMenuSection, CtxMenuItem, Pencil } from './shared/SidebarContextMenu';
 import { SidebarContainer, SidebarContent, SidebarHeader, SidebarHeaderActions, SidebarHeaderTitle, OperationItem, RequestItem } from './shared/SidebarStyles';
 import { EmptyState } from '../common/EmptyState';
@@ -136,7 +136,8 @@ const AddSuiteRow = styled.div`
 `;
 
 export interface TestsUiProps {
-    projects: ApinoxProject[];
+    // Phase B (t_86c34d38): suites render from the UNIFIED store.
+    projects: UnifiedProject[];
     selectedTestSuite?: TestSuite | null;
     selectedTestCase?: any | null;
     onAddSuite: (projectName: string, suiteName?: string) => void;

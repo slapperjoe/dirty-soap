@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { bridge } from '../utils/bridge';
-import type { ApinoxProject, TestStep } from '@shared/models';
+import type { UnifiedProject, TestStep } from '@shared/models';
 import { SecondaryButton } from './common/Button';
 
 const Overlay = styled.div`
@@ -76,7 +76,7 @@ const Empty = styled.div`
 interface ImportTestCaseModalProps {
     open: boolean;
     suiteId: string | null;
-    projects: ApinoxProject[];
+    projects: UnifiedProject[];
     onClose: () => void;
 }
 

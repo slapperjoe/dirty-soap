@@ -21,6 +21,17 @@ import {
     TestStep,
 } from '@shared/models';
 
+/**
+ * Phase B (t_86c34d38): the step/suite/case helpers operate on the
+ * `testSuites` field only. Both the legacy `ApinoxProject` and the unified
+ * `UnifiedProject` carry `testSuites`, so the TESTS step subsystem (which now
+ * edits the unified store) reuses these same pure helpers via the generic
+ * `P extends ProjectLike` bound — no per-model copy needed.
+ */
+interface ProjectLike {
+    testSuites?: TestSuite[];
+}
+
 // ---------------------------------------------------------------------------
 // Project-level
 // ---------------------------------------------------------------------------
@@ -128,11 +139,11 @@ export function updateTestSuite(
 }
 
 /** Apply an updater to one test case within any suite / project. */
-export function updateTestCase(
-    projects: ApinoxProject[],
+export function updateTestCase<P extends ProjectLike>(
+    projects: P[],
     caseId: string,
     updater: (tc: TestCase) => TestCase,
-): ApinoxProject[] {
+): P[] {
     return projects.map(p => {
         let changed = false;
         const testSuites = p.testSuites?.map(suite => {
@@ -144,17 +155,20 @@ export function updateTestCase(
                 testCases: suite.testCases.map((tc, j) => (j === idx ? updater(tc) : tc)),
             };
         });
-        return changed ? { ...p, testSuites, dirty: true } : p;
+        if (!changed) return p;
+        // Mark dirty so the owning store's auto-save persists it (both the
+        // legacy and unified models carry `dirty`).
+        return { ...p, testSuites, dirty: true } as P;
     });
 }
 
 /** Apply an updater to one test step within a specific test case. */
-export function updateTestStep(
-    projects: ApinoxProject[],
+export function updateTestStep<P extends ProjectLike>(
+    projects: P[],
     caseId: string,
     stepId: string,
     updater: (step: TestStep) => TestStep,
-): ApinoxProject[] {
+): P[] {
     return updateTestCase(projects, caseId, tc => ({
         ...tc,
         steps: tc.steps.map(s => (s.id === stepId ? updater(s) : s)),
@@ -162,11 +176,11 @@ export function updateTestStep(
 }
 
 /** Remove a test step from a specific test case. */
-export function deleteTestStep(
-    projects: ApinoxProject[],
+export function deleteTestStep<P extends ProjectLike>(
+    projects: P[],
     caseId: string,
     stepId: string,
-): ApinoxProject[] {
+): P[] {
     return updateTestCase(projects, caseId, tc => ({
         ...tc,
         steps: tc.steps.filter(s => s.id !== stepId),
@@ -174,12 +188,12 @@ export function deleteTestStep(
 }
 
 /** Reorder steps in a test case by swapping two indices. */
-export function reorderTestStep(
-    projects: ApinoxProject[],
+export function reorderTestStep<P extends ProjectLike>(
+    projects: P[],
     caseId: string,
     stepId: string,
     direction: 'up' | 'down',
-): ApinoxProject[] {
+): P[] {
     return updateTestCase(projects, caseId, tc => {
         const steps = [...tc.steps];
         const index = steps.findIndex(s => s.id === stepId);
@@ -196,11 +210,11 @@ export function reorderTestStep(
 }
 
 /** Add a step to a test case. */
-export function addTestStep(
-    projects: ApinoxProject[],
+export function addTestStep<P extends ProjectLike>(
+    projects: P[],
     caseId: string,
     step: TestStep,
-): ApinoxProject[] {
+): P[] {
     return updateTestCase(projects, caseId, tc => ({
         ...tc,
         steps: [...tc.steps, step],
