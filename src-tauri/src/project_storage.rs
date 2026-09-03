@@ -189,17 +189,22 @@ pub async fn save_project(project: serde_json::Value) -> Result<String, String> 
         .map_err(|e| format!("Failed to create project directory: {}", e))?;
 
     // Phase B (t_86c34d38): once a dir is in the unified format, the unified
-    // store (save_unified_project) is its canonical writer. The legacy
-    // ProjectContext auto-loads migrated (unified-format) projects into its
-    // in-memory list and auto-saves them; letting save_project run here would
-    // (a) rewrite properties.json from `APInox-unified-v1` back to
-    // `APInox-v1` (demoting the project so the unified store no longer lists it)
-    // and (b) clobber tests/ + folders/ that the unified store owns. So the
-    // legacy save is a no-op for unified dirs — the legacy nested `interfaces/`
-    // is preserved on disk (non-destructive migration) for PROXY/WORKFLOWS to
-    // keep READING. Fully moving PROXY/WORKFLOWS writes onto the unified model
-    // is a separate follow-up (the full bulk/SoapUI/PROXY unified-model re-point).
+    // store (save_unified_project) is the canonical writer of properties.json +
+    // tests/ (the TESTS view edits suites through it). The legacy ProjectContext
+    // auto-loads migrated (unified-format) projects into its in-memory list and
+    // auto-saves them; letting the legacy save rewrite properties.json would
+    // demote the project from `APInox-unified-v1` back to `APInox-v1` (so the
+    // unified store stops listing it), and rewriting tests/ would clobber
+    // suites the unified store just wrote. So for unified dirs: skip
+    // properties + tests, but STILL write the nested `interfaces/` (PROXY
+    // "Add to APInox Project" adds requests into the nested model even on
+    // migrated projects) and `folders/` (PROXY folder-destination writes) —
+    // both co-exist with the unified flat-op layout in the same dir. Fully
+    // moving PROXY writes onto the unified model is a separate follow-up
+    // (the bulk/SoapUI/PROXY unified-model re-point).
     if is_unified_format_path(&dir) {
+        save_interfaces(&dir, &project)?;
+        save_folders(&dir, &project)?;
         return Ok(dir.to_string_lossy().to_string());
     }
 
@@ -1905,6 +1910,65 @@ mod tests {
             loaded["testSuites"].as_array().unwrap().len(), 1,
             "tests/ must not be clobbered by a legacy save"
         );
+
+        // The legacy nested model (PROXY "Add to APInox Project") must STILL be
+        // writable into a unified dir: save_project writes interfaces/ + folders/
+        // even for unified dirs (it only skips properties.json + tests/).
+        let proxy_write = serde_json::json!({
+            "name": "SaveGuard",
+            "id": "sg",
+            "interfaces": [
+                {
+                    "name": "ProxyIface",
+                    "type": "wsdl",
+                    "definition": "http://example.com/p.wsdl",
+                    "soapVersion": "1.1",
+                    "operations": [
+                        {
+                            "name": "ProxyOp",
+                            "action": "http://example.com/ProxyOp",
+                            "input": null,
+                            "output": null,
+                            "targetNamespace": "http://example.com",
+                            "originalEndpoint": "http://example.com/ProxyOp",
+                            "requests": [
+                                {
+                                    "name": "proxy_req",
+                                    "endpoint": "http://example.com/ProxyOp",
+                                    "request": "<proxy/>",
+                                    "id": "proxy-req-1"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "folders": [
+                { "id": "f1", "name": "ProxyFolder", "requests": [
+                    { "id": "f-req-1", "name": "folder_req", "request": "<f/>", "endpoint": "http://x" }
+                ] }
+            ]
+        });
+        save_project(proxy_write.clone()).await.expect("proxy save");
+
+        // The nested interface tree must be readable back through the legacy
+        // loader (this is exactly what PROXY/WORKFLOWS read).
+        let legacy_loaded = load_project(base.join("SaveGuard").to_string_lossy().into())
+            .await.expect("load legacy");
+        let ifaces = legacy_loaded["interfaces"].as_array().unwrap();
+        assert_eq!(ifaces.len(), 1, "legacy interfaces/ must be writable on unified dirs");
+        assert_eq!(ifaces[0]["name"], "ProxyIface");
+        assert_eq!(ifaces[0]["operations"][0]["name"], "ProxyOp");
+        let legacy_folders = legacy_loaded["folders"].as_array().unwrap();
+        assert_eq!(legacy_folders.len(), 1, "legacy folders/ must be writable on unified dirs");
+        assert_eq!(legacy_folders[0]["name"], "ProxyFolder");
+
+        // And the unified format must STILL be intact after the legacy save
+        // (not demoted, unified ops untouched).
+        let props_str2 = std::fs::read_to_string(base.join("SaveGuard").join("properties.json"))
+            .expect("properties.json still present");
+        let props2: serde_json::Value = serde_json::from_str(&props_str2).expect("parse props2");
+        assert_eq!(props2["format"], "APInox-unified-v1", "still unified after proxy save");
 
         std::env::remove_var("APINOX_CONFIG_DIR");
     }
