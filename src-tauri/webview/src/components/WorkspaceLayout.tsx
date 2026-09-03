@@ -20,12 +20,9 @@ import { DelayStepEditor } from './workspace/DelayStepEditor';
 import { ConditionStepEditor } from './workspace/ConditionStepEditor';
 import { LoopStepEditor } from './workspace/LoopStepEditor';
 import { ScriptStepEditor } from './workspace/ScriptStepEditor';
-import { EmptyProject, EmptyHistory } from './workspace/EmptyStates';
+import { EmptyHistory } from './workspace/EmptyStates';
 import { EmptyState } from './common/EmptyState';
-import { ProjectSummary } from './workspace/ProjectSummary';
-import { InterfaceSummary } from './workspace/InterfaceSummary';
 import { TestSuiteSummary } from './workspace/TestSuiteSummary';
-import { OperationSummary } from './workspace/OperationSummary';
 import { PerformanceSuiteEditor } from './workspace/PerformanceSuiteEditor';
 import { findPathToRequest } from '../utils/projectUtils';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -843,70 +840,11 @@ export const WorkspaceLayout: React.FC = () => {
         console.log('[WorkspaceLayout] Rendering workflow request step editor');
     }
 
-    // PROJECTS VIEW
-    if (activeView === SidebarView.PROJECTS) {
-        if (!activeRequest) {
-            if (selectedOperation) {
-                const handleCreateRequestFromSample = setProjects ? (sampleXml: string, metadata: {
-                    endpoint?: string;
-                    soapAction?: string;
-                    contentType?: string;
-                    targetNamespace?: string;
-                }) => {
-                    // Create new request from sample
-                    const newReqName = `${selectedOperation.name} ${selectedOperation.requests.length + 1}`;
-                    const newRequest: ApiRequest = {
-                        name: newReqName,
-                        request: sampleXml,
-                        id: crypto.randomUUID(),
-                        dirty: true,
-                        endpoint: metadata.endpoint || selectedOperation.originalEndpoint || '',
-                        contentType: metadata.contentType || 'text/xml; charset=utf-8',
-                        headers: {
-                            'Content-Type': metadata.contentType || 'text/xml; charset=utf-8'
-                        },
-                        requestType: 'soap',
-                        bodyType: 'xml'
-                    };
-
-                    // Add to operation
-                    setProjects(prev => prev.map(p => {
-                        let found = false;
-                        const newInterfaces = p.interfaces.map(i => {
-                            const newOps = i.operations.map(o => {
-                                if (o.name === selectedOperation.name) {
-                                    found = true;
-                                    return { ...o, requests: [...o.requests, newRequest], expanded: true };
-                                }
-                                return o;
-                            });
-                            return { ...i, operations: newOps };
-                        });
-
-                        if (found) {
-                            return { ...p, interfaces: newInterfaces, dirty: true };
-                        }
-                        return p;
-                    }));
-
-                    // Auto-select the new request
-                    if (navigationActions?.onSelectRequest) {
-                        navigationActions.onSelectRequest(newRequest);
-                    }
-                } : undefined;
-                
-                return <OperationSummary 
-                    operation={selectedOperation} 
-                    onSelectRequest={navigationActions?.onSelectRequest}
-                    onCreateRequestFromSample={handleCreateRequestFromSample}
-                />;
-            }
-            if (selectedInterface) return <InterfaceSummary interface={selectedInterface} onSelectOperation={navigationActions?.onSelectOperation} />;
-            if (selectedProject) return <ProjectSummary project={selectedProject} onSelectInterface={navigationActions?.onSelectInterface} />;
-            return <EmptyProject />;
-        }
-        // If request IS selected, fall through to Request Editor
-    }
+    // Phase B (t_86c34d38): the PROJECTS view was deleted. Its dedicated
+    // summary/empty-state rendering (OperationSummary / InterfaceSummary /
+    // ProjectSummary / EmptyProject + create-request-from-sample) is gone with
+    // it — the shared request editor below (fall-through) is now the only
+    // render path for non-UNIFIED views (TESTS steps, PROXY, HISTORY, ...).
 
     // PROXY VIEW
     if (activeView === SidebarView.PROXY) {
@@ -1090,16 +1028,8 @@ export const WorkspaceLayout: React.FC = () => {
                     value: v.value,
                     source: v.source
                 }) as PackageVariable)}
-                showBreadcrumb={activeView === SidebarView.PROJECTS}
-                breadcrumbPath={(() => {
-                    if (activeView !== SidebarView.PROJECTS) return [];
-                    const path: string[] = [];
-                    if (selectedProject) path.push(selectedProject.name);
-                    if (selectedInterface) path.push(selectedInterface.name);
-                    if (selectedOperation) path.push(selectedOperation.name);
-                    if (activeRequest) path.push(activeRequest.name);
-                    return path;
-                })()}
+                showBreadcrumb={false}
+                breadcrumbPath={[]}
                 onLog={(message, level = 'info') => {
                     console.log(`[${level.toUpperCase()}] ${message}`);
                 }}

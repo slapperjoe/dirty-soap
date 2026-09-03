@@ -46,7 +46,7 @@ interface UseTestCaseHandlersReturn {
     handleSelectTestCase: (caseId: string) => void;
     handleAddAssertion: (data: { xpath: string, expectedContent: string }) => void;
     handleAddExistenceAssertion: (data: { xpath: string }) => void;
-    handleGenerateTestSuite: (target: ApiInterface | ApiOperation) => void;
+    handleGenerateTestSuite: (target: ApiOperation) => void;
     handleRunTestCaseWrapper: (caseId: string) => void;
     handleRunTestSuiteWrapper: (suiteId: string) => void;
     handleSaveExtractor: (data: { xpath: string, value: string, source: 'body' | 'header', variableName: string, defaultValue?: string, editingId?: string, type?: 'XPath' | 'JSONPath' | 'Regex' | 'Header' }) => void;
@@ -254,46 +254,24 @@ export function useTestCaseHandlers({
         }
     }, [projects, selectedTestCase, selectedStep, setProjects, saveProject, setSelectedStep, setSelectedRequest]);
 
-    const handleGenerateTestSuite = useCallback((target: ApiInterface | ApiOperation) => {
+    const handleGenerateTestSuite = useCallback((target: ApiOperation) => {
         // Phase B (t_86c34d38): find the UNIFIED project containing this target.
         // The target is an ApiOperation (the unified context-menu "Generate Test
-        // Suite" item) or an ApiInterface (legacy); match it against the project's
-        // flat operations[] by reference or by name.
+        // Suite" item — relocated from the deleted PROJECTS view); match it
+        // against the project's flat operations[] by reference or by name.
         let targetProject: UnifiedProject | null = null;
-        // An ApiInterface carries an `operations[]` array; an ApiOperation does not.
-        const isOperation = !Array.isArray((target as any).operations);
         for (const p of projects) {
-            const op = (p.operations || []).find(o => o === target || o.name === (target as ApiOperation).name);
+            const op = (p.operations || []).find(o => o === target || o.name === target.name);
             if (op) {
                 targetProject = p;
                 break;
             }
-            // Interface targets (legacy path): match by project-level operation names.
-            if ((target as ApiInterface).operations) {
-                if ((target as ApiInterface).operations.some((o: any) => (p.operations || []).some(po => po.name === o.name))) {
-                    targetProject = p;
-                    break;
-                }
-            }
         }
         if (!targetProject) return;
 
-        // Identify Operations
-        let operationsToProcess: ApiOperation[] = [];
-        let baseName = '';
-        if (isOperation) {
-            operationsToProcess = [target as ApiOperation];
-            baseName = (target as ApiOperation).name;
-        } else {
-            // Interface target: generate for every operation in the project whose
-            // name matches the interface's operations (unified has no interfaces[]).
-            const ifaceOps = (target as ApiInterface).operations || [];
-            operationsToProcess = (targetProject.operations || []).filter(op =>
-                ifaceOps.some((o: any) => o.name === op.name)
-            );
-            baseName = (target as ApiInterface).name;
-        }
-        if (operationsToProcess.length === 0) return;
+        // Identify Operations (the single target operation)
+        let operationsToProcess: ApiOperation[] = [target];
+        let baseName = target.name;
 
         // Create Suite
         const newSuite: TestSuite = {

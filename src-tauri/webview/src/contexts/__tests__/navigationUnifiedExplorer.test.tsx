@@ -14,10 +14,11 @@
  *      `'explorer'` alias and `'unified_explorer'` both resolve to
  *      UNIFIED_EXPLORER — the old WSDL-explorer entry point now lands on the
  *      unified explorer.
- *   4. `'projects'` still resolves to PROJECTS (documented backward-compat
- *      target: the legacy ApinoxProject store stays reachable programmatically
- *      for the TESTS hand-off and legacy deep links — see audit §5/§6). This
- *      pins the load-bearing behavior so it is not accidentally dropped.
+ *   4. `'projects'` redirects to UNIFIED_EXPLORER (Phase B t_86c34d38 EXPLICIT
+ *      DECISION: the PROJECTS view + enum member are deleted; the legacy
+ *      deep-link key is retained for backward compat and resolves to the
+ *      sole project surface — see audit §5/§6). This pins the redirect so a
+ *      future change to it is deliberate.
  *   5. Other views (tests) are unaffected.
  *
  * This exercises the REAL NavigationProvider message handler + viewMap (no
@@ -126,7 +127,7 @@ describe('NavigationContext — unified explorer entry point (deep-link / direct
         );
     });
 
-    it('keeps the legacy "projects" deep-link resolving to PROJECTS (backward-compat target)', async () => {
+    it('redirects the legacy "projects" deep-link to the unified explorer (Phase B)', async () => {
         seedReturningUser();
         render(
             <NavigationProvider>
@@ -134,13 +135,15 @@ describe('NavigationContext — unified explorer entry point (deep-link / direct
             </NavigationProvider>,
         );
 
-        // The legacy store remains reachable programmatically (TESTS hand-off +
-        // legacy deep links). Pinned so a future cleanup does not silently
-        // strand it (audit §5/§6 — Phase B).
+        // Phase B (t_86c34d38) EXPLICIT DECISION: the PROJECTS view is deleted
+        // (the SidebarView.PROJECTS enum member is gone). The legacy 'projects'
+        // deep-link key is retained for backward compat and now resolves to
+        // the unified explorer — the sole project surface. Pinned so a future
+        // change to the redirect target is deliberate (audit §5/§6 — Phase B).
         await dispatchSwitchToView('projects');
 
         await waitFor(() =>
-            expect(screen.getByTestId('probe')).toHaveAttribute('data-active', SidebarView.PROJECTS),
+            expect(screen.getByTestId('probe')).toHaveAttribute('data-active', SidebarView.UNIFIED_EXPLORER),
         );
     });
 

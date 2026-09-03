@@ -37,7 +37,7 @@ describe('SidebarRail (workspace tab removal)', () => {
         expect(explorer.compareDocumentPosition(tests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it('activates the unified explorer, not the legacy view, when the first entry is clicked', () => {
+    it('activates the unified explorer when the first entry is clicked', () => {
         const onChangeView = vi.fn();
         const { container } = render(<SidebarRail {...baseProps} onChangeView={onChangeView} />);
 
@@ -46,20 +46,19 @@ describe('SidebarRail (workspace tab removal)', () => {
         fireEvent.click(firstItem);
 
         expect(onChangeView).toHaveBeenCalledWith(SidebarView.UNIFIED_EXPLORER);
-        expect(onChangeView).not.toHaveBeenCalledWith(SidebarView.PROJECTS);
     });
 
-    it('keeps the legacy view selectable via activeView without exposing a rail entry', () => {
+    it('renders no rail entry for a non-rail view (e.g. TESTS) via activeView', () => {
         const onChangeView = vi.fn();
         render(
             <SidebarRail
-                activeView={SidebarView.PROJECTS}
+                activeView={SidebarView.TESTS}
                 onChangeView={onChangeView}
             />,
         );
 
-        // No "Projects" entry exists to be active — the PROJECTS state remains
-        // reachable programmatically, just not via the rail.
+        // Views that are not exposed on the rail (TESTS, etc.) carry no
+        // active rail item — they are only reachable programmatically.
         expect(screen.queryByTitle('Projects')).not.toBeInTheDocument();
     });
 });

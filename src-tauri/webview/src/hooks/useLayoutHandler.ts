@@ -115,12 +115,6 @@ export const useLayoutHandler = ({
             return;
         }
 
-        if (view === SidebarView.PROJECTS) {
-            setSelectedTestCase(null);
-            setSelectedPerformanceSuiteId(null);
-            return;
-        }
-
         if (view === SidebarView.TESTS) {
             setSelectedPerformanceSuiteId(null);
             return;

@@ -62,11 +62,15 @@ export const NavigationProvider = ({ children }: { children: ReactNode }) => {
                     if (message.view) {
                         // Map string to SidebarView enum if necessary, or assume direct match
                         // The backend might send string 'explorer', 'tests', etc.
+                        // Phase B (t_86c34d38): the legacy PROJECTS view is
+                        // deleted. The 'projects' deep-link key is retained
+                        // (backward compat) and now resolves to the unified
+                        // explorer — the sole project surface.
                         const viewMap: Record<string, SidebarView> = {
                             'explorer': SidebarView.UNIFIED_EXPLORER,
                             'unified_explorer': SidebarView.UNIFIED_EXPLORER,
                             'home': SidebarView.HOME,
-                            'projects': SidebarView.PROJECTS,
+                            'projects': SidebarView.UNIFIED_EXPLORER,
                             'proxy': SidebarView.PROXY,
                             'mock': SidebarView.MOCK,
                             'watcher': SidebarView.WATCHER,

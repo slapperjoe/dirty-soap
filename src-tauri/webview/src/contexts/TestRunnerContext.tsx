@@ -26,7 +26,7 @@ interface TestRunnerContextType {
     handleSelectTestCase: (caseId: string) => void;
     handleAddAssertion: (data: { xpath: string, expectedContent: string }) => void;
     handleAddExistenceAssertion: (data: { xpath: string }) => void;
-    handleGenerateTestSuite: (target: ApiInterface | ApiOperation) => void;
+    handleGenerateTestSuite: (target: ApiOperation) => void;
     handleRunTestCaseWrapper: (caseId: string) => void;
     handleRunTestSuiteWrapper: (suiteId: string) => void;
     handleSaveExtractor: (data: { xpath: string, value: string, source: 'body' | 'header', variableName: string, defaultValue?: string, editingId?: string }) => void;

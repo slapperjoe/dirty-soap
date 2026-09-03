@@ -1,19 +1,22 @@
 /**
- * Legacy workspace-link regression test (t_1340c643).
+ * Legacy workspace-link regression test (t_1340c643, updated for Phase B
+ * t_86c34d38).
  *
- * Phase A (t_762df439) removed the Projects/Workspace *rail entry* but
- * deliberately did NOT redirect the legacy deep links (audit §5 note): they
- * carry legacy `ApinoxProject` selections the unified explorer cannot render,
- * so redirecting them would strand the selection. Those links remain
- * load-bearing for the TESTS view and legacy projects until Phase B
- * (migration + TESTS decoupling).
+ * Phase A (t_762df439) removed the Projects/Workspace *rail entry* and kept
+ * the legacy deep links load-bearing for the PROJECTS view (audit §5). Phase B
+ * (this card) DELETED the PROJECTS view after the product decision "abandon
+ * legacy", and ships an idempotent legacy→unified migration (migrated
+ * projects keep their operation/request ids, so legacy result ids still match
+ * unified node ids).
  *
- * This test pins that intentional behavior at the unit level so a future
- * cleanup neither silently strands a legacy selection nor breaks the
- * load-bearing hand-off: a `view === 'projects'` search result still navigates
- * to the legacy PROJECTS view (not the unified explorer). If the legacy link
- * is ever changed to redirect to UNIFIED_EXPLORER, this test FAILS and forces
- * the Phase-B decision to be made explicitly.
+ * [EXPLICIT DECISION — Phase B (t_86c34d38)]
+ * A `view === 'projects'` search/deep-link result now redirects to
+ * UNIFIED_EXPLORER (the sole project surface) and selects the migrated
+ * project's node in the unified tree. This was the "explicit decision" the
+ * original test was guarding: the legacy selection is no longer stranded
+ * because the migration preserves ids and the unified store now owns the
+ * suites. This test is updated DELIBERATELY to pin the new redirect — a
+ * future change to the redirect target must update this test on purpose.
  *
  * Only the `view === 'projects'` branch is asserted (the legacy link). The
  * other views are unaffected by the workspace-tab removal.
@@ -25,23 +28,26 @@ import { SidebarView } from '@shared/models';
 import { ProjectProvider } from '../ProjectContext';
 import { SelectionProvider } from '../SelectionContext';
 import { SearchProvider, useSearch } from '../SearchContext';
+import { UnifiedProjectProvider } from '../UnifiedProjectContext';
 import type { SearchResult } from '../../utils/workspaceSearch';
 
 // ── spies (vi.hoisted so they exist before the hoisted vi.mock factory) ─────
 const setActiveViewMock = vi.hoisted(() => vi.fn());
 
 // Replace useNavigation with a spy so we can observe which view a legacy link
-// targets, without mounting the full app. ProjectProvider/SelectionProvider stay
-// real (SearchProvider depends on useProject + useSelection).
+// targets, without mounting the full app. ProjectProvider/SelectionProvider/
+// UnifiedProjectProvider stay real (SearchProvider depends on useProject +
+// useSelection + useUnifiedProjects).
 vi.mock('../NavigationContext', () => ({
     useNavigation: () => ({ setActiveView: setActiveViewMock }),
 }));
 
-// Hermetic bridge: jsdom is not Tauri, so ProjectProvider's mount effect
+// Hermetic bridge: jsdom is not Tauri, so every provider's mount effect
 // (`if (!bridge.isTauri()) return;`) short-circuits — no backend calls.
 // NOTE: vi.mock specifiers resolve relative to THIS test file (src/contexts/
 // __tests__/), so the bridge at src/utils/bridge is '../../utils/bridge'.
 vi.mock('../../utils/bridge', () => ({
+    isTauri: () => false,
     bridge: {
         isTauri: () => false,
         sendMessage: vi.fn(),
@@ -53,7 +59,7 @@ vi.mock('../../utils/bridge', () => ({
     invokeTauriCommand: vi.fn(async () => ({})),
 }));
 
-/** A legacy workspace deep link: a search hit that lives in the PROJECTS view. */
+/** A legacy workspace deep link: a search hit that lives in the (deleted) PROJECTS view. */
 const legacyProjectsResult: SearchResult = {
     id: 'r-legacy',
     type: 'request',
@@ -102,9 +108,11 @@ const renderProbe = () =>
     render(
         <ProjectProvider>
             <SelectionProvider>
-                <SearchProvider>
-                    <LegacyLinkProbe />
-                </SearchProvider>
+                <UnifiedProjectProvider>
+                    <SearchProvider>
+                        <LegacyLinkProbe />
+                    </SearchProvider>
+                </UnifiedProjectProvider>
             </SelectionProvider>
         </ProjectProvider>,
     );
@@ -113,17 +121,17 @@ beforeEach(() => {
     setActiveViewMock.mockClear();
 });
 
-describe('Legacy workspace links (kept load-bearing per audit §5)', () => {
-    it('a legacy "projects" search result still navigates to the PROJECTS view', () => {
+describe('Legacy workspace links (Phase B: redirect to the unified explorer)', () => {
+    it('a legacy "projects" search result now redirects to the UNIFIED explorer (Phase B decision)', () => {
         renderProbe();
 
         fireEvent.click(screen.getByTestId('act-legacy'));
 
-        // Intentional current behavior: the legacy deep link targets PROJECTS
-        // (it carries a legacy selection the unified explorer cannot render).
-        expect(setActiveViewMock).toHaveBeenCalledWith(SidebarView.PROJECTS);
-        // ...and NOT the unified explorer (redirecting would strand the selection).
-        expect(setActiveViewMock).not.toHaveBeenCalledWith(SidebarView.UNIFIED_EXPLORER);
+        // Phase B (t_86c34d38) EXPLICIT DECISION: the PROJECTS view is deleted;
+        // legacy "projects" links resolve to the unified explorer (migrated
+        // projects keep their ids, so the selection is not stranded).
+        expect(setActiveViewMock).toHaveBeenCalledWith(SidebarView.UNIFIED_EXPLORER);
+        // ...and the legacy PROJECTS view no longer exists in the enum.
     });
 
     it('does not touch the unified explorer for a non-projects (tests) result', () => {

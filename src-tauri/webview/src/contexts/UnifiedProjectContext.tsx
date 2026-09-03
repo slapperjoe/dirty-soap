@@ -22,6 +22,15 @@ interface UnifiedProjectContextValue {
     projects: UnifiedProject[];
     setProjects: React.Dispatch<React.SetStateAction<UnifiedProject[]>>;
 
+    /**
+     * The unified explorer's selected tree node (project/operation/request).
+     * Lifted here (Phase B, t_86c34d38) so the search deep-link
+     * (SearchContext) can drive unified-explorer selection — previously it was
+     * MainContent-local state unreachable from search.
+     */
+    selectedNode: { type: string; id: string } | null;
+    setSelectedNode: React.Dispatch<React.SetStateAction<{ type: string; id: string } | null>>;
+
     /** Load the unified project list from the backend (list_unified_projects). */
     refresh: () => Promise<void>;
 
@@ -57,6 +66,9 @@ export function useUnifiedProjects(): UnifiedProjectContextValue {
 
 export function UnifiedProjectProvider({ children }: { children: ReactNode }) {
     const [projects, setProjects] = useState<UnifiedProject[]>([]);
+    // Phase B (t_86c34d38): unified-explorer node selection lives here (was
+    // MainContent-local) so search results can select into the unified tree.
+    const [selectedNode, setSelectedNode] = useState<{ type: string; id: string } | null>(null);
 
     const refresh = useCallback(async () => {
         if (!isTauri()) return;
@@ -162,7 +174,7 @@ export function UnifiedProjectProvider({ children }: { children: ReactNode }) {
     }, [projects]);
 
     return (
-        <UnifiedProjectContext.Provider value={{ projects, setProjects, refresh, saveProject, updateProject, findSuiteById, findCaseById }}>
+        <UnifiedProjectContext.Provider value={{ projects, setProjects, selectedNode, setSelectedNode, refresh, saveProject, updateProject, findSuiteById, findCaseById }}>
             {children}
         </UnifiedProjectContext.Provider>
     );

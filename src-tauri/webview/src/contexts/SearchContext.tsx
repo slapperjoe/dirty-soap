@@ -15,11 +15,13 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useProject } from './ProjectContext';
 import { useSelection } from './SelectionContext';
 import { useNavigation } from './NavigationContext';
+import { useUnifiedProjects } from './UnifiedProjectContext';
 import { SidebarView } from '@shared/models';
 import {
     SearchResult,
     SearchOptions,
-    searchWorkspace,
+    searchProjects,
+    searchTests,
 } from '../utils/workspaceSearch';
 import { DEBOUNCE_MS, TREE_NAV_DELAY_MS } from '../constants';
 
@@ -90,6 +92,16 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
         ensureOperationExpanded,
         setSelectedProjectName 
     } = useProject();
+
+    // Phase B (t_86c34d38): the PROJECTS view is gone — "projects" search
+    // results now navigate the UNIFIED explorer (migrated projects). The
+    // unified list + node selection live in UnifiedProjectContext.
+    const {
+        projects: unifiedProjects,
+        setSelectedNode: setUnifiedNode,
+    } = useUnifiedProjects();
+    const unifiedProjectsRef = useRef(unifiedProjects);
+    useEffect(() => { unifiedProjectsRef.current = unifiedProjects; }, [unifiedProjects]);
     
     const {
         setSelectedInterface,
@@ -106,10 +118,6 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
     // -------------------------------------------------------------------------
 
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    // Stable ref to projects — lets navigateToResult read the latest projects
-    // without being recreated on every projects change.
-    const projectsRef = useRef(projects);
-    useEffect(() => { projectsRef.current = projects; }, [projects]);
 
     // -------------------------------------------------------------------------
     // SEARCH LOGIC
@@ -128,15 +136,21 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
         setIsSearching(true);
 
         try {
-            const results = searchWorkspace(
-                query.trim(),
-                projects,
-                {
-                    maxResults: 50,
-                    minScore: 0,
-                    ...options,
-                }
-            );
+            // Phase B (t_86c34d38): two sources —
+            //  • "projects" (operations/folders): the legacy nested model the
+            //    searchProjects util walks (migrated projects keep their
+            //    interfaces/ tree, so this still covers them).
+            //  • "tests" (suites/cases): the UNIFIED store — test suites were
+            //    relocated to UnifiedProject.testSuites in Phase B, so the
+            //    legacy copy (loaded once at startup) goes stale after the
+            //    first TESTS edit and must not be the search source.
+            const maxResults = 50;
+            const minScore = 0;
+            const projectResults = searchProjects(query.trim(), projects, { maxResults, minScore, ...options });
+            const testResults = searchTests(query.trim(), unifiedProjects, { maxResults, minScore, ...options });
+            const results = [...projectResults, ...testResults]
+                .sort((a, b) => b.score - a.score)
+                .slice(0, maxResults);
 
             setSearchResults(results);
             setSelectedIndex(0); // Reset selection to first result
@@ -146,7 +160,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
         } finally {
             setIsSearching(false);
         }
-    }, [projects]);
+    }, [projects, unifiedProjects]);
 
     /**
      * Set search query with debouncing
@@ -193,61 +207,40 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
         const { data, type, view } = result;
 
         if (view === 'projects') {
-            setActiveView(SidebarView.PROJECTS);
-            
-            const { projectName, interface: iface, operation, request } = data;
+            // Phase B (t_86c34d38): the PROJECTS view is deleted. These
+            // results now navigate the UNIFIED explorer (migrated projects —
+            // the non-destructive migration preserves operation/request ids,
+            // so the unified node ids below still match the legacy result ids).
+            // [EXPLICIT DECISION — legacyLinksUnifiedExplorer.test.tsx is
+            // updated deliberately to pin this redirect.]
+            setActiveView(SidebarView.UNIFIED_EXPLORER);
+
+            const { projectName, operation, request } = data;
+            if (!projectName) return;
 
             setTimeout(() => {
-                if (projectName) {
-                    setSelectedProjectName(projectName);
-                    ensureProjectExpanded(projectName);
+                const project = unifiedProjectsRef.current.find(p => p.name === projectName);
+                if (!project) {
+                    console.warn(`[SearchContext] Unified project not found for search result: ${projectName}`);
+                    return;
                 }
 
-                setTimeout(() => {
-                    switch (type) {
-                        case 'interface':
-                            if (iface && projectName) {
-                                ensureInterfaceExpanded(projectName, iface.name);
-                                setSelectedInterface(iface);
-                                setSelectedOperation(null);
-                                setSelectedRequest(null);
-                            }
-                            break;
+                // Operation node (request results carry their parent operation
+                // in `data.operation`, so both resolve through it).
+                let op: import('@shared/models').ApiOperation | null = null;
+                if ((type === 'operation' || type === 'request') && operation) {
+                    op = (project.operations || []).find(o => o.id === operation.id || o.name === operation.name) || null;
+                }
 
-                        case 'operation':
-                            if (operation && iface && projectName) {
-                                ensureInterfaceExpanded(projectName, iface.name);
-                                setTimeout(() => {
-                                    ensureOperationExpanded(projectName, iface.name, operation.name);
-                                    setSelectedInterface(iface);
-                                    setSelectedOperation(operation);
-                                    setSelectedRequest(null);
-                                }, TREE_NAV_DELAY_MS);
-                            }
-                            break;
-
-                        case 'request':
-                            if (request && operation && iface && projectName) {
-                                ensureInterfaceExpanded(projectName, iface.name);
-                                setTimeout(() => {
-                                    ensureOperationExpanded(projectName, iface.name, operation.name);
-                                    setTimeout(() => {
-                                        setSelectedInterface(iface);
-                                        setSelectedOperation(operation);
-                                        setSelectedRequest(request);
-                                    }, TREE_NAV_DELAY_MS);
-                                }, TREE_NAV_DELAY_MS);
-                            }
-                            break;
-
-                        case 'folder':
-                            // TODO: Implement folder navigation
-                            break;
-
-                        default:
-                            console.warn(`[SearchContext] Unknown result type: ${type}`);
-                    }
-                }, TREE_NAV_DELAY_MS);
+                if (type === 'request' && request && op) {
+                    const reqId = request.id || request.name;
+                    setUnifiedNode({ type: 'request', id: reqId });
+                } else if (type === 'operation' && op) {
+                    setUnifiedNode({ type: 'operation', id: op.id || op.name });
+                } else {
+                    // interface / folder / project / unknown: land on the project node
+                    setUnifiedNode({ type: 'project', id: project.id || project.name });
+                }
             }, TREE_NAV_DELAY_MS);
         } else if (view === 'tests') {
             setActiveView(SidebarView.TESTS);
@@ -255,7 +248,8 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
 
             setTimeout(() => {
                 if (projectName && testSuiteId) {
-                    const project = projectsRef.current.find(p => p.name === projectName);
+                    // Phase B (t_86c34d38): suites live on the unified store.
+                    const project = unifiedProjectsRef.current.find(p => p.name === projectName);
                     if (project) {
                         const testSuite = project.testSuites?.find(s => s.id === testSuiteId);
                         if (testSuite) {
@@ -286,6 +280,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
         setSelectedRequest,
         setSelectedTestSuite,
         setSelectedTestCase,
+        setUnifiedNode,
     ]);
 
     /**

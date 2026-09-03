@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { SidebarView } from '@shared/models';
 
 // Components
-import { ProjectList } from './sidebar/ProjectList';
 import { TestsUi } from './sidebar/TestsUi';
 import { WorkflowsUi } from './sidebar/WorkflowsUi';
 import { PerformanceUi } from './sidebar/PerformanceUi';
@@ -72,14 +71,11 @@ export const Sidebar: React.FC = () => {
         document.addEventListener('mouseup', handleResizeEnd);
     };
     const {
-        projectProps,
-        selectionProps,
         testsProps,
         workflowsProps,
         performanceProps,
         historyProps,
         unifiedProps,
-        workspaceDirty,
         onOpenSettings,
         onOpenHelp,
         activeView,
@@ -93,17 +89,10 @@ export const Sidebar: React.FC = () => {
         hasUpdate,
     } = useSidebarContext();
 
-    // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
-    const { projects, savedProjects, loadProject, saveProject, onUpdateProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, expandAll, collapseAll, reorderItems, reorderOperations, reorderRequests, onDeleteInterface, onDeleteOperation, onAddFolder, onAddRequestToFolder, onDeleteFolder, onToggleFolderExpand, onRefreshInterface, onExportWorkspace, onBulkImport, onImportSoapUI } = projectProps;
-
-    const {
-        selectedProjectName, setSelectedProjectName,
-        selectedInterface, setSelectedInterface,
-        selectedOperation, setSelectedOperation,
-        selectedRequest, setSelectedRequest,
-        setResponse, handleContextMenu, onAddRequest, onDeleteRequest,
-        deleteConfirm, setDeleteConfirm
-    } = selectionProps;
+    // Phase B (t_86c34d38): the PROJECTS view (ProjectList) was deleted —
+    // projectProps / the selectionProps destructures it consumed are gone with
+    // it. The remaining sidebar children (Tests/Workflows/Performance/
+    // History/Unified) use their own prop groups below.
 
     const proxyFullPanelView = activeView === SidebarView.PROXY || activeView === SidebarView.MOCK || activeView === SidebarView.WATCHER;
     const historyEmpty = activeView === SidebarView.HISTORY && (!historyProps || historyProps.history.length === 0);
@@ -170,55 +159,6 @@ export const Sidebar: React.FC = () => {
                     />
                 )}
 
-                {activeView === SidebarView.PROJECTS && (
-                    <ProjectList
-                        projects={projects}
-                        savedProjects={savedProjects}
-                        saveErrors={projectProps.saveErrors}
-                        setSaveErrors={projectProps.setSaveErrors}
-                        workspaceDirty={workspaceDirty}
-                        onAddProject={onAddProject}
-                        loadProject={loadProject}
-                        saveProject={saveProject}
-                        onUpdateProject={onUpdateProject}
-                        closeProject={closeProject}
-                        toggleProjectExpand={toggleProjectExpand}
-                        toggleInterfaceExpand={toggleInterfaceExpand}
-                        toggleOperationExpand={toggleOperationExpand}
-                        expandAll={expandAll}
-                        collapseAll={collapseAll}
-                        reorderItems={reorderItems}
-                        reorderOperations={reorderOperations}
-                        reorderRequests={reorderRequests}
-
-                        selectedProjectName={selectedProjectName}
-                        setSelectedProjectName={setSelectedProjectName}
-                        selectedInterface={selectedInterface}
-                        setSelectedInterface={setSelectedInterface}
-                        selectedOperation={selectedOperation}
-                        setSelectedOperation={setSelectedOperation}
-                        selectedRequest={selectedRequest}
-                        setSelectedRequest={setSelectedRequest}
-                        setResponse={setResponse}
-
-                        handleContextMenu={handleContextMenu}
-                        onAddRequest={onAddRequest}
-                        onDeleteInterface={onDeleteInterface}
-                        onDeleteOperation={onDeleteOperation}
-                        onDeleteRequest={onDeleteRequest}
-                        onAddFolder={onAddFolder}
-                        onAddRequestToFolder={onAddRequestToFolder}
-                        onDeleteFolder={onDeleteFolder}
-                        onToggleFolderExpand={onToggleFolderExpand}
-                        deleteConfirm={deleteConfirm}
-                        setDeleteConfirm={setDeleteConfirm}
-                        onRefreshInterface={onRefreshInterface}
-                        onExportWorkspace={onExportWorkspace}
-                        onBulkImport={onBulkImport}
-                        onImportSoapUI={onImportSoapUI}
-                    />
-                )}
-
                 {activeView === SidebarView.NOTES && (
                     <NotesList />
                 )}
@@ -238,6 +178,11 @@ export const Sidebar: React.FC = () => {
                             onRenameOperation={unifiedProps.onRenameOperation}
                             onRenameRequest={unifiedProps.onRenameRequest}
                             onExportProject={unifiedProps.onExportProject}
+                            onExportWorkspace={unifiedProps.onExportWorkspace}
+                            onBulkImport={unifiedProps.onBulkImport}
+                            onImportSoapUI={unifiedProps.onImportSoapUI}
+                            onGenerateTestSuite={unifiedProps.onGenerateTestSuite}
+                            onAddRequestToTestCase={unifiedProps.onAddRequestToTestCase}
                             onReorderOperation={unifiedProps.onReorderOperation}
                             onReorderRequest={unifiedProps.onReorderRequest}
                             scrapbook={unifiedProps.scrapbook}

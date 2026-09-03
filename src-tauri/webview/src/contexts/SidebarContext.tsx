@@ -11,8 +11,6 @@
 import { createContext, useContext } from 'react';
 import type { SidebarView } from '@shared/models';
 import type {
-    SidebarProjectProps,
-    SidebarSelectionProps,
     SidebarTestsProps,
     SidebarWorkflowsProps,
     SidebarPerformanceProps,
@@ -22,8 +20,9 @@ import type {
 
 export interface SidebarContextValue {
     // ==================== PROP GROUPS (passed to sub-components) ====================
-    projectProps: SidebarProjectProps;
-    selectionProps: SidebarSelectionProps;
+    // Phase B (t_86c34d38): SidebarProjectProps / SidebarSelectionProps (projectProps,
+    // selectionProps) were deleted with the PROJECTS view (ProjectList). The remaining
+    // sidebar children (tests/workflows/performance/history/unified) use their own groups.
     testsProps: SidebarTestsProps;
     workflowsProps?: SidebarWorkflowsProps;
     performanceProps?: SidebarPerformanceProps;
@@ -37,7 +36,9 @@ export interface SidebarContextValue {
 
     // ==================== GLOBAL STATE ====================
     backendConnected: boolean;
-    workspaceDirty?: boolean;
+    // Phase B (t_86c34d38): workspaceDirty was removed — its only sidebar
+    // consumer (the deleted ProjectList view) is gone; MainContent still
+    // manages the dirty flag for auto-save via ProjectContext.
     showBackendStatus?: boolean;
     onSaveUiState?: () => void;
     onOpenSettings?: () => void;

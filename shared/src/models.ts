@@ -515,7 +515,10 @@ export interface WatcherEvent {
 
 export enum SidebarView {
     HOME = 'home',
-    PROJECTS = 'projects',
+    // Phase B (t_86c34d38): the legacy PROJECTS view was deleted. Its
+    // `PROJECTS = 'projects'` member is gone; the 'projects' string still
+    // appears as a search-result view label (workspaceSearch) and as the
+    // NavigationContext deep-link key (now mapping to UNIFIED_EXPLORER).
     UNIFIED_EXPLORER = 'unified_explorer', // Merged projects + explorer (primary explorer surface)
     TESTS = 'tests',
     WORKFLOWS = 'workflows', // NEW: Request chaining workflows

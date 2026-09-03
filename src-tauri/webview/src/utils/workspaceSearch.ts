@@ -393,11 +393,15 @@ export function searchProjects(
 // =============================================================================
 
 /**
- * Search within test suites and test cases
+ * Search within test suites and test cases.
+ *
+ * Phase B (t_86c34d38): structural param type — suites were relocated to the
+ * UNIFIED store (UnifiedProject.testSuites), so this walks `testSuites` on
+ * either the legacy or unified project model (both carry `name` + `testSuites`).
  */
 export function searchTests(
     query: string,
-    projects: ApinoxProject[],
+    projects: Array<{ name: string; testSuites?: TestSuite[] }>,
     options: SearchOptions = {}
 ): SearchResult[] {
     const results: SearchResult[] = [];

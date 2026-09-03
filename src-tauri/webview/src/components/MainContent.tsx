@@ -1,9 +1,8 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
-import { Container, ContextMenu, ContextMenuItem } from '../styles/App.styles';
+import { Container } from '../styles/App.styles';
 import { bridge, isTauri } from '../utils/bridge';
-import { updateProjectWithRename } from '../utils/projectUtils';
 import { captureLog } from '../utils/logger';
 import { generateInitialXmlForOperation, soapDefault, rewriteRequestsForContentTypeChange } from '../utils/soapUtils';
 import { Sidebar } from './Sidebar';
@@ -25,7 +24,6 @@ import { useUnifiedProjects } from '../contexts/UnifiedProjectContext';
 import { usePerformance } from '../contexts/PerformanceContext';
 import { useTestRunner } from '../contexts/TestRunnerContext';
 import { useScrapbook } from '../contexts/ScrapbookContext';
-import { useContextMenu } from '../hooks/useContextMenu';
 import { useSidebarCallbacks } from '../hooks/useSidebarCallbacks';
 import { useWorkspaceCallbacks } from '../hooks/useWorkspaceCallbacks';
 import { useAppLifecycle } from '../hooks/useAppLifecycle';
@@ -72,9 +70,6 @@ const AddToTestCaseModal = React.lazy(() =>
 const ConfirmationModal = React.lazy(() =>
     import('./modals/ConfirmationModal').then(module => ({ default: module.ConfirmationModal }))
 );
-const RenameModal = React.lazy(() =>
-    import('./modals/RenameModal').then(module => ({ default: module.RenameModal }))
-);
 const ExtractorModal = React.lazy(() =>
     import('./modals/ExtractorModal').then(module => ({ default: module.ExtractorModal }))
 );
@@ -105,10 +100,6 @@ const BulkImportModal = React.lazy(() =>
 const ImportTestCaseModal = React.lazy(() =>
     import('./ImportTestCaseModal').then(module => ({ default: module.ImportTestCaseModal }))
 );
-
-const DangerMenuItem = styled(ContextMenuItem)`
-    color: var(--apinox-errorForeground);
-`;
 
 const MainContent: React.FC = () => {
     // ==========================================================================
@@ -247,9 +238,12 @@ const MainContent: React.FC = () => {
         // add-to-test-case) persists through the UNIFIED store — the unified
         // saveProject (save_unified_project) is distinct from the legacy one
         // (save_project) that the rest of the workspace still uses.
-        saveProject: saveUnifiedProject
+        saveProject: saveUnifiedProject,
+        // Phase B (t_86c34d38): unified-explorer node selection is lifted into
+        // the context so the search deep-link can drive it.
+        selectedNode: unifiedSelectedNode,
+        setSelectedNode: setUnifiedSelectedNode
     } = useUnifiedProjects();
-    const [unifiedSelectedNode, setUnifiedSelectedNode] = useState<{ type: string; id: string } | null>(null);
     
     // Unified Explorer Handlers
     const handleUnifiedSelectNode = useCallback((type: string, id: string) => {
@@ -651,11 +645,8 @@ const MainContent: React.FC = () => {
 
     // Keyboard shortcut: Ctrl+Shift+D to open debug modal
     useEffect(() => {
-        // If we switch TO Projects/Explorer view, and have a perf request selected -> Clear it
-        if (activeView === SidebarView.PROJECTS && selectedRequest?.id && selectedRequest.id.startsWith(PERF_REQUEST_ID_PREFIX)) {
-            setSelectedRequest(null);
-        }
-
+        // Phase B (t_86c34d38): the PROJECTS view is deleted; the TESTS guard
+        // below still clears leaked perf selections on view switches.
         // Tests view handles its own selection logic via useTestCaseHandlers usually, but safely:
         if (activeView === SidebarView.TESTS && selectedRequest?.id && selectedRequest.id.startsWith(PERF_REQUEST_ID_PREFIX)) {
             setSelectedRequest(null);
@@ -798,72 +789,10 @@ const MainContent: React.FC = () => {
         saveProject(newProject);
     }, [setProjects, saveProject]);
 
-    // ==========================================================================
-    // CONTEXT MENU - from useContextMenu hook
-    // ==========================================================================
-    const {
-        contextMenu,
-        renameState,
-        setRenameState,
-        handleContextMenu,
-        closeContextMenu,
-        handleRename,
-        handleDeleteRequest: _handleDeleteRequest,
-        handleCloneRequest,
-        handleAddRequest,
-        handleDeleteInterface: _handleDeleteInterface,
-        handleDeleteOperation: _handleDeleteOperation,
-        handleExportNative,
-        handleCopyUrl,
-        handleCopyRequestXml,
-        handleCopyResponseXml
-    } = useContextMenu({
-        setProjects,
-        saveProject,
-        setWorkspaceDirty,
-        selectedInterface,
-        selectedOperation,
-        setSelectedInterface,
-        setSelectedOperation,
-        setSelectedRequest,
-        setResponse
-    });
-
-    // Cleanup wrappers for Project structure
-    const handleDeleteInterface = (iface: import('@shared/models').ApiInterface) => {
-        _handleDeleteInterface(iface);
-        // If selected interface matches, or selected operation/request belongs to it
-        if (selectedInterface?.name === iface.name) {
-            setSelectedInterface(null);
-            // Operations and requests will be cleared by cascading logic or explicitly?
-            // Safer to clear all if we are viewing the deleted interface's subtree
-            setSelectedOperation(null);
-            setSelectedRequest(null);
-        }
-        // Also check if selected operation belongs to this interface (if we didn't have interface selected directly)
-        // ... (Checking strictly by name might be risky if duplicates allowed, but names are usually unique per project)
-    };
-
-    const handleDeleteOperation = (op: import('@shared/models').ApiOperation, iface: import('@shared/models').ApiInterface) => {
-        _handleDeleteOperation(op, iface);
-        if (selectedOperation?.name === op.name) {
-            setSelectedOperation(null);
-            setSelectedRequest(null);
-        }
-        // If a request of this operation is selected
-        if (selectedRequest && op.requests.some(r => r.id === selectedRequest.id)) {
-            setSelectedRequest(null);
-        }
-    };
-
-    const handleDeleteRequest = (req?: import('@shared/models').ApiRequest) => {
-        const target = req || (contextMenu?.type === 'request' ? contextMenu.data as import('@shared/models').ApiRequest : null);
-        _handleDeleteRequest(req);
-
-        if (target && selectedRequest?.id === target.id) {
-            setSelectedRequest(null);
-        }
-    };
+    // Phase B (t_86c34d38): the legacy shared context menu (useContextMenu)
+    // and its Project-structure delete wrappers were deleted with the
+    // PROJECTS view — the unified explorer has its own context menu
+    // (UnifiedExplorerSidebar) and its own handlers.
 
     // ==========================================================================
     // CONTEXT - Test Runner state from TestRunnerContext
@@ -1692,67 +1621,8 @@ const MainContent: React.FC = () => {
     // SIDEBAR CONTEXT VALUE - Aggregates all state for the Sidebar subtree
     // ==========================================================================
     const sidebarContextValue = useMemo(() => ({
-        projectProps: {
-            projects,
-            savedProjects,
-            saveErrors,
-            setSaveErrors,
-            loadProject: () => loadProject(),
-            saveProject,
-            onUpdateProject: handleUpdateProject,
-            closeProject: handleCloseProject,
-            onAddProject: addProject,
-            toggleProjectExpand,
-            toggleInterfaceExpand,
-            toggleOperationExpand,
-            expandAll,
-            collapseAll,
-            reorderItems,
-            reorderOperations,
-            reorderRequests,
-            onDeleteInterface: handleDeleteInterface,
-            onDeleteOperation: handleDeleteOperation,
-            onAddFolder: handleAddFolder,
-            onAddRequestToFolder: handleAddRequestToFolder,
-            onDeleteFolder: handleDeleteFolder,
-            onToggleFolderExpand: handleToggleFolderExpand,
-            onRefreshInterface: handleRefreshWsdl,
-            onExportWorkspace: () => setExportWorkspaceModal(true),
-            onBulkImport: () => setShowBulkImportModal(true),
-            onImportSoapUI: async () => {
-                if (bridge.isTauri()) {
-                    const { open } = await import('@tauri-apps/plugin-dialog');
-                    const selected = await open({
-                        multiple: false,
-                        directory: false,
-                        filters: [{ name: 'SoapUI Workspace or Project', extensions: ['xml'] }],
-                        title: 'Import SoapUI Workspace or Project',
-                    });
-                    if (selected) {
-                        await loadProject(selected as string);
-                    }
-                }
-            },
-        },
-        selectionProps: {
-            selectedProjectName,
-            setSelectedProjectName,
-            selectedInterface,
-            setSelectedInterface,
-            selectedOperation,
-            setSelectedOperation,
-            selectedRequest,
-            setSelectedRequest: (req: import('@shared/models').ApiRequest | null) => {
-                setSelectedRequest(req);
-                setSelectedTestCase(null);
-            },
-            setResponse,
-            handleContextMenu,
-            onAddRequest: handleAddRequest,
-            onDeleteRequest: handleDeleteRequest,
-            deleteConfirm,
-            setDeleteConfirm,
-        },
+        // Phase B (t_86c34d38): projectProps / selectionProps (which fed the
+        // deleted ProjectList view + the legacy shared context menu) are gone.
         testsProps: {
             // Phase B (t_86c34d38): the TESTS suite tree renders from the
             // UNIFIED store (suites relocated to UnifiedProject.testSuites).
@@ -1823,6 +1693,27 @@ const MainContent: React.FC = () => {
             onRenameOperation: handleUnifiedRenameOperation,
             onRenameRequest: handleUnifiedRenameRequest,
             onExportProject: handleUnifiedExport,
+            // Phase B (t_86c34d38): import/export + generate-test-suite relocated
+            // from the deleted PROJECTS view (ProjectList) onto the unified
+            // sidebar context menu.
+            onExportWorkspace: () => setExportWorkspaceModal(true),
+            onBulkImport: () => setShowBulkImportModal(true),
+            onImportSoapUI: async () => {
+                if (bridge.isTauri()) {
+                    const { open } = await import('@tauri-apps/plugin-dialog');
+                    const selected = await open({
+                        multiple: false,
+                        directory: false,
+                        filters: [{ name: 'SoapUI Workspace or Project', extensions: ['xml'] }],
+                        title: 'Import SoapUI Workspace or Project',
+                    });
+                    if (selected) {
+                        await loadProject(selected as string);
+                    }
+                }
+            },
+            onGenerateTestSuite: handleGenerateTestSuite,
+            onAddRequestToTestCase: (req: ApiRequest) => setAddToTestCaseModal({ open: true, request: req }),
             onReorderOperation: handleUnifiedReorderOperation,
             onReorderRequest: handleUnifiedReorderRequest,
             // F-01 / R-05 — Quick Requests bottom section (Q1(a))
@@ -1852,18 +1743,12 @@ const MainContent: React.FC = () => {
         onMobileClose: isMobilePlatform ? () => setIsMobileDrawerOpen(false) : undefined,
         hasUpdate,
     }), [
-        projects, savedProjects, saveErrors, setSaveErrors, loadProject, saveProject,
-        handleUpdateProject, handleCloseProject, addProject,
-        toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand,
-        expandAll, collapseAll, reorderItems,
-        handleDeleteInterface, handleDeleteOperation,
-        handleAddFolder, handleAddRequestToFolder, handleDeleteFolder, handleToggleFolderExpand,
-        handleRefreshWsdl, setExportWorkspaceModal, setShowBulkImportModal,
-        selectedProjectName, setSelectedProjectName,
-        selectedInterface, setSelectedInterface,
-        selectedOperation, setSelectedOperation,
-        selectedRequest, setSelectedRequest, setSelectedTestCase, setResponse,
-        handleContextMenu, handleAddRequest, handleDeleteRequest, deleteConfirm, setDeleteConfirm,
+        // Phase B (t_86c34d38): the projectProps / selectionProps entries above
+        // were removed with the deleted PROJECTS view; the remaining deps cover
+        // testsProps / workflowsProps / performanceProps / historyProps /
+        // unifiedProps and the view-state fields.
+        loadProject, saveProject,
+        deleteConfirm, setDeleteConfirm, setExportWorkspaceModal, setShowBulkImportModal,
         handleAddSuite, handleDeleteSuite, handleRunTestSuiteWrapper,
         handleAddTestCase, handleDeleteTestCase, handleRenameTestCase,
         handleRunTestCaseWrapper, handleSelectTestSuite, handleSelectTestCase,
@@ -1881,6 +1766,7 @@ const MainContent: React.FC = () => {
         handleUnifiedRenameProject, handleUnifiedRenameOperation, handleUnifiedRenameRequest,
         handleUnifiedProjectContentTypeChange,
         handleUnifiedExport, handleUnifiedReorderOperation, handleUnifiedReorderRequest,
+        loadProject, handleGenerateTestSuite,
         scrapbookRequests, selectedScrapbookRequest, scrapbookLoading,
         handleUnifiedScrapbookCreate, handleUnifiedScrapbookSelect,
         handleUnifiedScrapbookDelete, handleUnifiedScrapbookExecute,
@@ -1891,7 +1777,7 @@ const MainContent: React.FC = () => {
     ]);
 
     return (
-        <Container onClick={closeContextMenu} $showCustomTitleBar={showCustomTitleBar} $isMacOS={platformOS === 'macos'} $isMobile={isMobilePlatform} $isAndroid={platformOS === 'android'}>
+        <Container $showCustomTitleBar={showCustomTitleBar} $isMacOS={platformOS === 'macos'} $isMobile={isMobilePlatform} $isAndroid={platformOS === 'android'}>
             {/* Mobile header bar — replaces desktop TitleBar on Android/iOS */}
             {isMobilePlatform && (
                 <div className="mobile-header">
@@ -2113,96 +1999,10 @@ const MainContent: React.FC = () => {
                     )
                 }
             </Suspense>
-            {
-                contextMenu && (
-                    <ContextMenu top={contextMenu.y} left={contextMenu.x}>
-                        {(contextMenu.type === 'request' || contextMenu.type === 'project' || contextMenu.type === 'folder') && (
-                            <ContextMenuItem onClick={handleRename}>Rename</ContextMenuItem>
-                        )}
-                        {!contextMenu.isExplorer && contextMenu.type === 'request' && (
-                            <>
-                                <ContextMenuItem onClick={handleCopyUrl}>Copy URL</ContextMenuItem>
-                                <ContextMenuItem onClick={handleCopyRequestXml}>Copy Request XML</ContextMenuItem>
-                                <ContextMenuItem onClick={handleCopyResponseXml}>Copy Response XML</ContextMenuItem>
-                                <ContextMenuItem onClick={handleCloneRequest}>Clone Request</ContextMenuItem>
-                                {/* Code snippet temporarily disabled during package migration
-                                <ContextMenuItem onClick={() => {
-                                    if (contextMenu) {
-                                        setCodeSnippetModal({ open: true, request: contextMenu.data as ApiRequest });
-                                        closeContextMenu();
-                                    }
-                                }}>Copy as Code...</ContextMenuItem>
-                                */}
-                                <ContextMenuItem onClick={() => {
-                                    if (contextMenu) {
-                                        setAddToTestCaseModal({ open: true, request: contextMenu.data as ApiRequest });
-                                        closeContextMenu();
-                                    }
-                                }}>Add to Test Case</ContextMenuItem>
-                                <DangerMenuItem onClick={() => handleDeleteRequest()}>Delete</DangerMenuItem>
-                            </>
-                        )}
-                        {(contextMenu.type === 'operation') && (
-                            <>
-                                <ContextMenuItem onClick={handleCopyRequestXml}>Copy Request XML</ContextMenuItem>
-                                <ContextMenuItem onClick={() => handleGenerateTestSuite(contextMenu.data)}>Generate Test Suite</ContextMenuItem>
-                                <ContextMenuItem onClick={() => handleAddRequest()}>Add Request</ContextMenuItem>
-                            </>
-                        )}
-                        {(contextMenu.type === 'interface') && (
-                            <>
-                                <ContextMenuItem onClick={handleRename}>Rename</ContextMenuItem>
-                                <ContextMenuItem onClick={() => handleGenerateTestSuite(contextMenu.data)}>Generate Test Suite</ContextMenuItem>
-                            </>
-                        )}
-                    </ContextMenu>
-                )
-            }
-
-
-
-            {/* Rename Modal */}
-            {renameState && (
-                <Suspense fallback={null}>
-                    <RenameModal
-                        isOpen={!!renameState}
-                        title={`Rename ${renameState?.type} `}
-                        initialValue={renameState?.value || ''}
-                        onCancel={() => setRenameState(null)}
-                        onSave={(value) => {
-                            if (!renameState) return;
-                            // Apply rename logic here (update state)
-                            if (renameState.type === 'project') {
-                                setProjects(projects.map(p => p === renameState.data ? { ...p, name: value } : p));
-                            } else if (renameState.type === 'interface') {
-                                setProjects(prev => prev.map(p => {
-                                    const hasInterface = p.interfaces.some(i => i === renameState.data);
-                                    if (hasInterface) {
-                                        return {
-                                            ...p,
-                                            interfaces: p.interfaces.map(i => i === renameState.data ? { ...i, name: value } : i),
-                                            dirty: true
-                                        };
-                                    }
-                                    return p;
-                                }));
-                            } else if (renameState.type === 'folder' || renameState.type === 'request') {
-                                // Use helper to handle deep recursion for folders and requests within them
-                                setProjects(prev => updateProjectWithRename(
-                                    prev,
-                                    renameState.data.id || renameState.data.name, // Use ID if available, else name
-                                    renameState.type as 'folder' | 'request',
-                                    value,
-                                    renameState.data
-                                ));
-
-                            }
-
-                            setRenameState(null);
-                        }}
-                    />
-                </Suspense>
-            )}
+            {/* Phase B (t_86c34d38): the legacy shared context menu (ContextMenu/
+                ContextMenuItem) and its RenameModal were deleted with the
+                PROJECTS view — the unified explorer owns its own context menu
+                and its own rename modal. */}
 
             {/* Add to Test Case Modal */}
             {
@@ -2356,8 +2156,13 @@ const MainContent: React.FC = () => {
                                 addInterfaceToNamedProject(iface, projectName, isNew && i === 0);
                             });
 
-                            // Switch to workspace view
-                            setActiveView(SidebarView.PROJECTS);
+                            // Phase B (t_86c34d38): the PROJECTS view is deleted.
+                            // Bulk import still writes the legacy nested model
+                            // (follow-up card converts it to unified-native),
+                            // which the unified store reads after the next
+                            // migration/refresh. Navigate to the sole explorer
+                            // entry point (the PROJECTS view no longer exists).
+                            setActiveView(SidebarView.UNIFIED_EXPLORER);
                         }}
                         onParseUrl={async (url: string) => {
                             const response = await bridge.sendMessageAsync({

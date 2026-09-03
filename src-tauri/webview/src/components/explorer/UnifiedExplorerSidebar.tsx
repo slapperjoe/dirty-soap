@@ -6,6 +6,8 @@ import {
     FileCode,
     File,
     Server,
+    Upload as UploadIcon,
+    FlaskConical as FlaskConicalIcon,
 } from 'lucide-react';
 import { UnifiedProject, ApiOperation, ApiRequest, ScrapbookRequest } from '@shared/models';
 import { SidebarContextMenu, CtxMenuSection, CtxMenuItem } from '../sidebar/shared/SidebarContextMenu';
@@ -196,6 +198,23 @@ export interface UnifiedExplorerSidebarProps {
     onRenameOperation?: (projectName: string, operationName: string, displayName: string) => Promise<void>;
     onRenameRequest?: (projectName: string, operationName: string, requestName: string, displayName: string) => Promise<void>;
     onExportProject: (projectName: string) => void;
+    /**
+     * Phase B (t_86c34d38): relocated from the deleted PROJECTS view
+     * (ProjectList header). These import/export flows still WRITE the legacy
+     * nested model (a follow-up card converts them to the flat unified model),
+     * which keeps working on migrated dirs (non-destructive migration).
+     */
+    onExportWorkspace?: () => void;
+    onBulkImport?: () => void;
+    onImportSoapUI?: () => void;
+    /** Phase B (t_86c34d38): relocated "Generate Test Suite" (was PROJECTS-view context menu). */
+    onGenerateTestSuite?: (target: ApiOperation) => void;
+    /**
+     * Phase B (t_86c34d38): relocated "Add to Test Case" (was the legacy shared
+     * context menu on PROJECTS-view request nodes, which is deleted with the
+     * view). Opens the AddToTestCaseModal for a unified request.
+     */
+    onAddRequestToTestCase?: (request: ApiRequest) => void;
     onReorderOperation: (projectName: string, fromIndex: number, toIndex: number) => void;
     onReorderRequest: (projectName: string, operationName: string, fromIndex: number, toIndex: number) => void;
     /**
@@ -227,6 +246,12 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     onRenameOperation,
     onRenameRequest,
     onExportProject,
+    // Phase B (t_86c34d38): relocated import/export + generate-test-suite.
+    onExportWorkspace,
+    onBulkImport,
+    onImportSoapUI,
+    onGenerateTestSuite,
+    onAddRequestToTestCase,
     onReorderOperation,
     onReorderRequest,
     scrapbook,
@@ -297,15 +322,35 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
             const project = state.data as UnifiedProject;
             items.push({ icon: RefreshCwIcon, label: 'Refresh WSDL', sub: project.sourceUrl || 'Reload operations', onClick: () => { onRefreshProject(project.name); closeCtxMenu(); } });
             items.push({ icon: DownloadIcon, label: 'Export Project', onClick: () => { onExportProject(project.name); closeCtxMenu(); } });
+            // Phase B (t_86c34d38): relocated from the deleted PROJECTS view
+            // (ProjectList "Import & Export" header menu).
+            if (onExportWorkspace) {
+                items.push({ icon: UploadIcon, label: 'Export Workspace', onClick: () => { onExportWorkspace(); closeCtxMenu(); } });
+            }
+            if (onBulkImport) {
+                items.push({ icon: DownloadIcon, label: 'Bulk Import', onClick: () => { onBulkImport(); closeCtxMenu(); } });
+            }
+            if (onImportSoapUI) {
+                items.push({ icon: DownloadIcon, label: 'Import SoapUI Workspace', onClick: () => { onImportSoapUI(); closeCtxMenu(); } });
+            }
         } else if (state.type === 'operation') {
             const op = state.data as ApiOperation;
             items.push({ icon: PlusIcon, label: 'New Request', onClick: () => { onNewRequest(state.projectName || '', op.name); closeCtxMenu(); } });
+            // Phase B (t_86c34d38): relocated from the PROJECTS-view context menu.
+            if (onGenerateTestSuite) {
+                items.push({ icon: FlaskConicalIcon, label: 'Generate Test Suite', onClick: () => { onGenerateTestSuite(op); closeCtxMenu(); } });
+            }
         } else if (state.type === 'request') {
             const req = state.data as ApiRequest;
             if (req.endpoint) {
                 items.push({ icon: Link, label: 'Copy URL', copyText: req.endpoint });
             }
             items.push({ icon: Copy, label: 'Copy Request XML', copyText: req.request || '' });
+            // Phase B (t_86c34d38): relocated from the deleted legacy context
+            // menu — the TESTS "Add Request to Test Case" flow stays reachable.
+            if (onAddRequestToTestCase) {
+                items.push({ icon: FlaskConicalIcon, label: 'Add to Test Case', onClick: () => { onAddRequestToTestCase(req); closeCtxMenu(); } });
+            }
         }
 
         items.push({ icon: Trash2Icon, label: 'Delete', danger: true, onClick: () => {

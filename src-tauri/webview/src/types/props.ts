@@ -21,54 +21,8 @@ import {
 // ============================================================================
 // SIDEBAR PROP GROUPS
 // ============================================================================
-
-export interface SidebarProjectProps {
-    projects: ApinoxProject[];
-    savedProjects: Set<string>;
-    saveErrors: Map<string, string>;
-    setSaveErrors: React.Dispatch<React.SetStateAction<Map<string, string>>>;
-    loadProject: () => void;
-    saveProject: (project: ApinoxProject) => void;
-    onUpdateProject: (oldProject: ApinoxProject, newProject: ApinoxProject) => void;
-    closeProject: (name: string) => void;
-    onAddProject: () => void;
-    toggleProjectExpand: (name: string) => void;
-    toggleInterfaceExpand: (projName: string, ifaceName: string) => void;
-    toggleOperationExpand: (projName: string, ifaceName: string, opName: string) => void;
-    expandAll: () => void;
-    collapseAll: () => void;
-    reorderItems: (itemId: string, targetId: string, position: 'before' | 'after', itemType: 'project' | 'folder' | 'interface', projectName?: string) => void;
-    reorderOperations: (projectName: string, ifaceName: string, draggedOpId: string, targetOpId: string, position: 'before' | 'after') => void;
-    reorderRequests: (projectName: string, srcIfaceName: string, srcOpName: string, draggedReqId: string, targetReqId: string, position: 'before' | 'after', dstIfaceName?: string, dstOpName?: string) => void;
-    onDeleteInterface?: (iface: ApiInterface) => void;
-    onDeleteOperation?: (op: ApiOperation, iface: ApiInterface) => void;
-    // Folder handlers
-    onAddFolder?: (projectName: string, parentFolderId?: string) => void;
-    onAddRequestToFolder?: (projectName: string, folderId: string) => void;
-    onDeleteFolder?: (projectName: string, folderId: string) => void;
-    onToggleFolderExpand?: (projectName: string, folderId: string) => void;
-    onRefreshInterface?: (projectName: string, iface: ApiInterface) => void;
-    onExportWorkspace?: () => void;
-    onBulkImport?: () => void;
-    onImportSoapUI?: () => void;
-}
-
-export interface SidebarSelectionProps {
-    selectedProjectName: string | null;
-    setSelectedProjectName: (name: string | null) => void;
-    selectedInterface: ApiInterface | null;
-    setSelectedInterface: (iface: ApiInterface | null) => void;
-    selectedOperation: ApiOperation | null;
-    setSelectedOperation: (op: ApiOperation | null) => void;
-    selectedRequest: ApiRequest | null;
-    setSelectedRequest: (req: ApiRequest | null) => void;
-    setResponse: (res: any) => void;
-    handleContextMenu: (e: React.MouseEvent, type: string, data: any, isExplorer?: boolean) => void;
-    onAddRequest?: (op: ApiOperation) => void;
-    onDeleteRequest?: (req: ApiRequest) => void;
-    deleteConfirm: string | null;
-    setDeleteConfirm: (id: string | null) => void;
-}
+// Phase B (t_86c34d38): SidebarProjectProps / SidebarSelectionProps (the
+// PROJECTS view's ProjectList + selection state) were deleted with the view.
 
 export interface SidebarTestsProps {
     // Phase B (t_86c34d38): the TESTS suite tree renders from the UNIFIED
@@ -145,6 +99,19 @@ export interface SidebarUnifiedProps {
     onRenameOperation?: (projectName: string, operationName: string, displayName: string) => Promise<void>;
     onRenameRequest?: (projectName: string, operationName: string, requestName: string, displayName: string) => Promise<void>;
     onExportProject: (projectName: string) => void;
+    /**
+     * Phase B (t_86c34d38): relocated from the deleted PROJECTS view
+     * (ProjectList "Import & Export" header menu) onto the unified sidebar
+     * context menu. The flows still write the legacy nested model (a follow-up
+     * card converts them to the flat unified model).
+     */
+    onExportWorkspace?: () => void;
+    onBulkImport?: () => void;
+    onImportSoapUI?: () => void;
+    /** Phase B (t_86c34d38): relocated "Generate Test Suite" (PROJECTS-view context menu). */
+    onGenerateTestSuite?: (target: import('@shared/models').ApiOperation) => void;
+    /** Phase B (t_86c34d38): relocated "Add to Test Case" (legacy shared context menu). */
+    onAddRequestToTestCase?: (request: import('@shared/models').ApiRequest) => void;
     onReorderOperation: (projectName: string, fromIndex: number, toIndex: number) => void;
     onReorderRequest: (projectName: string, operationName: string, fromIndex: number, toIndex: number) => void;
     /** F-01 / R-05 — Quick Requests (scrapbook) bottom section (Q1(a)). */
