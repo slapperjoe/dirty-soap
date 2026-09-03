@@ -17,6 +17,7 @@ import { soapDefault, resolveEffectiveContentType } from '../../utils/soapUtils'
 import { invokeTauriCommand } from '../../utils/bridge';
 import { buildExecuteOperation } from '../../utils/executeOperation';
 import { detectLoadFormat } from '../../utils/loadRouting';
+import { SAMPLE_API_CARDS, SampleApiCard } from '../../utils/sampleApiCards';
 import { isScrapbookNode } from '../../utils/unifiedScrapbookCapture';
 import { saveUnifiedHistoryEntry } from '../../utils/unifiedHistory';
 import {
@@ -331,6 +332,32 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
         }
     }, [urlInput.url, urlInput, useProxy, onLoadWsdl]);
 
+    // R-07 (F-03): a sample card click pre-fills the URL input with the exact
+    // doc §5.2 URL (utils/sampleApiCards.ts) and clears any prior load error.
+    // `detectLoadFormat` (loadRouting) then routes the subsequent Load to the
+    // correct path (WSDL / OpenAPI / GraphQL) — so pre-filling the input alone
+    // is sufficient; no input-type state exists on the unified view.
+    const handleSelectSampleCard = useCallback((card: SampleApiCard) => {
+        setUrlInput({ url: card.url, loading: false, error: null });
+    }, []);
+
+    /** Load a local file path (file://) through the unified load routing.
+     *  Shared by the Open-file dialog (handleLoadFile) and drag-drop. */
+    const loadLocalFilePath = useCallback(async (path: string) => {
+        const fileUrl = `file://${path}`;
+        setUrlInput(prev => ({ ...prev, url: fileUrl, loading: true, error: null }));
+        // R-12: the Rust side force-disables the proxy for local files
+        // (file:// URLs), matching the legacy `useProxy: false` behaviour.
+        const loadId = crypto.randomUUID();
+        activeLoadIdRef.current = loadId;
+        try {
+            await onLoadWsdl(fileUrl, { useProxy, loadId });
+        } finally {
+            activeLoadIdRef.current = null;
+        }
+        setUrlInput(prev => ({ ...prev, loading: false, error: null }));
+    }, [onLoadWsdl, useProxy]);
+
     const handleLoadFile = useCallback(async () => {
         try {
             const { open } = await import('@tauri-apps/plugin-dialog');
@@ -341,22 +368,37 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                 ],
             });
             if (!selectedPath) return;
-            const fileUrl = `file://${selectedPath}`;
-            setUrlInput(prev => ({ ...prev, loading: true, error: null }));
-            // R-12: the Rust side force-disables the proxy for local files
-            // (file:// URLs), matching the legacy `useProxy: false` behaviour.
-            const loadId = crypto.randomUUID();
-            activeLoadIdRef.current = loadId;
-            try {
-                await onLoadWsdl(fileUrl, { useProxy, loadId });
-            } finally {
-                activeLoadIdRef.current = null;
-            }
-            setUrlInput(prev => ({ ...prev, loading: false, error: null }));
+            await loadLocalFilePath(selectedPath);
         } catch (e: any) {
             setUrlInput(prev => ({ ...prev, loading: false, error: e?.message || 'Failed to load WSDL file' }));
         }
-    }, [onLoadWsdl, useProxy]);
+    }, [loadLocalFilePath]);
+
+    /** Drag-drop of a definition file onto the load bar (parity with the
+     *  legacy view's drop zone, ApiExplorerMain.tsx:46–55). In Tauri,
+     *  Chromium exposes the full path via `file.path`; `file.name` is the
+     *  browser fallback. */
+    const [isDropZoneActive, setIsDropZoneActive] = useState(false);
+    const handleDropZoneDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDropZoneActive(false);
+        const files = e.dataTransfer.files;
+        if (files.length === 0) return;
+        const file = files[0];
+        const path: string = (file as any).path || file.name;
+        try {
+            await loadLocalFilePath(path);
+        } catch (e: any) {
+            setUrlInput(prev => ({ ...prev, loading: false, error: e?.message || 'Failed to load dropped file' }));
+        }
+    }, [loadLocalFilePath]);
+    const handleDropZoneDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDropZoneActive(true);
+    }, []);
+    const handleDropZoneDragLeave = useCallback(() => {
+        setIsDropZoneActive(false);
+    }, []);
 
     /** R-11 (F-10): abort the in-flight WSDL load (Cancel button on the Load bar). */
     const handleCancelLoad = useCallback(async () => {
@@ -676,15 +718,25 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
 
     return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Top bar with URL input */}
-            <div style={{
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                borderBottom: '1px solid var(--apinox-border)',
-                backgroundColor: 'var(--apinox-panel-background)',
-            }}>
+            {/* Top bar with URL input (also a drop zone for definition files) */}
+            <div
+                onDrop={handleDropZoneDrop}
+                onDragOver={handleDropZoneDragOver}
+                onDragLeave={handleDropZoneDragLeave}
+                style={{
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    borderBottom: isDropZoneActive
+                        ? '2px dashed var(--apinox-accent, #4f8cff)'
+                        : '1px solid var(--apinox-border)',
+                    backgroundColor: isDropZoneActive
+                        ? 'var(--apinox-accent-foreground-dim, rgba(79, 140, 255, 0.08))'
+                        : 'var(--apinox-panel-background)',
+                    transition: 'border-color 120ms ease, background-color 120ms ease',
+                }}
+            >
                 <input
                     type="text"
                     value={urlInput.url}
@@ -804,9 +856,72 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                 {!selected ? (
                     <EmptyState
                         title="Unified Explorer"
-                        description="Load a WSDL URL above to get started, or select a project from the sidebar."
+                        description="Load a definition above to get started, or pick a sample below."
                         icon={Server}
-                    />
+                    >
+                        {/* R-07 (F-03): six sample cards (exact doc §5.2 URLs).
+                            Click pre-fills the URL input; `detectLoadFormat`
+                            routes the subsequent Load to the right path. The
+                            data comes from `utils/sampleApiCards.ts` (pinned
+                            by the §5.2 contract test) so it cannot drift. */}
+                        <div style={{ marginTop: 18 }}>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.5,
+                                    color: 'var(--apinox-description-foreground)',
+                                    marginBottom: 10,
+                                }}
+                            >
+                                Sample APIs
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 560 }}>
+                                {(['OpenAPI', 'SOAP', 'GraphQL'] as const).map(group => (
+                                    <div key={group} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <span
+                                            style={{
+                                                fontSize: 10,
+                                                fontWeight: 600,
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.06em',
+                                                color: 'var(--apinox-description-foreground)',
+                                            }}
+                                        >
+                                            {group}
+                                        </span>
+                                        {SAMPLE_API_CARDS.filter(c => c.group === group).map(card => (
+                                            <button
+                                                key={card.url}
+                                                type="button"
+                                                data-testid="unified-sample-card"
+                                                data-sample-url={card.url}
+                                                onClick={() => handleSelectSampleCard(card)}
+                                                style={{
+                                                    textAlign: 'left',
+                                                    padding: '8px 10px',
+                                                    backgroundColor: 'var(--apinox-card-background)',
+                                                    border: '1px solid var(--apinox-card-border)',
+                                                    borderRadius: 6,
+                                                    cursor: 'pointer',
+                                                    color: 'var(--apinox-foreground)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: 2,
+                                                }}
+                                            >
+                                                <span style={{ fontWeight: 500, fontSize: 13 }}>{card.label}</span>
+                                                <span style={{ fontSize: 11, color: 'var(--apinox-description-foreground)' }}>
+                                                    {card.format.toUpperCase()}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </EmptyState>
                 ) : selected.type === 'project' ? (
                     /* WSDL Project Summary */
                     <div style={{ padding: 24 }}>

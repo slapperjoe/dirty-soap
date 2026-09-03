@@ -207,16 +207,19 @@ const HELP_SECTIONS_RAW = [
 
     ## Sample APIs
 
-    Click any sample card to pre-fill the URL:
+    The six sample cards are shown in the **unified explorer's** empty state.
+    Click any card to pre-fill the URL input and load it (the unified explorer
+    is the primary explorer surface; loading a definition creates a project
+    directly — no separate "add to project" step):
 
-    | Sample | Type |
-    |--------|------|
-    | Swagger Petstore | OpenAPI 2.0 (JSON) |
-    | Petstore YAML | OpenAPI 2.0 (YAML) |
-    | Country Info | SOAP WSDL |
-    | Calculator | SOAP WSDL |
-    | SpaceX | GraphQL |
-    | Rick & Morty | GraphQL |
+    | Sample | Type | Loads as |
+    |--------|------|----------|
+    | Swagger Petstore | OpenAPI 2.0 (JSON) | REST operations (grouped by tag) |
+    | Petstore YAML | OpenAPI 2.0 (YAML) | REST operations (grouped by tag) |
+    | Country Info | SOAP WSDL | SOAP operations |
+    | Calculator | SOAP WSDL | SOAP operations |
+    | SpaceX | GraphQL | Query/Mutation operations |
+    | Rick & Morty | GraphQL | Query/Mutation operations |
 
     ## GraphQL Introspection
 
@@ -224,10 +227,18 @@ const HELP_SECTIONS_RAW = [
 
     ## After Loading
 
-    - Browse interfaces and operations in the Explorer sidebar.
-    - Click **Add to Project** on an operation to save it.
-    - Click **Add All** to import everything.
-    - Click **Clear** to reset the Explorer.
+    In the **unified explorer** (the primary explorer surface), loading a
+    definition creates a project directly:
+
+    - Browse the project's operations in the unified sidebar tree and run any
+      operation straight from the request editor (no separate "add to project"
+      step).
+    - Quick Requests live in the bottom section of the same sidebar; running or
+      saving a request auto-captures it to \`scrapbook.json\`.
+
+    The legacy Explorer rail still supports the classic staging flow (browse,
+    then **Add to Project** / **Add All** / **Clear**) until it is retired in a
+    later release.
     `
             },
             {

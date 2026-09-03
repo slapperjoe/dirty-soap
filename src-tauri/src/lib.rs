@@ -18,6 +18,8 @@ pub mod settings_manager;
 pub mod updater;
 mod soapui_importer;
 mod workspace_export;
+#[cfg(test)]
+mod e2e_unified_explorer;
 
 // Rust backend modules (APInox)
 pub mod utils;
