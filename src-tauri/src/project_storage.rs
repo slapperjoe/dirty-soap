@@ -766,13 +766,157 @@ pub fn delete_project(params: serde_json::Value) -> Result<(), String> {
 }
 
 /// Close a project
-/// 
+///
 /// This command doesn't need to do anything on the backend since we don't maintain
 /// project "open" state in Rust. The frontend handles clearing selection/state.
 /// This command exists for consistency and to avoid "not implemented" errors.
 #[tauri::command]
 pub async fn close_project(_project_id: String) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "success": true }))
+}
+
+// ============================================================================
+// Phase B (t_86c34d38): legacy → unified project migration
+// ============================================================================
+//
+// Legacy `APInox-v1` project directories and unified `APInox-unified-v1`
+// directories COLOCATE in the same `~/.apinox/projects/` dir (the unified
+// store was never given its own `unified-projects/` directory). The migration
+// therefore converts legacy dirs IN PLACE: nested `interfaces[]` → flat
+// `operations[]` dirs, `properties.json` format bump, `tests/` + `folders/`
+// subdirs preserved (unified projects now carry suites/folders too).
+//
+// Idempotent: dirs already in unified format are skipped.
+
+/// Migrate one legacy project dir to the unified layout, in place.
+/// Returns true if a migration happened, false if the dir was already unified.
+pub(crate) async fn migrate_legacy_project_dir(dir: &Path) -> Result<bool, String> {
+    if is_unified_format_path(dir) {
+        return Ok(false);
+    }
+
+    // Full legacy project value (interfaces[], testSuites[], folders[]).
+    let legacy = load_project_internal(&dir.to_string_lossy()).await?;
+    let name = legacy["name"]
+        .as_str()
+        .ok_or_else(|| format!("Legacy project in {} has no name", dir.display()))?;
+
+    // Flatten nested interfaces[].operations[] into a single flat operations[].
+    // The per-operation field shape (OperationMeta) is identical between the
+    // legacy and unified on-disk formats, so save_unified_operation can write
+    // them verbatim. Operations with colliding names (from different
+    // interfaces) get an "(Interface)" suffix to stay unique on disk.
+    let mut operations: Vec<JsonValue> = Vec::new();
+    let mut used_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut first_iface: Option<JsonValue> = None;
+    let mut any_wsdl = false;
+
+    // Deterministic order: the legacy on-disk layout stores interfaces as an
+    // unordered directory, so sort by name before flattening (operation order
+    // and the primary sourceUrl must not depend on fs::read_dir order).
+    let mut interfaces: Vec<JsonValue> = legacy["interfaces"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    interfaces.sort_by(|a, b| {
+        a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or(""))
+    });
+
+    for iface in interfaces {
+        if first_iface.is_none() {
+            first_iface = Some(iface.clone());
+        }
+        if iface.get("definition").and_then(|d| d.as_str()).map(|d| !d.is_empty()).unwrap_or(false) {
+            any_wsdl = true;
+        }
+        let iface_name = iface["name"].as_str().unwrap_or("");
+        if let Some(ops) = iface["operations"].as_array() {
+            for op in ops {
+                let op_name = op["name"].as_str().ok_or("operation missing name")?;
+                let mut unique_name = op_name.to_string();
+                if !used_names.insert(sanitize_name(&unique_name)) {
+                    unique_name = format!("{} ({})", op_name, iface_name);
+                    if !used_names.insert(sanitize_name(&unique_name)) {
+                        // Last resort: keep them distinct regardless of sanitization.
+                        unique_name = format!("{} #{}", unique_name, operations.len());
+                        used_names.insert(sanitize_name(&unique_name));
+                    }
+                }
+                let mut op_clone = op.clone();
+                op_clone["name"] = JsonValue::String(unique_name);
+                operations.push(op_clone);
+            }
+        }
+    }
+
+    let iface = first_iface.unwrap_or(JsonValue::Null);
+    // sourceUrl comes from the FIRST interface (the primary WSDL definition),
+    // matching the legacy "one interface = the project's WSDL" semantics.
+    let source_url = iface.get("definition")
+        .and_then(|d| d.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let unified = serde_json::json!({
+        "name": name,
+        "description": legacy["description"],
+        "id": legacy["id"],
+        "source": if any_wsdl { "wsdl" } else { "manual" },
+        "sourceUrl": source_url,
+        "parsedAt": chrono::Utc::now().to_rfc3339(),
+        "soapVersion": iface.get("soapVersion"),
+        "bindingName": iface.get("bindingName"),
+        "operations": operations,
+        // Suites and folders keep their exact on-disk layout — carried over so
+        // migration loses no test data or user folders.
+        "testSuites": legacy.get("testSuites").cloned().unwrap_or(JsonValue::Array(vec![])),
+        "folders": legacy.get("folders").cloned().unwrap_or(JsonValue::Array(vec![])),
+    });
+
+    // Write the unified layout (properties.json + flat operation dirs + tests/ + folders/).
+    save_unified_project(dir.to_string_lossy().into(), unified)?;
+
+    // Remove the now-dead legacy interface tree.
+    let legacy_interfaces = dir.join("interfaces");
+    if legacy_interfaces.exists() {
+        fs::remove_dir_all(&legacy_interfaces)
+            .map_err(|e| format!("Failed to remove legacy interfaces dir: {}", e))?;
+    }
+
+    log::info!("Migrated legacy project '{}' to unified format", name);
+    Ok(true)
+}
+
+/// Migrate all legacy project dirs in the projects dir, in place (idempotent).
+/// Returns the names of the projects that were migrated.
+#[tauri::command]
+pub async fn migrate_legacy_projects() -> Result<Vec<String>, String> {
+    let base = projects_dir()?;
+    let mut migrated: Vec<String> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() || !path.join("properties.json").exists() {
+                continue;
+            }
+            if is_unified_format_path(&path) {
+                continue;
+            }
+            match migrate_legacy_project_dir(&path).await {
+                Ok(true) => {
+                    if let Some(n) = path.file_name().and_then(|f| f.to_str()) {
+                        migrated.push(n.to_string());
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    log::warn!("Migration of {} failed (left as-is): {}", path.display(), e);
+                }
+            }
+        }
+    }
+
+    Ok(migrated)
 }
 
 // ============================================================================
@@ -866,10 +1010,26 @@ pub fn save_unified_project(dir_path: String, project: serde_json::Value) -> Res
         .ok_or("Missing or invalid operations array")?;
 
     let op_names = sanitized_names(operations, "name");
-    cleanup_orphan_dirs(&dir, &op_names);
+    // Phase B (t_86c34d38): `tests/` and `folders/` hold the project's test
+    // suites and user folders — protect them from the operation-dir cleanup.
+    let mut keep: std::collections::HashSet<String> = op_names;
+    keep.insert("tests".to_string());
+    keep.insert("folders".to_string());
+    cleanup_orphan_dirs(&dir, &keep);
 
     for op in operations {
         save_unified_operation(op, &dir)?;
+    }
+
+    // Persist test suites and folders alongside the operations (same `tests/` /
+    // `folders/` layout as the legacy store, so a migrated project round-trips).
+    if let Some(test_suites) = project.get("testSuites").and_then(|v| v.as_array()) {
+        save_test_suites(&dir, &project)?;
+        let _ = test_suites;
+    }
+    if let Some(folders) = project.get("folders").and_then(|v| v.as_array()) {
+        save_folders(&dir, &project)?;
+        let _ = folders;
     }
 
     Ok(())
@@ -985,7 +1145,8 @@ pub fn load_unified_project(dir_path: String) -> Result<serde_json::Value, Strin
     let props: UnifiedProperties = serde_json::from_str(&props_json)
         .map_err(|e| format!("Failed to parse properties.json: {}", e))?;
 
-    // Load operations directly under project dir
+    // Load operations directly under project dir (tests/ and folders/ subdirs are
+    // skipped naturally — they carry suite.json / case.json / _folder.json, not operation.json).
     let mut operations = Vec::new();
     if let Ok(entries) = fs::read_dir(&dir) {
         for entry in entries.flatten() {
@@ -997,6 +1158,12 @@ pub fn load_unified_project(dir_path: String) -> Result<serde_json::Value, Strin
             }
         }
     }
+
+    // Phase B (t_86c34d38): unified projects now also carry test suites and
+    // user folders (relocated from the legacy ApinoxProject). They live in the
+    // same `tests/` / `folders/` subdirs as the legacy layout.
+    let test_suites = load_test_suites_from_dir(&dir);
+    let folders = load_folders_from_dir(&dir);
 
     Ok(serde_json::json!({
         "name": props.name,
@@ -1012,7 +1179,52 @@ pub fn load_unified_project(dir_path: String) -> Result<serde_json::Value, Strin
         // R-10 (F-17): display-only rename override (null when unset).
         "displayName": props.display_name,
         "operations": operations,
+        "testSuites": test_suites,
+        "folders": folders,
     }))
+}
+
+/// Load all test suites from a project dir's `tests/` subdir (Phase B, t_86c34d38).
+/// Shared by the unified and legacy loaders so the on-disk layout stays identical.
+fn load_test_suites_from_dir(dir: &Path) -> Vec<JsonValue> {
+    let tests_dir = dir.join("tests");
+    let mut test_suites = Vec::new();
+    if tests_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&tests_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if let Ok(suite) = load_test_suite(&entry.path()) {
+                        test_suites.push(suite);
+                    }
+                }
+            }
+        }
+    }
+    test_suites
+}
+
+/// Load all folders from a project dir's `folders/` subdir (Phase B, t_86c34d38).
+/// Files are named `001_folder.json`, `002_folder.json`, … and read in order.
+fn load_folders_from_dir(dir: &Path) -> Vec<JsonValue> {
+    let folders_dir = dir.join("folders");
+    let mut folders = Vec::new();
+    if folders_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&folders_dir) {
+            let mut folder_files: Vec<_> = entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("json"))
+                .collect();
+            folder_files.sort_by_key(|e| e.file_name());
+            for entry in folder_files {
+                if let Ok(folder_json) = fs::read_to_string(entry.path()) {
+                    if let Ok(folder) = serde_json::from_str::<serde_json::Value>(&folder_json) {
+                        folders.push(folder);
+                    }
+                }
+            }
+        }
+    }
+    folders
 }
 
 /// Load a single operation from a unified project
@@ -1101,6 +1313,14 @@ pub fn list_unified_projects() -> Result<Vec<serde_json::Value>, String> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() && path.join("properties.json").exists() {
+                // Phase B (t_86c34d38): legacy `APInox-v1` project directories
+                // colocate with unified ones in the same `projects/` dir (they
+                // also carry a properties.json). Only list unified-format
+                // projects — before this filter, legacy dirs leaked into the
+                // unified list as empty-operation husks.
+                if !is_unified_format_path(&path) {
+                    continue;
+                }
                 if let Ok(project) = load_unified_project(path.to_string_lossy().into()) {
                     projects.push(project);
                 }
@@ -1111,6 +1331,17 @@ pub fn list_unified_projects() -> Result<Vec<serde_json::Value>, String> {
         a["name"].as_str().cmp(&b["name"].as_str())
     });
     Ok(projects)
+}
+
+/// True if `dir/properties.json` declares the unified project format.
+fn is_unified_format_path(dir: &Path) -> bool {
+    let props_path = dir.join("properties.json");
+    match fs::read_to_string(&props_path) {
+        Ok(json) => serde_json::from_str::<serde_json::Value>(&json)
+            .map(|v| v.get("format").and_then(|f| f.as_str()) == Some("APInox-unified-v1"))
+            .unwrap_or(false),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
@@ -1326,5 +1557,271 @@ mod tests {
         assert_eq!(service_op.output, serde_json::json!({ "name": "GetCountryResponse" }));
         assert_eq!(service_op.description.as_deref(), Some("Country info"));
         assert_eq!(service_op.port_name.as_deref(), Some("CountryPort"));
+    }
+
+    // ------------------------------------------------------------------
+    // Phase B (t_86c34d38): legacy → unified migration tests
+    // ------------------------------------------------------------------
+
+    /// A realistic legacy `ApinoxProject` value: one WSDL interface with two
+    /// operations (one of them colliding by name with a second interface),
+    /// one test suite with a request step, and one user folder.
+    fn sample_legacy_project() -> serde_json::Value {
+        serde_json::json!({
+            "name": "LegacySvc",
+            "description": "a legacy soap service",
+            "id": "legacy-1",
+            "interfaces": [
+                {
+                    "name": "S1",
+                    "type": "soap",
+                    "bindingName": "S1Soap",
+                    "soapVersion": "1.2",
+                    "definition": "http://example.com/s1.wsdl",
+                    "operations": [
+                        {
+                            "name": "Ping",
+                            "action": "http://example.com/Ping",
+                            "input": null,
+                            "targetNamespace": "http://example.com",
+                            "originalEndpoint": "http://example.com/s1",
+                            "fullSchema": null,
+                            "output": null,
+                            "requests": [
+                                {
+                                    "name": "ping_1",
+                                    "endpoint": "http://example.com/s1",
+                                    "method": "POST",
+                                    "request": "<a/>",
+                                    "id": "req-ping"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "S2",
+                    "type": "soap",
+                    "bindingName": "S2Soap",
+                    "soapVersion": "1.1",
+                    "definition": "http://example.com/s2.wsdl",
+                    "operations": [
+                        {
+                            "name": "Ping",
+                            "action": "http://example.com/Ping2",
+                            "input": null,
+                            "targetNamespace": "http://example.com",
+                            "originalEndpoint": "http://example.com/s2",
+                            "fullSchema": null,
+                            "output": null,
+                            "requests": []
+                        }
+                    ]
+                }
+            ],
+            "testSuites": [
+                {
+                    "id": "suite-1",
+                    "name": "MySuite",
+                    "testCases": [
+                        {
+                            "id": "tc-1",
+                            "name": "Case1",
+                            "steps": [
+                                {
+                                    "id": "step-1",
+                                    "name": "step one",
+                                    "type": "request",
+                                    "config": { "requestId": "req-ping" }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "folders": [
+                {
+                    "id": "folder-1",
+                    "name": "Misc",
+                    "requests": [
+                        { "name": "manual_req", "id": "req-m", "request": "<m/>", "endpoint": "http://example.com" }
+                    ]
+                }
+            ]
+        })
+    }
+
+    /// Write a legacy project to disk exactly the way the legacy store does.
+    fn write_legacy_project(base: &Path, name: &str, project: &serde_json::Value) -> PathBuf {
+        let dir = base.join(name);
+        fs::create_dir_all(&dir).expect("mkdir legacy project");
+        // properties.json in legacy format
+        write_json(&dir.join("properties.json"), &serde_json::json!({
+            "name": name,
+            "description": project["description"],
+            "id": project["id"],
+            "format": "APInox-v1",
+        })).expect("write legacy properties");
+        // interfaces/ tree
+        let interfaces_dir = dir.join("interfaces");
+        for (i, iface) in project["interfaces"].as_array().unwrap().iter().enumerate() {
+            let iface_dir = interfaces_dir.join(format!("I{}", i));
+            fs::create_dir_all(&iface_dir).unwrap();
+            write_json(&iface_dir.join("interface.json"), &serde_json::json!({
+                "name": iface["name"],
+                "type": iface["type"],
+                "bindingName": iface.get("bindingName").cloned(),
+                "soapVersion": iface.get("soapVersion").cloned(),
+                "definition": iface.get("definition").cloned(),
+                "displayName": serde_json::Value::Null,
+            })).unwrap();
+            for (j, op) in iface["operations"].as_array().unwrap().iter().enumerate() {
+                let op_dir = iface_dir.join(format!("O{}", j));
+                fs::create_dir_all(&op_dir).unwrap();
+                write_json(&op_dir.join("operation.json"), &serde_json::json!({
+                    "name": op["name"],
+                    "action": op.get("action").cloned(),
+                    "input": op.get("input").cloned().unwrap_or(serde_json::Value::Null),
+                    "targetNamespace": op.get("targetNamespace").cloned(),
+                    "originalEndpoint": op.get("originalEndpoint").cloned(),
+                    "fullSchema": op.get("fullSchema").cloned().unwrap_or(serde_json::Value::Null),
+                    "displayName": serde_json::Value::Null,
+                    "output": op.get("output").cloned().unwrap_or(serde_json::Value::Null),
+                    "description": serde_json::Value::Null,
+                    "portName": serde_json::Value::Null,
+                })).unwrap();
+                for (k, req) in op["requests"].as_array().unwrap().iter().enumerate() {
+                    let req_name = format!("R{}", k);
+                    fs::write(op_dir.join(format!("{}.xml", req_name)), req["request"].as_str().unwrap_or("")).unwrap();
+                    write_json(&op_dir.join(format!("{}.json", req_name)), &serde_json::json!({
+                        "name": req["name"],
+                        "endpoint": req.get("endpoint").cloned(),
+                        "method": req.get("method").cloned(),
+                        "contentType": serde_json::Value::Null,
+                        "headers": serde_json::Value::Null,
+                        "assertions": serde_json::Value::Null,
+                        "id": req.get("id").cloned(),
+                        "requestType": serde_json::Value::Null,
+                        "bodyType": serde_json::Value::Null,
+                        "restConfig": serde_json::Value::Null,
+                        "graphqlConfig": serde_json::Value::Null,
+                        "extractors": serde_json::Value::Null,
+                        "wsSecurity": serde_json::Value::Null,
+                        "attachments": serde_json::Value::Null,
+                    })).unwrap();
+                }
+            }
+        }
+        // tests/ + folders/ subdirs (same layout the migration must preserve)
+        if let Some(suites) = project["testSuites"].as_array() {
+            if !suites.is_empty() {
+                save_test_suites(&dir, project).expect("save legacy suites");
+            }
+        }
+        if let Some(folders) = project["folders"].as_array() {
+            if !folders.is_empty() {
+                save_folders(&dir, project).expect("save legacy folders");
+            }
+        }
+        dir
+    }
+
+    #[tokio::test]
+    async fn migrate_legacy_project_converts_to_unified_and_preserves_data() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let legacy = sample_legacy_project();
+        // Point project storage at the temp dir so list_unified_projects() and
+        // the migration see the same on-disk projects dir.
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+        let dir = write_legacy_project(&base, "LegacySvc", &legacy);
+
+        // Precondition: it is a legacy-format project (not listed as unified).
+        assert!(!is_unified_format_path(&dir));
+        let listed = list_unified_projects().expect("list unified");
+        assert!(
+            listed.iter().all(|p| p["name"] != "LegacySvc"),
+            "legacy project must not leak into the unified list pre-migration"
+        );
+
+        // Migrate the single dir.
+        assert!(migrate_legacy_project_dir(&dir).await.expect("migrate"));
+
+        // Postcondition: now unified, and loads back with flat operations.
+        assert!(is_unified_format_path(&dir));
+        // The legacy interfaces/ tree is gone.
+        assert!(!dir.join("interfaces").exists(), "legacy interfaces tree must be removed");
+        // Flat operation dirs exist at the top level.
+        assert!(dir.join("Ping").join("operation.json").exists(), "op dir created");
+
+        let loaded = load_unified_project(dir.to_string_lossy().into()).expect("load unified");
+        assert_eq!(loaded["name"], "LegacySvc");
+        assert_eq!(loaded["source"], "wsdl");
+        assert_eq!(loaded["sourceUrl"], "http://example.com/s1.wsdl");
+        // Two interfaces × their ops → 2 flat operations; colliding name suffixed.
+        let ops: Vec<&serde_json::Value> = loaded["operations"].as_array().unwrap().iter().collect();
+        assert_eq!(ops.len(), 2, "both operations flattened");
+        let names: Vec<String> = ops.iter().map(|o| o["name"].as_str().unwrap().to_string()).collect();
+        assert!(names.iter().any(|n| n == "Ping"), "first Ping kept verbatim: {:?}", names);
+        assert!(names.iter().any(|n| n == "Ping (S2)"), "colliding Ping suffixed: {:?}", names);
+        // The first operation's request body round-tripped.
+        let ping_op = ops.iter().find(|o| o["name"] == "Ping").unwrap();
+        assert_eq!(ping_op["requests"][0]["name"], "ping_1");
+        assert_eq!(ping_op["requests"][0]["request"], "<a/>");
+
+        // Test suites preserved with their step.
+        assert_eq!(loaded["testSuites"].as_array().unwrap().len(), 1);
+        assert_eq!(loaded["testSuites"][0]["name"], "MySuite");
+        assert_eq!(loaded["testSuites"][0]["testCases"][0]["steps"][0]["config"]["requestId"], "req-ping");
+
+        // Folders preserved with their request.
+        assert_eq!(loaded["folders"].as_array().unwrap().len(), 1);
+        assert_eq!(loaded["folders"][0]["name"], "Misc");
+        assert_eq!(loaded["folders"][0]["requests"][0]["name"], "manual_req");
+
+        // It now shows up in the unified list.
+        let listed = list_unified_projects().expect("list unified post-migration");
+        assert!(listed.iter().any(|p| p["name"] == "LegacySvc"), "migrated project listed as unified");
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    #[tokio::test]
+    async fn migrate_is_idempotent() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let legacy = sample_legacy_project();
+        let dir = write_legacy_project(tmp.path(), "IdemSvc", &legacy);
+
+        assert!(migrate_legacy_project_dir(&dir).await.expect("first migration"));
+        // Second run is a no-op (already unified).
+        assert!(!migrate_legacy_project_dir(&dir).await.expect("second migration"));
+
+        // Data still intact after the no-op.
+        let loaded = load_unified_project(dir.to_string_lossy().into()).expect("load");
+        assert_eq!(loaded["operations"].as_array().unwrap().len(), 2);
+        assert_eq!(loaded["testSuites"].as_array().unwrap().len(), 1);
+        assert_eq!(loaded["folders"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn list_unified_projects_excludes_legacy_format_dirs() {
+        // A legacy dir colocating in the projects dir must not surface as a
+        // (broken, empty-operations) unified project.
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+        let legacy = sample_legacy_project();
+        let _dir = write_legacy_project(&base, "OnlyLegacy", &legacy);
+
+        let listed = list_unified_projects().expect("list unified");
+        assert!(
+            listed.iter().all(|p| p["name"] != "OnlyLegacy"),
+            "legacy dir must be excluded from the unified list"
+        );
+        std::env::remove_var("APINOX_CONFIG_DIR");
     }
 }
