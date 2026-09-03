@@ -1222,6 +1222,14 @@ interface HistoryParams {
 }
 
 function saveRequestHistory(params: HistoryParams): void {
+    // Phase B (t_86c34d38): guard — the module-level tauriInvoke is nullable
+    // until Tauri initializes (both callers run inside the message handler,
+    // i.e. after Tauri has already been used, but keep the invariant explicit).
+    if (!tauriInvoke) {
+        console.warn('[Bridge] saveRequestHistory skipped: Tauri not initialized');
+        return;
+    }
+
     const historyEntry: any = {
         id: crypto.randomUUID(),
         timestamp: Date.now(),

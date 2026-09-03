@@ -45,7 +45,7 @@ const ActionContainer = styled.div`
 `;
 
 interface EmptyStateProps {
-    icon?: React.ElementType;
+    icon?: React.ElementType | null;
     title: string;
     description?: string;
     action?: {

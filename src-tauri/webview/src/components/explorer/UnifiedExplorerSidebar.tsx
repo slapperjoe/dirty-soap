@@ -546,7 +546,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                                         clearDropGap();
                                     }}
                                 >
-                                    {(op.requests || []).filter(req => !req.name.startsWith('sample_')).map((req: ApiRequest, reqFilteredIndex: number) => {
+                                    {(op.requests || []).filter(req => !req.name.startsWith('sample_')).map((req: ApiRequest) => {
                                         const reqId = req.id || req.name;
                                         // Find the real index in the full (unfiltered) requests array
                                         const fullReqIndex = (op.requests || []).findIndex(r => (r.id || r.name) === reqId);
