@@ -280,6 +280,12 @@ pub async fn list_projects() -> Result<Vec<String>, String> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() && path.join("properties.json").exists() {
+                // Phase B (t_86c34d38): the legacy and unified formats co-locate
+                // in the same projects dir. We intentionally do NOT filter
+                // unified-format dirs out here: migration is non-destructive
+                // (it keeps the nested `interfaces/` tree), so a migrated
+                // project is still a valid legacy project and must stay visible
+                // to the PROXY / WORKFLOWS features that read the nested model.
                 paths.push(path.to_string_lossy().to_string());
             }
         }
@@ -786,6 +792,12 @@ pub async fn close_project(_project_id: String) -> Result<serde_json::Value, Str
 // `operations[]` dirs, `properties.json` format bump, `tests/` + `folders/`
 // subdirs preserved (unified projects now carry suites/folders too).
 //
+// NON-DESTRUCTIVE: the legacy nested `interfaces/` tree is KEPT. The unified
+// flat-op layout is additive, so a migrated project is simultaneously a valid
+// unified AND a valid legacy project. PROXY (AddToProjectDialog) and WORKFLOWS
+// (WorkflowEditor) still read the nested legacy model; deleting `interfaces/`
+// would regress them the moment a legacy project auto-migrates.
+//
 // Idempotent: dirs already in unified format are skipped.
 
 /// Migrate one legacy project dir to the unified layout, in place.
@@ -875,14 +887,20 @@ pub(crate) async fn migrate_legacy_project_dir(dir: &Path) -> Result<bool, Strin
     // Write the unified layout (properties.json + flat operation dirs + tests/ + folders/).
     save_unified_project(dir.to_string_lossy().into(), unified)?;
 
-    // Remove the now-dead legacy interface tree.
-    let legacy_interfaces = dir.join("interfaces");
-    if legacy_interfaces.exists() {
-        fs::remove_dir_all(&legacy_interfaces)
-            .map_err(|e| format!("Failed to remove legacy interfaces dir: {}", e))?;
-    }
+    // NON-DESTRUCTIVE: keep the legacy `interfaces/` tree. The unified and
+    // legacy formats co-locate in the same dir and PROXY (AddToProjectDialog /
+    // "Add to APInox Project") + WORKFLOWS (WorkflowEditor request-picker)
+    // still read the NESTED legacy model. Deleting `interfaces/` here would
+    // silently regress those features once every legacy project auto-migrates.
+    // The unified flat-op layout is purely additive (save_unified_project also
+    // protects `interfaces/` from its orphan cleanup), so a migrated project is
+    // simultaneously a valid unified AND a valid legacy project.
+    //
+    // `save_unified_project` rewrites tests/ + folders/ from `unified` (which
+    // carried the exact legacy values), so those stay byte-for-byte coherent
+    // with the legacy model — no data loss on either side.
 
-    log::info!("Migrated legacy project '{}' to unified format", name);
+    log::info!("Migrated legacy project '{}' to unified format (legacy interfaces/ preserved)", name);
     Ok(true)
 }
 
@@ -1011,10 +1029,16 @@ pub fn save_unified_project(dir_path: String, project: serde_json::Value) -> Res
 
     let op_names = sanitized_names(operations, "name");
     // Phase B (t_86c34d38): `tests/` and `folders/` hold the project's test
-    // suites and user folders — protect them from the operation-dir cleanup.
+    // suites and user folders (shared with the legacy layout) — protect them
+    // from the operation-dir cleanup. `interfaces/` is the LEGACY nested tree:
+    // the unified and legacy formats co-locate in the same dir and PROXY /
+    // WORKFLOWS still read the nested model, so a unified save must not delete
+    // it (making the migration non-destructive is what keeps those features
+    // working — see migrate_legacy_project_dir).
     let mut keep: std::collections::HashSet<String> = op_names;
     keep.insert("tests".to_string());
     keep.insert("folders".to_string());
+    keep.insert("interfaces".to_string());
     cleanup_orphan_dirs(&dir, &keep);
 
     for op in operations {
@@ -1751,9 +1775,10 @@ mod tests {
 
         // Postcondition: now unified, and loads back with flat operations.
         assert!(is_unified_format_path(&dir));
-        // The legacy interfaces/ tree is gone.
-        assert!(!dir.join("interfaces").exists(), "legacy interfaces tree must be removed");
-        // Flat operation dirs exist at the top level.
+        // NON-DESTRUCTIVE: the legacy interfaces/ tree is preserved so PROXY /
+        // WORKFLOWS (which read the nested legacy model) keep working.
+        assert!(dir.join("interfaces").exists(), "legacy interfaces tree must be preserved");
+        // Flat operation dirs exist at the top level (additive unified layout).
         assert!(dir.join("Ping").join("operation.json").exists(), "op dir created");
 
         let loaded = load_unified_project(dir.to_string_lossy().into()).expect("load unified");
