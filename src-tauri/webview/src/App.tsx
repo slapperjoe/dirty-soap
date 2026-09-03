@@ -8,6 +8,7 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import { SelectionProvider } from './contexts/SelectionContext';
 import { UIProvider } from './contexts/UIContext';
 import { NavigationProvider } from './contexts/NavigationContext';
+import { UnifiedProjectProvider } from './contexts/UnifiedProjectContext';
 import { TestRunnerProvider } from './contexts/TestRunnerContext';
 import { PerformanceProvider } from './contexts/PerformanceContext';
 import { SearchProvider } from './contexts/SearchContext';
@@ -121,7 +122,8 @@ export default function App() {
                     <UIProvider>
                         <NavigationProvider>
                             <ScrapbookProvider>
-                                <TestRunnerProvider>
+                                <UnifiedProjectProvider>
+                                    <TestRunnerProvider>
                                     <PerformanceProvider>
                                         <SearchProvider>
                                             {showCustomTitleBar && <TitleBar />}
@@ -137,7 +139,8 @@ export default function App() {
                                             </ErrorBoundary>
                                         </SearchProvider>
                                     </PerformanceProvider>
-                                </TestRunnerProvider>
+                                    </TestRunnerProvider>
+                                </UnifiedProjectProvider>
                             </ScrapbookProvider>
                         </NavigationProvider>
                     </UIProvider>

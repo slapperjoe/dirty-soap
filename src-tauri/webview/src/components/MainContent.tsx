@@ -21,6 +21,7 @@ import { useProject } from '../contexts/ProjectContext';
 import { useSelection } from '../contexts/SelectionContext';
 import { useUI } from '../contexts/UIContext';
 import { useNavigation } from '../contexts/NavigationContext';
+import { useUnifiedProjects } from '../contexts/UnifiedProjectContext';
 import { usePerformance } from '../contexts/PerformanceContext';
 import { useTestRunner } from '../contexts/TestRunnerContext';
 import { useScrapbook } from '../contexts/ScrapbookContext';
@@ -234,24 +235,13 @@ const MainContent: React.FC = () => {
     // ==========================================================================
     
     // Unified Explorer State
-    const [unifiedProjects, setUnifiedProjects] = useState<UnifiedProject[]>([]);
+    // Phase B (t_86c34d38): the unified project list is centralized in
+    // UnifiedProjectContext (single source of truth for the unified store). It
+    // migrates any legacy APInox-v1 dirs to unified on mount (idempotent,
+    // non-destructive) then loads the unified list. The names below are aliased
+    // from the context so the ~16 call sites in this component are unchanged.
+    const { projects: unifiedProjects, setProjects: setUnifiedProjects } = useUnifiedProjects();
     const [unifiedSelectedNode, setUnifiedSelectedNode] = useState<{ type: string; id: string } | null>(null);
-    const [unifiedLoading, setUnifiedLoading] = useState(true);
-    
-    // Load unified projects on mount
-    useEffect(() => {
-        (async () => {
-            try {
-                const data: any = await bridge.invokeTauriCommand('list_unified_projects');
-                const projectList: UnifiedProject[] = Array.isArray(data) ? data : [];
-                setUnifiedProjects(projectList);
-            } catch (e) {
-                console.error('[UnifiedExplorer] Failed to load projects:', e);
-            } finally {
-                setUnifiedLoading(false);
-            }
-        })();
-    }, []);
     
     // Unified Explorer Handlers
     const handleUnifiedSelectNode = useCallback((type: string, id: string) => {
