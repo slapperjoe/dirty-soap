@@ -100,13 +100,16 @@ const HELP_SECTIONS_RAW = [
             },
             {
                 id: 'workspace',
-                label: 'Workspace',
+                label: 'Projects',
                 icon: Layout,
                 order: 2,
                 content: `
-    # Workspace & Projects
+    # Projects & the Unified Explorer
 
-    APInox organizes your work into a structured hierarchy.
+    The **Unified Explorer** is the entry point for working with APIs.
+    Load a WSDL, OpenAPI (REST), or GraphQL definition and it becomes a
+    project directly — browse, edit, and run its operations from the
+    unified sidebar.
 
     ## Structure
 
@@ -126,6 +129,13 @@ const HELP_SECTIONS_RAW = [
     ## Context Actions
 
     Right-click items in the sidebar to clone, rename, delete, or add requests.
+
+    ## Legacy Workspace
+
+    The legacy **Workspace** (Projects) view is no longer listed on the
+    activity rail. It remains available for legacy projects and opens
+    automatically when you follow a test step or legacy link that points
+    into it.
     `
             },
             {

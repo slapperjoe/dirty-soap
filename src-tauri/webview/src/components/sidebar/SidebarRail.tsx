@@ -3,7 +3,6 @@ import {
   Settings,
   HelpCircle,
   Compass,
-  FolderOpen as FolderIcon,
   FlaskConical,
   Home,
   Clock,
@@ -111,12 +110,10 @@ export const SidebarRail: React.FC<SidebarRailProps> = ({
         flexShrink: 0,
       }}
     >
-      <NavItem
-        icon={FolderIcon}
-        active={activeView === SidebarView.PROJECTS}
-        onClick={() => onChangeView(SidebarView.PROJECTS)}
-        title="Projects"
-      />
+      {/* The legacy PROJECTS/Workspace rail entry was removed — the unified
+          explorer is the entry point. The PROJECTS view stays reachable
+          programmatically (test-step hand-off, legacy deep links) but is no
+          longer on the rail. */}
       <NavItem
         icon={Layers}
         active={activeView === SidebarView.UNIFIED_EXPLORER}
