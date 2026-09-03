@@ -261,6 +261,9 @@ export const Sidebar: React.FC = () => {
                             onDeleteOperation={unifiedProps.onDeleteOperation}
                             onDeleteRequest={unifiedProps.onDeleteRequest}
                             onNewRequest={unifiedProps.onNewRequest}
+                            onRenameProject={unifiedProps.onRenameProject}
+                            onRenameOperation={unifiedProps.onRenameOperation}
+                            onRenameRequest={unifiedProps.onRenameRequest}
                             onExportProject={unifiedProps.onExportProject}
                             onReorderOperation={unifiedProps.onReorderOperation}
                             onReorderRequest={unifiedProps.onReorderRequest}

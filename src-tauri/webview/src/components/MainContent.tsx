@@ -378,6 +378,28 @@ const MainContent: React.FC = () => {
         }
     }, []);
     
+    // ── R-10 (F-17): context-menu rename (display-only `displayName`) ──────
+    // Each rename command loads the project, sets/clears the additive
+    // `displayName` field, persists it, and returns the FULL updated project —
+    // so we replace the in-memory copy verbatim. The stable `name` (on-disk
+    // directory, WSDL binding, refresh merge key, selection identity) is
+    // untouched, so selection survives the rename.
+
+    const handleUnifiedRenameProject = useCallback(async (projectName: string, displayName: string) => {
+        const updated = await bridge.invokeTauriCommand<UnifiedProject>('rename_unified_project', { projectName, displayName });
+        setUnifiedProjects(prev => prev.map(p => (p.name === projectName ? updated : p)));
+    }, []);
+
+    const handleUnifiedRenameOperation = useCallback(async (projectName: string, operationName: string, displayName: string) => {
+        const updated = await bridge.invokeTauriCommand<UnifiedProject>('rename_unified_operation', { projectName, operationName, displayName });
+        setUnifiedProjects(prev => prev.map(p => (p.name === projectName ? updated : p)));
+    }, []);
+
+    const handleUnifiedRenameRequest = useCallback(async (projectName: string, operationName: string, requestName: string, displayName: string) => {
+        const updated = await bridge.invokeTauriCommand<UnifiedProject>('rename_unified_request', { projectName, operationName, requestName, displayName });
+        setUnifiedProjects(prev => prev.map(p => (p.name === projectName ? updated : p)));
+    }, []);
+    
     const handleUnifiedNewRequest = useCallback(async (projectName: string, operationName: string) => {
         const project = unifiedProjects.find(p => p.name === projectName);
         const operation = project?.operations.find(op => op.name === operationName);
@@ -1878,6 +1900,9 @@ const MainContent: React.FC = () => {
             onDeleteOperation: handleUnifiedDeleteOperation,
             onDeleteRequest: handleUnifiedDeleteRequest,
             onNewRequest: handleUnifiedNewRequest,
+            onRenameProject: handleUnifiedRenameProject,
+            onRenameOperation: handleUnifiedRenameOperation,
+            onRenameRequest: handleUnifiedRenameRequest,
             onExportProject: handleUnifiedExport,
             onReorderOperation: handleUnifiedReorderOperation,
             onReorderRequest: handleUnifiedReorderRequest,
@@ -1939,6 +1964,7 @@ const MainContent: React.FC = () => {
         unifiedProjects, unifiedSelectedNode,
         handleUnifiedSelectNode, handleUnifiedRefresh, handleUnifiedDeleteProject,
         handleUnifiedDeleteOperation, handleUnifiedDeleteRequest, handleUnifiedNewRequest,
+        handleUnifiedRenameProject, handleUnifiedRenameOperation, handleUnifiedRenameRequest,
         handleUnifiedProjectContentTypeChange,
         handleUnifiedExport, handleUnifiedReorderOperation, handleUnifiedReorderRequest,
         scrapbookRequests, selectedScrapbookRequest, scrapbookLoading,

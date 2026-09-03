@@ -178,6 +178,10 @@ export interface SidebarUnifiedProps {
     onDeleteOperation: (projectName: string, operationName: string) => void;
     onDeleteRequest: (projectName: string, operationName: string, requestName: string) => void;
     onNewRequest: (projectName: string, operationName: string) => void;
+    /** R-10 (F-17): context-menu rename (display-only `displayName` override). */
+    onRenameProject?: (projectName: string, displayName: string) => Promise<void>;
+    onRenameOperation?: (projectName: string, operationName: string, displayName: string) => Promise<void>;
+    onRenameRequest?: (projectName: string, operationName: string, requestName: string, displayName: string) => Promise<void>;
     onExportProject: (projectName: string) => void;
     onReorderOperation: (projectName: string, fromIndex: number, toIndex: number) => void;
     onReorderRequest: (projectName: string, operationName: string, fromIndex: number, toIndex: number) => void;

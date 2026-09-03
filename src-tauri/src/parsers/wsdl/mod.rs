@@ -10,6 +10,7 @@ pub use apinox_wsdl_parser::{
     ApiService, ServiceOperation, SchemaNode,
     WsdlParser,
     ImportResolver, ImportDeclaration, ImportType,
+    LoadContext,
 };
 
 // Re-export sub-modules so callers using `crate::parsers::wsdl::imports::...` continue to work.

@@ -152,6 +152,22 @@ impl WsdlParser {
         wsdl_xml: &str,
         max_import_depth: usize,
     ) -> Result<Vec<ApiService>> {
+        Self::parse_with_imports_ctx(wsdl_url, wsdl_xml, max_import_depth, &crate::load_context::LoadContext::default()).await
+    }
+
+    /// `parse_with_imports` with an explicit [`LoadContext`] (R-11 + R-12).
+    ///
+    /// The context supplies the proxy URL (R-12) and the shared cancel flag
+    /// (R-11) that every fetch in the load — the top-level document *and* all
+    /// `<wsdl:import>` / `<xsd:import>` / `<xsd:include>` fetches — honours.
+    /// `parse_with_imports` is a thin wrapper around this with a default
+    /// (no-proxy, never-cancelled) context, so existing callers are unchanged.
+    pub async fn parse_with_imports_ctx(
+        wsdl_url: &str,
+        wsdl_xml: &str,
+        max_import_depth: usize,
+        ctx: &crate::load_context::LoadContext,
+    ) -> Result<Vec<ApiService>> {
         log::info!("Starting WSDL parse with import resolution from: {}", wsdl_url);
         
         // Check for WSDL imports first
@@ -166,7 +182,7 @@ impl WsdlParser {
         if !wsdl_imports.is_empty() {
             log::info!("Found {} WSDL imports, fetching...", wsdl_imports.len());
             
-            let mut resolver = super::imports::ImportResolver::new()?;
+            let mut resolver = ctx.resolver()?;
             
             // Fetch all WSDL imports
             for import_decl in &wsdl_imports {
@@ -190,8 +206,8 @@ impl WsdlParser {
         if !definitions.schemas.is_empty() {
             log::info!("Found {} schemas in WSDL, checking for imports...", definitions.schemas.len());
             
-            // Create import resolver
-            let mut resolver = super::imports::ImportResolver::new()?;
+            // Create import resolver (shares the load's proxy + cancel flag)
+            let mut resolver = ctx.resolver()?;
             
             // Extract schema sections from merged WSDL
             log::info!("Extracting schema sections from WSDL...");

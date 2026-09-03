@@ -8,6 +8,7 @@ import {
     Play,
     RefreshCw,
     FolderOpen,
+    X,
 } from 'lucide-react';
 import { debugLog } from '../../utils/logger';
 import { useScrapbookOptional } from '../../contexts/ScrapbookContext';
@@ -36,7 +37,13 @@ export interface UnifiedExplorerMainProps {
     selectedNode: { type: string; id: string } | null;
     onSelectNode: (type: string, id: string) => void;
     onRefreshProject: (projectName: string) => void;
-    onLoadWsdl: (url: string) => void;
+    /**
+     * Load a WSDL / OpenAPI / GraphQL source. `opts` (R-11 / R-12) only
+     * applies to the WSDL path: `useProxy` routes the fetch through the app
+     * proxy (force-off for local files in Rust), `loadId` makes the in-flight
+     * load cancellable via `cancel_unified_load`.
+     */
+    onLoadWsdl: (url: string, opts?: { useProxy?: boolean; loadId?: string }) => void;
     onNewRequest: (projectName: string, operationName: string) => void;
     /** Interface-level (project) Content-Type override change — propagates to all existing requests and persists the project. */
     onProjectContentTypeChange?: (projectName: string, contentType: string) => void;
@@ -85,6 +92,10 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     onRegisterExecute,
 }) => {
     const [urlInput, setUrlInput] = useState<UrlInputState>({ url: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?WSDL', loading: false, error: null });
+    /** R-12 (F-23): route the WSDL load through the app proxy (force-off for local files). */
+    const [useProxy, setUseProxy] = useState<boolean>(false);
+    /** R-11 (F-10): the loadId of the in-flight WSDL load (set while `urlInput.loading`). */
+    const activeLoadIdRef = useRef<string | null>(null);
     /** Response cache keyed by request ID — persists across request switches */
     const [responses, setResponses] = useState<Record<string, ExecutionResponse>>({});
     const [editingRequest, setEditingRequest] = useState<ApiRequest | null>(null);
@@ -92,6 +103,10 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
     const [envVariables, setEnvVariables] = useState<Record<string, string>>({});
     /** R-01: last execution failure, surfaced as a banner above the response viewer. */
     const [executeError, setExecuteError] = useState<string | null>(null);
+    /** R-11 (F-11): in-flight request execution — enables the Cancel button next to Run. */
+    const [isExecuting, setIsExecuting] = useState(false);
+    /** R-11 (F-11): the Rust-side cancel token id for the in-flight request (SOAP `cancel_request` / REST/GraphQL `cancel_rest_request`). */
+    const activeRequestIdRef = useRef<string | null>(null);
     /** F-01: the selected quick (scrapbook) request, kept in sync with the app-level ScrapbookContext. */
     const [selectedScrapbook, setSelectedScrapbook] = useState<ScrapbookRequest | null>(null);
     /** F-01: endpoint text for the selected quick request (editable; committed on Run/Save). */
@@ -297,16 +312,24 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
         // R-03: load routing decision (URL/file extension → WSDL vs OpenAPI vs
         // GraphQL). Phase 0 surfaces the decision in the debug log; Phase 1
         // routes 'openapi'/'graphql' to parse_spec_as_project.
-        const loadFormat = detectLoadFormat(urlInput.url.trim());
-        debugLog('[UnifiedExplorerMain] Load routing', { url: urlInput.url.trim(), format: loadFormat });
+        const loadUrl = urlInput.url.trim();
+        const loadFormat = detectLoadFormat(loadUrl);
+        debugLog('[UnifiedExplorerMain] Load routing', { url: loadUrl, format: loadFormat, useProxy });
         setUrlInput(prev => ({ ...prev, loading: true, error: null }));
+        // R-11 (F-10): a webview-generated loadId lets the Cancel button abort
+        // the in-flight WSDL load (the Rust side registers the load under this
+        // id and checks a shared cancel flag between fetches).
+        const loadId = crypto.randomUUID();
+        activeLoadIdRef.current = loadId;
         try {
-            await onLoadWsdl(urlInput.url.trim());
+            await onLoadWsdl(loadUrl, { useProxy, loadId });
             setUrlInput({ url: '', loading: false, error: null });
         } catch (e: any) {
             setUrlInput({ ...urlInput, loading: false, error: e?.message || 'Failed to load WSDL' });
+        } finally {
+            activeLoadIdRef.current = null;
         }
-    }, [urlInput.url, onLoadWsdl]);
+    }, [urlInput.url, urlInput, useProxy, onLoadWsdl]);
 
     const handleLoadFile = useCallback(async () => {
         try {
@@ -320,12 +343,34 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             if (!selectedPath) return;
             const fileUrl = `file://${selectedPath}`;
             setUrlInput(prev => ({ ...prev, loading: true, error: null }));
-            await onLoadWsdl(fileUrl);
+            // R-12: the Rust side force-disables the proxy for local files
+            // (file:// URLs), matching the legacy `useProxy: false` behaviour.
+            const loadId = crypto.randomUUID();
+            activeLoadIdRef.current = loadId;
+            try {
+                await onLoadWsdl(fileUrl, { useProxy, loadId });
+            } finally {
+                activeLoadIdRef.current = null;
+            }
             setUrlInput(prev => ({ ...prev, loading: false, error: null }));
         } catch (e: any) {
             setUrlInput(prev => ({ ...prev, loading: false, error: e?.message || 'Failed to load WSDL file' }));
         }
-    }, [onLoadWsdl]);
+    }, [onLoadWsdl, useProxy]);
+
+    /** R-11 (F-10): abort the in-flight WSDL load (Cancel button on the Load bar). */
+    const handleCancelLoad = useCallback(async () => {
+        const loadId = activeLoadIdRef.current;
+        if (!loadId) return;
+        try {
+            const res = await invokeTauriCommand<{ cancelled: boolean; found: boolean }>(
+                'cancel_unified_load', { loadId },
+            );
+            debugLog('[UnifiedExplorerMain] Load cancel', res);
+        } catch (e) {
+            debugLog('[UnifiedExplorerMain] Load cancel failed', String(e));
+        }
+    }, []);
 
     const handleExecuteRequest = useCallback(async (req: ApiRequest, currentXml: string) => {
         setEditingRequest(req);
@@ -355,6 +400,13 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
         // R-01: clear any previous failure; a new execution starts clean.
         setExecuteError(null);
 
+        // R-11 (F-11): the UI passes its own request id so the Cancel button
+        // can target exactly this in-flight request (SOAP → `cancel_request`,
+        // REST/GraphQL → `cancel_rest_request`).
+        const executionId = crypto.randomUUID();
+        activeRequestIdRef.current = executionId;
+        setIsExecuting(true);
+
         const startTime = Date.now();
         try {
             if (requestType !== 'soap') {
@@ -371,9 +423,11 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                     variables: req.graphqlConfig?.variables,
                     isGraphQL: requestType === 'graphql',
                 });
+                // R-11: `requestId` registers a cancel token in Rust (the
+                // token races the send AND the body read in `execute_internal`).
                 const result = await invokeTauriCommand<ExecuteRestResponse>(
                     'execute_rest_request',
-                    invokeArgs,
+                    { ...invokeArgs, requestId: executionId },
                 );
                 const duration = Date.now() - startTime;
                 const headers = result.headers || {};
@@ -457,6 +511,9 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                     passwordType: null,
                     addTimestamp: false,
                     proxyUrl: null,
+                    // R-11 (F-11): register a cancel token for this execution
+                    // (the Rust `ExecuteSoapRequest.request_id` field).
+                    requestId: executionId,
                 },
             });
             const duration = Date.now() - startTime;
@@ -526,8 +583,36 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
             // R-01: surface the failure to the user (previously debugLog-only —
             // a failed request gave zero feedback in the unified view).
             setExecuteError(e?.message || String(e) || 'Request execution failed');
+        } finally {
+            // R-11: execution finished (success, error, or early return) —
+            // release the in-flight marker so the Cancel button re-enables
+            // for the next Run.
+            setIsExecuting(false);
+            activeRequestIdRef.current = null;
         }
     }, [envVariables, persistRequestUpdate, projects, selectedNode, onAfterExecute]);
+
+    /**
+     * R-11 (F-11): cancel the in-flight request from the Cancel button.
+     * Routes by the request's type: SOAP → `cancel_request` (existing Rust
+     * registry), REST/GraphQL → `cancel_rest_request`. The Rust side signals
+     * its `CancelToken`; the in-flight call then fails at its next await point
+     * (send or body read) and surfaces here as a normal error.
+     */
+    const handleCancelRequest = useCallback(async () => {
+        const requestId = activeRequestIdRef.current;
+        if (!requestId || !editingRequest) return;
+        const requestType = resolveRequestType(editingRequest);
+        try {
+            const command = requestType === 'soap' ? 'cancel_request' : 'cancel_rest_request';
+            const res = await invokeTauriCommand<{ cancelled?: boolean; found?: boolean }>(
+                command, { requestId },
+            );
+            debugLog('[UnifiedExplorerMain] Request cancel', { command, res });
+        } catch (e) {
+            debugLog('[UnifiedExplorerMain] Request cancel failed', String(e));
+        }
+    }, [editingRequest]);
 
     // F-01: Run button for the quick-request editor. Executes the selected
     // scrapbook entry (with the current endpoint text) through the unified
@@ -637,6 +722,52 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                     )}
                     {urlInput.loading ? 'Loading...' : 'Load'}
                 </button>
+                <button
+                    data-testid="unified-load-cancel"
+                    onClick={handleCancelLoad}
+                    disabled={!urlInput.loading}
+                    title="Cancel in-flight WSDL load"
+                    style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'var(--apinox-button-secondary-background)',
+                        color: 'var(--apinox-button-secondary-foreground)',
+                        border: '1px solid var(--apinox-button-secondary-border)',
+                        borderRadius: 4,
+                        cursor: urlInput.loading ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        opacity: urlInput.loading ? 1 : 0.5,
+                    }}
+                >
+                    <X size={14} />
+                    Cancel
+                </button>
+                {/* R-12 (F-23): route the WSDL load through the app proxy.
+                    Force-off for local files is enforced in Rust (file://
+                    URLs), matching the legacy `useProxy` behaviour. */}
+                <label
+                    data-testid="unified-load-proxy-toggle"
+                    title="Route the WSDL load through the app proxy (ignored for local files)"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 12,
+                        color: 'var(--apinox-foreground)',
+                        opacity: 0.85,
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        checked={useProxy}
+                        onChange={(e) => setUseProxy(e.target.checked)}
+                        style={{ margin: 0, accentColor: 'var(--apinox-primary)' }}
+                    />
+                    Proxy
+                </label>
                 <button
                     onClick={handleLoadFile}
                     disabled={urlInput.loading}
@@ -956,6 +1087,27 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                     <Play size={14} />
                                     Run
                                 </button>
+                                {isExecuting && (
+                                    <button
+                                        data-testid="unified-request-cancel"
+                                        onClick={handleCancelRequest}
+                                        title="Cancel in-flight request"
+                                        style={{
+                                            padding: '6px 14px',
+                                            backgroundColor: 'var(--apinox-button-secondary-background)',
+                                            color: 'var(--apinox-button-secondary-foreground)',
+                                            border: '1px solid var(--apinox-button-secondary-border)',
+                                            borderRadius: 4,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                        }}
+                                    >
+                                        <X size={14} />
+                                        Cancel
+                                    </button>
+                                )}
                                 <button
                                     data-testid="quick-request-save"
                                     onClick={handleSaveRequest}
@@ -1072,6 +1224,28 @@ export const UnifiedExplorerMain: React.FC<UnifiedExplorerMainProps> = ({
                                 <Play size={13} />
                                 Run
                             </button>
+                            {isExecuting && (
+                                <button
+                                    data-testid="unified-request-cancel"
+                                    onClick={handleCancelRequest}
+                                    title="Cancel in-flight request"
+                                    style={{
+                                        padding: '4px 12px',
+                                        backgroundColor: 'var(--apinox-button-secondary-background)',
+                                        color: 'var(--apinox-button-secondary-foreground)',
+                                        border: '1px solid var(--apinox-button-secondary-border)',
+                                        borderRadius: 4,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    <X size={13} />
+                                    Cancel
+                                </button>
+                            )}
                             <button
                                 onClick={handleSaveRequest}
                                 style={{

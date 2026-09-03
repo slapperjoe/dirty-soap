@@ -225,7 +225,15 @@ describe('Phase 4 — SOAP regression gate (Country Info, byte-identical R-02 ba
             expect(call).toBeDefined();
             // The full invoke payload is asserted field-for-field: this is the
             // byte-identity gate against the R-02 baseline (doc §9 R3).
-            expect(call![1]).toEqual({
+            // R-11 (additive): the correlation `requestId` rides alongside the
+            // payload so the UI's Cancel button can target exactly this
+            // in-flight call via `cancel_request`. It is stripped here so the
+            // baseline payload is compared byte-for-byte as before, then
+            // asserted separately as a non-empty string.
+            const payload = { ...call![1] };
+            const requestId = (payload.request as any).requestId;
+            delete (payload.request as any).requestId;
+            expect(payload).toEqual({
                 request: {
                     operation: {
                         name: 'GetCountryName',
@@ -252,6 +260,8 @@ describe('Phase 4 — SOAP regression gate (Country Info, byte-identical R-02 ba
                     proxyUrl: null,
                 },
             });
+            expect(typeof requestId).toBe('string');
+            expect((requestId as string).length).toBeGreaterThan(0);
         });
 
         // No REST dispatch for SOAP requests.
@@ -313,12 +323,20 @@ describe('Phase 4 — REST execution (R-09 / F-06)', () => {
             const call = findCall('execute_rest_request');
             expect(call).toBeDefined();
             // Legacy flat-arg shape (bridge.ts:459–464); GET carries no body.
-            expect(call![1]).toEqual({
+            // R-11 (additive): the correlation `requestId` is stripped so the
+            // legacy flat-arg payload is compared as before, then asserted
+            // separately as a non-empty string (cancel_rest_request target).
+            const args = { ...call![1] };
+            const requestId = args.requestId;
+            delete args.requestId;
+            expect(args).toEqual({
                 method: 'GET',
                 url: 'https://petstore.swagger.io/v2/pet/1',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                 body: null,
             });
+            expect(typeof requestId).toBe('string');
+            expect((requestId as string).length).toBeGreaterThan(0);
         });
         expect(findCall('execute_soap_request')).toBeUndefined();
 
@@ -489,12 +507,19 @@ describe('Phase 4 — quick requests via the dispatcher (task item 4)', () => {
         await waitFor(() => {
             const call = findCall('execute_rest_request');
             expect(call).toBeDefined();
-            expect(call![1]).toEqual({
+            // R-11 (additive): strip the correlation `requestId` before the
+            // legacy flat-arg comparison, then assert it as a non-empty string.
+            const args = { ...call![1] };
+            const requestId = args.requestId;
+            delete args.requestId;
+            expect(args).toEqual({
                 method: 'GET',
                 url: 'https://petstore.swagger.io/v2/pet/1',
                 headers: { 'Content-Type': 'application/json' },
                 body: null,
             });
+            expect(typeof requestId).toBe('string');
+            expect((requestId as string).length).toBeGreaterThan(0);
         });
         expect(findCall('execute_soap_request')).toBeUndefined();
         // History entry written for the quick request too (single global store).

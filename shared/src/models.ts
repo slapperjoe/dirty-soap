@@ -218,6 +218,8 @@ export interface RequestResponse {
 
 export interface ApiRequest {
     name: string;
+    /** R-10 (F-17): display-only rename override (context menu). The stable `name` — used for WSDL binding and request lookups — is preserved; an empty/undefined value falls back to `name` in the UI. */
+    displayName?: string;
     request: string; // The body content (XML, JSON, GraphQL query, etc.)
     contentType?: string;
     method?: HttpMethod | string;
@@ -424,6 +426,8 @@ export interface UnifiedProject {
     /** Operations (which contain requests) */
     operations: ApiOperation[];
     id?: string;
+    /** R-10 (F-17): display-only rename override (context menu). The stable `name` — used for the on-disk directory, WSDL binding and refresh merge — is preserved; an empty/undefined value falls back to `name` in the UI. */
+    displayName?: string;
 }
 
 // Test Runner Types

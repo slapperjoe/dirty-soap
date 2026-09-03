@@ -42,10 +42,12 @@
 //! ```
 
 pub mod imports;
+pub mod load_context;
 pub mod parser;
 pub mod schema;
 pub mod types;
 
 pub use imports::{ImportDeclaration, ImportResolver, ImportType};
+pub use load_context::LoadContext;
 pub use parser::WsdlParser;
 pub use types::{ApiService, SchemaNode, ServiceOperation};

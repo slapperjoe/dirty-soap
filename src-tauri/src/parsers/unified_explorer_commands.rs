@@ -3,12 +3,13 @@
 //! Handles WSDL/OpenAPI parsing, project creation, and refresh/sync logic.
 //! The WSDL service is the top-level entity — no wrapper project layer.
 
-use crate::parsers::wsdl::{ApiService, ServiceOperation};
-use crate::parsers::wsdl_commands::{parse_wsdl, ParseWsdlRequest};
+use crate::parsers::wsdl::{ApiService, ServiceOperation, LoadContext};
+use crate::parsers::wsdl_commands::{parse_wsdl_ctx, ParseWsdlRequest};
 use crate::project_storage;
 use crate::soap::envelope_builder::{EnvelopeBuilder, SoapVersion};
 use serde_json::json;
 use std::fs;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 use crate::http::client::{HttpClient, HttpRequest};
@@ -20,10 +21,109 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 
+// ---------------------------------------------------------------------------
+// R-11 (F-10) — cancel in-flight WSDL load
+// ---------------------------------------------------------------------------
+//
+// In-flight unified loads are tracked here, keyed by the webview's `loadId`
+// (a UUID the webview generates and passes to `parse_wsdl_as_project`, then
+// hands to `cancel_unified_load` from the Cancel button). Each entry holds the
+// `LoadContext` whose shared cancel flag every fetch in the load honours. The
+// entry is removed when the load finishes (success or error), so the map never
+// accumulates.
+static LOAD_REGISTRY: Lazy<Mutex<HashMap<String, Arc<LoadContext>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// Cancel an in-flight unified WSDL load by `loadId` (R-11 / F-10).
+///
+/// Returns `{ cancelled: true, found: true }` when a matching load is in
+/// flight and was signalled to abort (it will surface a `WsdlLoadCancelled`
+/// error to the caller at its next cooperative check), or
+/// `{ cancelled: false, found: false }` when the load already finished (or no
+/// such `loadId` was registered). Mirrors the SOAP `cancel_request` command's
+/// result shape.
+#[tauri::command]
+pub fn cancel_unified_load(load_id: String) -> Result<serde_json::Value, String> {
+    if load_id.is_empty() {
+        return Err("cancel_unified_load requires a loadId".to_string());
+    }
+    let registry = LOAD_REGISTRY.lock().unwrap();
+    if let Some(ctx) = registry.get(&load_id) {
+        ctx.cancel();
+        log::info!("Cancelled unified WSDL load: {}", load_id);
+        Ok(json!({ "cancelled": true, "found": true, "loadId": load_id }))
+    } else {
+        log::info!("cancel_unified_load: loadId not in-flight: {}", load_id);
+        Ok(json!({ "cancelled": false, "found": false, "loadId": load_id }))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// R-12 (F-23) — WSDL load via proxy toggle
+// ---------------------------------------------------------------------------
+
+/// Read the app's configured proxy URL (settings `network.proxy`), if any.
+/// Non-fatal: a missing/unreadable config yields `None` (load direct).
+fn app_proxy_url() -> Option<String> {
+    crate::settings_manager::load_config_internal()
+        .ok()
+        .and_then(|cfg| cfg.network)
+        .and_then(|net| net.proxy)
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty())
+}
+
+/// R-12 (F-23): the proxy URL a unified WSDL load should use, or `None` for a
+/// direct connection.
+///
+/// - **Local sources** (anything that is not an `http(s)://` URL — e.g. the
+///   `file://` URLs the file-import flow builds, or a bare local path) force
+///   the proxy **off**, matching the legacy `useProxy` behaviour
+///   (`MainContent.tsx:1535/1598`, where local-file loads always send
+///   `useProxy: false`).
+/// - **Remote `http(s)` URLs** use the provided proxy only when `use_proxy` is
+///   true and a non-empty proxy is configured.
+///
+/// Pure (the proxy candidate is passed in, not read from settings) so it is
+/// unit-testable in isolation.
+pub fn effective_proxy_url(
+    url: &str,
+    use_proxy: bool,
+    app_proxy: Option<&str>,
+) -> Option<String> {
+    if is_local_source(url) {
+        return None;
+    }
+    if !use_proxy {
+        return None;
+    }
+    app_proxy
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+}
+
+/// True when a load source is a local file rather than a remote `http(s)` URL.
+/// The proxy is force-off for local sources (see `effective_proxy_url`).
+fn is_local_source(url: &str) -> bool {
+    let lower = url.trim().to_lowercase();
+    !lower.starts_with("http://") && !lower.starts_with("https://")
+}
+
 /// Parse a WSDL URL and create/save a unified project.
 /// If a project with the same sourceUrl already exists, triggers a refresh/sync.
+///
+/// `use_proxy` (R-12): when true and the source is a remote URL, the fetch is
+/// routed through the app's configured proxy (force-off for local files).
+/// `load_id` (R-11): the webview-supplied id for this load; pass it to
+/// `cancel_unified_load` to abort an in-flight load.
 #[tauri::command]
-pub async fn parse_wsdl_as_project(url: String) -> Result<serde_json::Value, String> {
+pub async fn parse_wsdl_as_project(
+    url: String,
+    use_proxy: Option<bool>,
+    load_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let use_proxy = use_proxy.unwrap_or(false);
     // List existing projects and check for duplicate sourceUrl
     let projects = project_storage::list_unified_projects()
         .map_err(|e| format!("Failed to list projects: {}", e))?;
@@ -31,20 +131,50 @@ pub async fn parse_wsdl_as_project(url: String) -> Result<serde_json::Value, Str
     for p in &projects {
         if let Some(existing_url) = p.get("sourceUrl").and_then(|v| v.as_str()) {
             if existing_url == url.as_str() {
-                // Duplicate WSDL URL — trigger refresh instead
+                // Duplicate WSDL URL — trigger refresh instead. Honour the
+                // caller's proxy choice + loadId so a re-load is cancellable
+                // and routes through the proxy just like the initial load.
                 let project_name = p["name"].as_str().unwrap_or("<unknown>").to_string();
-                return refresh_unified_project(project_name).await;
+                return refresh_unified_project_with_opts(
+                    project_name,
+                    use_proxy,
+                    load_id,
+                )
+                .await;
             }
         }
     }
 
-    // Parse WSDL
-    let result = parse_wsdl(ParseWsdlRequest {
-        url: url.clone(),
-        resolve_imports: Some(true),
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    // R-12: resolve the effective proxy (force-off for local files).
+    let proxy_url = effective_proxy_url(&url, use_proxy, app_proxy_url().as_deref());
+
+    // R-11: register a cancellable load context keyed by the webview's loadId.
+    let load_id = load_id
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let ctx = Arc::new(LoadContext::new(proxy_url));
+    {
+        let mut registry = LOAD_REGISTRY.lock().unwrap();
+        registry.insert(load_id.clone(), ctx.clone());
+    }
+
+    // Parse WSDL. The context carries the proxy (R-12) and the shared cancel
+    // flag (R-11) for the top-level fetch *and* every import fetch.
+    let result = parse_wsdl_ctx(
+        ParseWsdlRequest {
+            url: url.clone(),
+            resolve_imports: Some(true),
+            proxy_url: None, // proxy flows through the LoadContext, not the request
+        },
+        &ctx,
+    )
+    .await;
+
+    // R-11: always unregister, whether the load succeeded, failed, or was
+    // cancelled — the entry must not outlive the load.
+    LOAD_REGISTRY.lock().unwrap().remove(&load_id);
+
+    let result = result.map_err(|e| e.to_string())?;
 
     if result.services.is_empty() {
         return Err("No services found in WSDL".to_string());
@@ -98,6 +228,20 @@ pub async fn parse_wsdl_as_project(url: String) -> Result<serde_json::Value, Str
 /// Refresh a unified project's WSDL source by service name
 #[tauri::command]
 pub async fn refresh_unified_project(service_name: String) -> Result<serde_json::Value, String> {
+    // The frontend "Refresh WSDL" menu item re-parses the stored sourceUrl
+    // directly (no proxy toggle in the menu); keep that behaviour. The
+    // duplicate-URL re-load path (`parse_wsdl_as_project`) routes here with the
+    // caller's proxy choice + loadId via `refresh_unified_project_with_opts`.
+    refresh_unified_project_with_opts(service_name, false, None).await
+}
+
+/// Refresh a unified project's WSDL source by service name, honouring an
+/// optional proxy choice (R-12) and a cancellable load id (R-11).
+async fn refresh_unified_project_with_opts(
+    service_name: String,
+    use_proxy: bool,
+    load_id: Option<String>,
+) -> Result<serde_json::Value, String> {
     // Load existing project
     let project_dir = project_storage::projects_dir()
         .map_err(|e| format!("Failed to get projects dir: {}", e))?
@@ -112,13 +256,34 @@ pub async fn refresh_unified_project(service_name: String) -> Result<serde_json:
         .and_then(|v| v.as_str())
         .ok_or_else(|| format!("Project '{}' has no source URL to refresh", service_name))?;
 
+    // R-12: resolve the effective proxy for the re-parse (force-off for local
+    // files). R-11: register a cancellable load context when a loadId is given.
+    let proxy_url = effective_proxy_url(source_url, use_proxy, app_proxy_url().as_deref());
+    let load_id = load_id
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let ctx = Arc::new(LoadContext::new(proxy_url));
+    {
+        let mut registry = LOAD_REGISTRY.lock().unwrap();
+        registry.insert(load_id.clone(), ctx.clone());
+    }
+
     // Re-parse the WSDL
-    let result = parse_wsdl(ParseWsdlRequest {
-        url: source_url.to_string(),
-        resolve_imports: Some(true),
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    let result = parse_wsdl_ctx(
+        ParseWsdlRequest {
+            url: source_url.to_string(),
+            resolve_imports: Some(true),
+            proxy_url: None, // proxy flows through the LoadContext
+        },
+        &ctx,
+    )
+    .await;
+
+    // R-11: always unregister, success or failure.
+    LOAD_REGISTRY.lock().unwrap().remove(&load_id);
+
+    let result = result.map_err(|e| e.to_string())?;
 
     if result.services.is_empty() {
         return Err("No services found after re-parse".to_string());
@@ -1429,6 +1594,151 @@ pub fn new_unified_request(params: serde_json::Value) -> Result<serde_json::Valu
     Ok(new_request)
 }
 
+// ---------------------------------------------------------------------------
+// R-10 (F-17) — context-menu rename
+//
+// Renaming is display-only: it sets the additive `displayName` field (already
+// declared on `ApiOperation`/`ApiInterface` in shared/src/models.ts as "for
+// display-only renaming in UI — preserves original name for WSDL binding").
+// The stable `name` is left intact, which keeps:
+//   * the on-disk project directory (`sanitize_name(name)`) stable — no
+//     directory move, no collision handling, existing exports/imports valid;
+//   * WSDL binding + refresh merge (keyed on `name`) stable;
+//   * selection identity stable (ops/requests have stable `id`s; the tree
+//     selects on `id || name`, so a `name` that never changes is safe).
+// Passing an empty/whitespace display name clears the override (falls back to
+// the original name in the UI).
+// ---------------------------------------------------------------------------
+
+/// Shared helper: resolve a project directory by its (stable) name.
+fn unified_project_dir(project_name: &str) -> Result<std::path::PathBuf, String> {
+    let dir = project_storage::projects_dir()
+        .map_err(|e| format!("Failed to get projects dir: {}", e))?;
+    Ok(dir.join(sanitize_name(project_name)))
+}
+
+/// R-10 (F-17): set the display name of a unified project (or clear it).
+#[tauri::command]
+pub fn rename_unified_project(
+    project_name: String,
+    display_name: String,
+) -> Result<serde_json::Value, String> {
+    let project_dir = unified_project_dir(&project_name)?;
+
+    let mut project =
+        project_storage::load_unified_project(project_dir.to_string_lossy().to_string())
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+
+    let display_name = display_name.trim().to_string();
+    if display_name.is_empty() {
+        project.as_object_mut().unwrap().remove("displayName");
+    } else {
+        project["displayName"] = json!(display_name);
+    }
+
+    project_storage::save_unified_project(project_dir.to_string_lossy().to_string(), project.clone())
+        .map_err(|e| format!("Failed to save project after rename: {}", e))?;
+
+    Ok(project)
+}
+
+/// R-10 (F-17): set the display name of an operation within a unified project.
+/// `operation_name` is the stable operation name (not the display name).
+#[tauri::command]
+pub fn rename_unified_operation(
+    project_name: String,
+    operation_name: String,
+    display_name: String,
+) -> Result<serde_json::Value, String> {
+    let project_dir = unified_project_dir(&project_name)?;
+
+    let mut project =
+        project_storage::load_unified_project(project_dir.to_string_lossy().to_string())
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+
+    let operations = project["operations"]
+        .as_array_mut()
+        .ok_or("Missing or invalid operations array")?;
+
+    let display_name = display_name.trim().to_string();
+    let mut found = false;
+    for op in operations.iter_mut() {
+        if op.get("name").and_then(|v| v.as_str()) == Some(&operation_name) {
+            if display_name.is_empty() {
+                op.as_object_mut().unwrap().remove("displayName");
+            } else {
+                op["displayName"] = json!(display_name);
+            }
+            found = true;
+            break;
+        }
+    }
+    if !found {
+        return Err(format!("Operation '{}' not found in project '{}'", operation_name, project_name));
+    }
+
+    project_storage::save_unified_project(project_dir.to_string_lossy().to_string(), project.clone())
+        .map_err(|e| format!("Failed to save project after rename: {}", e))?;
+
+    Ok(project)
+}
+
+/// R-10 (F-17): set the display name of a request within an operation.
+/// `request_name` is the stable request name (not the display name).
+#[tauri::command]
+pub fn rename_unified_request(
+    project_name: String,
+    operation_name: String,
+    request_name: String,
+    display_name: String,
+) -> Result<serde_json::Value, String> {
+    let project_dir = unified_project_dir(&project_name)?;
+
+    let mut project =
+        project_storage::load_unified_project(project_dir.to_string_lossy().to_string())
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+
+    let operations = project["operations"]
+        .as_array_mut()
+        .ok_or("Missing or invalid operations array")?;
+
+    let display_name = display_name.trim().to_string();
+    let mut found = false;
+    for op in operations.iter_mut() {
+        if op.get("name").and_then(|v| v.as_str()) == Some(&operation_name) {
+            let requests = op
+                .get_mut("requests")
+                .and_then(|v| v.as_array_mut())
+                .ok_or("Missing or invalid requests array")?;
+            for req in requests.iter_mut() {
+                if req.get("name").and_then(|v| v.as_str()) == Some(&request_name) {
+                    if display_name.is_empty() {
+                        req.as_object_mut().unwrap().remove("displayName");
+                    } else {
+                        req["displayName"] = json!(display_name);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if found {
+                break;
+            }
+        }
+    }
+    if !found {
+        return Err(format!(
+            "Request '{}' not found in operation '{}' of project '{}'",
+            request_name, operation_name, project_name
+        ));
+    }
+
+    project_storage::save_unified_project(project_dir.to_string_lossy().to_string(), project.clone())
+        .map_err(|e| format!("Failed to save project after rename: {}", e))?;
+
+    Ok(project)
+}
+
 /// Sanitize a name for use as a folder/file name
 fn sanitize_name(name: &str) -> String {
     name.chars()
@@ -1456,6 +1766,218 @@ mod tests {
         assert_eq!(sanitize_name("a:b"), "a_b");
         assert_eq!(sanitize_name("a*b"), "a_b");
     }
+
+    // ── R-12 (F-23): effective_proxy_url (pure; force-off for local files) ──
+
+    #[test]
+    fn test_effective_proxy_url_remote_and_toggle() {
+        const PROXY: &str = "http://proxy.example:8080";
+        // Remote URL + proxy on + proxy configured → proxy used.
+        assert_eq!(
+            effective_proxy_url("https://example.com/s.wsdl", true, Some(PROXY)),
+            Some(PROXY.to_string())
+        );
+        // Remote URL + proxy off → direct (even with a proxy configured).
+        assert_eq!(
+            effective_proxy_url("https://example.com/s.wsdl", false, Some(PROXY)),
+            None
+        );
+        // Remote URL + proxy on + no proxy configured → direct.
+        assert_eq!(effective_proxy_url("https://example.com/s.wsdl", true, None), None);
+        // Whitespace-only proxy is treated as unconfigured.
+        assert_eq!(
+            effective_proxy_url("https://example.com/s.wsdl", true, Some("   ")),
+            None
+        );
+        // Proxy value is trimmed before use.
+        assert_eq!(
+            effective_proxy_url("http://example.com/s.wsdl", true, Some("  http://p:8080  ")),
+            Some("http://p:8080".to_string())
+        );
+    }
+
+    #[test]
+    fn test_effective_proxy_url_force_off_local_sources() {
+        const PROXY: &str = "http://proxy.example:8080";
+        // file:// URLs (the file-import flow) always load direct.
+        assert_eq!(effective_proxy_url("file:///home/u/x.wsdl", true, Some(PROXY)), None);
+        // Bare local paths.
+        assert_eq!(effective_proxy_url("/home/u/x.wsdl", true, Some(PROXY)), None);
+        assert_eq!(effective_proxy_url("C:\\wsdl\\x.wsdl", true, Some(PROXY)), None);
+        // Scheme check is case-insensitive (an uppercase remote URL is NOT local).
+        assert_eq!(
+            effective_proxy_url("HTTP://EXAMPLE.com/s.wsdl", true, Some(PROXY)),
+            Some(PROXY.to_string())
+        );
+    }
+
+    // ── R-11 (F-10): cancel_unified_load registry semantics ─────────────────
+
+    #[test]
+    fn test_cancel_unified_load_unknown_id_reports_not_found() {
+        // No such load is in flight → found: false, cancelled: false (no error).
+        let res = cancel_unified_load("no-such-load-id".to_string())
+            .expect("cancel_unified_load on an unknown id should not error");
+        assert_eq!(res["found"], false);
+        assert_eq!(res["cancelled"], false);
+        assert_eq!(res["loadId"], "no-such-load-id");
+    }
+
+    #[test]
+    fn test_cancel_unified_load_empty_id_errors() {
+        assert!(cancel_unified_load(String::new()).is_err());
+    }
+
+    // ── R-10 (F-17): rename commands (round-trip through real storage) ──────
+
+    /// Seed a project on disk and run `scenario` while a unique
+    /// `APINOX_CONFIG_DIR` is in effect (serialized via `CONFIG_DIR_TEST_LOCK`
+    /// — the env var is process-global). The temp dir stays alive for the
+    /// whole closure so the scenario can re-read the on-disk copy; cleanup
+    /// happens afterwards. Returns `(scenario_result, project_dir)`.
+    fn run_rename_scenario<R>(scenario: impl FnOnce(&std::path::Path) -> R) -> (R, std::path::PathBuf) {
+        let _guard = CONFIG_DIR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let tmp = std::env::temp_dir().join(format!("apinox-rename-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).expect("create temp config dir");
+        std::env::set_var("APINOX_CONFIG_DIR", &tmp);
+        let project = json!({
+            "name": "RenameSvc",
+            "source": "wsdl",
+            "sourceUrl": "http://example.com/rename.wsdl",
+            "soapVersion": "1.1",
+            "operations": json!([
+                {
+                    "name": "RmOp",
+                    "action": "http://example.com/RmOp",
+                    "input": null,
+                    "targetNamespace": "http://example.com/ns",
+                    "originalEndpoint": "http://example.com/rm",
+                    "requests": json!([
+                        {
+                            "name": "sample_RmOp",
+                            "endpoint": "http://example.com/rm",
+                            "method": "POST",
+                            "contentType": "text/xml; charset=utf-8",
+                            "request": "<x/>"
+                        }
+                    ])
+                }
+            ]),
+        });
+        let project_dir = project_storage::projects_dir()
+            .expect("projects dir")
+            .join("RenameSvc");
+        project_storage::save_unified_project(
+            project_dir.to_string_lossy().to_string(),
+            project,
+        )
+        .expect("seed project save");
+        let result = scenario(&project_dir);
+        std::env::remove_var("APINOX_CONFIG_DIR");
+        let _ = std::fs::remove_dir_all(&tmp);
+        (result, project_dir)
+    }
+
+    #[test]
+    fn test_rename_unified_project_round_trip() {
+        let (res, project_dir) = run_rename_scenario(|project_dir| {
+            let renamed = rename_unified_project(
+                "RenameSvc".to_string(),
+                "My Renamed Service".to_string(),
+            )
+            .expect("project rename should succeed");
+
+            // Display-only: the stable name (dir key) is untouched; displayName
+            // is set on the returned project.
+            assert_eq!(renamed["name"], "RenameSvc");
+            assert_eq!(renamed["displayName"], "My Renamed Service");
+
+            // The change is persisted: re-loading the on-disk project returns
+            // the same field.
+            let on_disk = project_storage::load_unified_project(
+                project_dir.to_string_lossy().to_string(),
+            )
+            .expect("re-load renamed project");
+            assert_eq!(on_disk["displayName"], "My Renamed Service");
+            assert_eq!(on_disk["name"], "RenameSvc");
+
+            renamed
+        });
+        assert_eq!(res["displayName"], "My Renamed Service");
+    }
+
+    #[test]
+    fn test_rename_unified_project_empty_name_clears_display_name() {
+        let (res, _dir) = run_rename_scenario(|_| {
+            // Set then clear: an empty/whitespace display name removes the
+            // override (the UI falls back to the stable name).
+            rename_unified_project("RenameSvc".to_string(), "First".to_string())
+                .expect("first rename should succeed");
+            rename_unified_project("RenameSvc".to_string(), "   ".to_string())
+                .expect("clear rename should succeed")
+        });
+        assert_eq!(res["name"], "RenameSvc");
+        assert!(
+            res.get("displayName").map(|v| v.is_null()).unwrap_or(true),
+            "empty display name must remove the displayName field"
+        );
+    }
+
+    #[test]
+    fn test_rename_unified_operation_and_request_round_trip() {
+        let (op_res, _dir) = run_rename_scenario(|_| {
+            rename_unified_operation(
+                "RenameSvc".to_string(),
+                "RmOp".to_string(),
+                "Op Alias".to_string(),
+            )
+            .expect("operation rename should succeed")
+        });
+        assert_eq!(op_res["name"], "RenameSvc");
+        let op = &op_res["operations"][0];
+        assert_eq!(op["name"], "RmOp");
+        assert_eq!(op["displayName"], "Op Alias");
+
+        let (req_res, _dir) = run_rename_scenario(|_| {
+            rename_unified_request(
+                "RenameSvc".to_string(),
+                "RmOp".to_string(),
+                "sample_RmOp".to_string(),
+                "My Request".to_string(),
+            )
+            .expect("request rename should succeed")
+        });
+        let req = &req_res["operations"][0]["requests"][0];
+        assert_eq!(req["name"], "sample_RmOp");
+        assert_eq!(req["displayName"], "My Request");
+    }
+
+    #[test]
+    fn test_rename_unified_unknown_operation_or_request_errors() {
+        let (res, _dir) = run_rename_scenario(|_| {
+            rename_unified_operation(
+                "RenameSvc".to_string(),
+                "MissingOp".to_string(),
+                "X".to_string(),
+            )
+        });
+        let err = res.expect_err("renaming a missing operation must fail");
+        assert!(err.contains("MissingOp"), "unexpected error: {}", err);
+
+        let (res2, _dir) = run_rename_scenario(|_| {
+            rename_unified_request(
+                "RenameSvc".to_string(),
+                "RmOp".to_string(),
+                "MissingReq".to_string(),
+                "X".to_string(),
+            )
+        });
+        let err2 = res2.expect_err("renaming a missing request must fail");
+        assert!(err2.contains("MissingReq"), "unexpected error: {}", err2);
+    }
+
 
     #[test]
     fn test_build_operation_json_structure() {

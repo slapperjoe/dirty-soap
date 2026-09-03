@@ -807,6 +807,11 @@ struct UnifiedProperties {
     /// `None`/empty = no override, requests fall through to the SOAP-version default.
     #[serde(skip_serializing_if = "Option::is_none")]
     content_type: Option<String>,
+    /// R-10 (F-17): display-only rename override. `None` = show the stable
+    /// `name` (the UI falls back to it). Persisted additively — old
+    /// `properties.json` files without the field load as `None`.
+    #[serde(rename = "displayName", default, skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
 }
 
 /// Save a unified project (flat layout: no interfaces/ wrapper)
@@ -842,6 +847,11 @@ pub fn save_unified_project(dir_path: String, project: serde_json::Value) -> Res
         soap_version: project["soapVersion"].as_str().map(|s| s.to_string()),
         binding_name: project["bindingName"].as_str().map(|s| s.to_string()),
         content_type: project["contentType"]
+            .as_str()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.to_string()),
+        // R-10 (F-17): display-only rename override (additive; absent on old files).
+        display_name: project["displayName"]
             .as_str()
             .filter(|s| !s.trim().is_empty())
             .map(|s| s.to_string()),
@@ -952,6 +962,8 @@ fn save_unified_request(req: &serde_json::Value, op_dir: &Path) -> Result<(), St
         "wsSecurity": req["wsSecurity"],
         "attachments": req["attachments"],
         "lastResponse": req["lastResponse"],
+        // R-10 (F-17): display-only rename override (additive; absent on old files).
+        "displayName": req["displayName"],
     }))?;
 
     Ok(())
@@ -997,6 +1009,8 @@ pub fn load_unified_project(dir_path: String) -> Result<serde_json::Value, Strin
         "soapVersion": props.soap_version,
         "bindingName": props.binding_name,
         "contentType": props.content_type,
+        // R-10 (F-17): display-only rename override (null when unset).
+        "displayName": props.display_name,
         "operations": operations,
     }))
 }

@@ -16,8 +16,10 @@ import {
     Download as DownloadIcon,
     Trash2 as Trash2Icon,
     RefreshCw as RefreshCwIcon,
+    Pencil as PencilIcon,
 } from '../sidebar/shared/SidebarContextMenu';
 import { ScrapbookPanel } from '../sidebar/ScrapbookPanel';
+import { RenameModal } from '../modals/RenameModal';
 
 // Drag-and-drop helper functions (extracted to avoid TS1005 JSX brace ambiguity)
 const makeDragData = (data: { type: string; projectName: string; fromIndex: number; operationName?: string }): string => {
@@ -189,6 +191,10 @@ export interface UnifiedExplorerSidebarProps {
     onDeleteOperation: (projectName: string, operationName: string) => void;
     onDeleteRequest: (projectName: string, operationName: string, requestName: string) => void;
     onNewRequest: (projectName: string, operationName: string) => void;
+    /** R-10 (F-17): context-menu rename (display-only `displayName` override). */
+    onRenameProject?: (projectName: string, displayName: string) => Promise<void>;
+    onRenameOperation?: (projectName: string, operationName: string, displayName: string) => Promise<void>;
+    onRenameRequest?: (projectName: string, operationName: string, requestName: string, displayName: string) => Promise<void>;
     onExportProject: (projectName: string) => void;
     onReorderOperation: (projectName: string, fromIndex: number, toIndex: number) => void;
     onReorderRequest: (projectName: string, operationName: string, fromIndex: number, toIndex: number) => void;
@@ -217,6 +223,9 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     onDeleteOperation,
     onDeleteRequest,
     onNewRequest,
+    onRenameProject,
+    onRenameOperation,
+    onRenameRequest,
     onExportProject,
     onReorderOperation,
     onReorderRequest,
@@ -225,6 +234,35 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
     const closeCtxMenu = () => setCtxMenu(null);
+
+    // R-10 (F-17): rename state — the modal edits a display-only `displayName`
+    // override; the stable `name` (directory / WSDL binding / selection
+    // identity) never changes, so selection survives a rename.
+    const [renameTarget, setRenameTarget] = useState<{
+        type: 'project' | 'operation' | 'request';
+        projectName: string;
+        operationName?: string;
+        requestName?: string;
+        initial: string;
+    } | null>(null);
+
+    const handleRenameSave = useCallback(async (displayName: string) => {
+        if (!renameTarget) return;
+        const { type, projectName, operationName, requestName } = renameTarget;
+        const trimmed = displayName.trim();
+        setRenameTarget(null);
+        try {
+            if (type === 'project' && onRenameProject) {
+                await onRenameProject(projectName, trimmed);
+            } else if (type === 'operation' && onRenameOperation) {
+                await onRenameOperation(projectName, operationName || '', trimmed);
+            } else if (type === 'request' && onRenameRequest) {
+                await onRenameRequest(projectName, operationName || '', requestName || '', trimmed);
+            }
+        } catch (e) {
+            console.error('[UnifiedExplorerSidebar] Rename failed:', e);
+        }
+    }, [renameTarget, onRenameProject, onRenameOperation, onRenameRequest]);
 
     // Drop gap indicator: purely visual, rendered as a gap between tree items during drag.
     // The actual drop index is computed from the native event in onDrop (not from state).
@@ -239,6 +277,21 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
 
     const buildSections = (state: CtxMenuState): CtxMenuSection[] => {
         const items: CtxMenuItem[] = [];
+
+        // R-10 (F-17): display-only rename — available on every node type.
+        items.push({ icon: PencilIcon, label: 'Rename', onClick: () => {
+            if (state.type === 'project') {
+                const project = state.data as UnifiedProject;
+                setRenameTarget({ type: 'project', projectName: project.name, initial: project.displayName || project.name });
+            } else if (state.type === 'operation') {
+                const op = state.data as ApiOperation;
+                setRenameTarget({ type: 'operation', projectName: state.projectName || '', operationName: op.name, initial: op.displayName || op.name });
+            } else {
+                const req = state.data as ApiRequest;
+                setRenameTarget({ type: 'request', projectName: state.projectName || '', operationName: state.operationName, requestName: req.name, initial: req.displayName || req.name });
+            }
+            closeCtxMenu();
+        }});
 
         if (state.type === 'project') {
             const project = state.data as UnifiedProject;
@@ -358,7 +411,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                 return (
                     <TreeItem
                         key={projectId}
-                        label={project.name}
+                        label={project.displayName || project.name}
                         type="project"
                         expanded={isExpanded}
                         selected={isSelected('project', projectId)}
@@ -393,7 +446,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                                     )}
                                 <TreeItem
                                     key={opId}
-                                    label={op.name}
+                                    label={op.displayName || op.name}
                                     type="operation"
                                     id={opId}
                                     indentLevel={1}
@@ -475,7 +528,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                                                 )}
                                             <TreeItem
                                                 key={reqId}
-                                                label={req.name}
+                                                label={req.displayName || req.name}
                                                 type="request"
                                                 id={reqId}
                                                 indentLevel={2}
@@ -586,6 +639,16 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                     onClose={closeCtxMenu}
                 />
             )}
+
+            {/* R-10 (F-17): display-only rename modal. Saving an empty name
+                clears the override (falls back to the stable name). */}
+            <RenameModal
+                isOpen={!!renameTarget}
+                title={renameTarget ? `Rename ${renameTarget.type}` : 'Rename'}
+                initialValue={renameTarget?.initial || ''}
+                onSave={handleRenameSave}
+                onCancel={() => setRenameTarget(null)}
+            />
         </div>
 
         {/* F-01 / R-05 — Quick Requests (scrapbook) bottom section.

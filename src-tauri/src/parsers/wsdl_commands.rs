@@ -3,13 +3,20 @@
 /// Frontend-facing commands for WSDL operations
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use crate::parsers::wsdl::{WsdlParser, ApiService};
+use crate::parsers::wsdl::{WsdlParser, ApiService, LoadContext};
 use crate::project_storage;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ParseWsdlRequest {
     pub url: String,
     pub resolve_imports: Option<bool>,
+    /// R-12 (F-23): optional proxy URL (`http://host:port`) for fetching the
+    /// top-level WSDL document. `None` (the default, and what the legacy
+    /// `LoadWsdl` bridge path sends) keeps direct connections. The unified
+    /// explorer's "Use proxy" toggle supplies the app's proxy so environments
+    /// that only reach WSDLs via a proxy can still load them.
+    #[serde(default)]
+    pub proxy_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,26 +49,44 @@ pub struct WsdlChanges {
 /// Parse a WSDL file from a URL
 #[tauri::command]
 pub async fn parse_wsdl(request: ParseWsdlRequest) -> Result<ParseWsdlResponse, String> {
+    // R-12: the legacy `LoadWsdl` bridge path passes no `useProxy`, so it loads
+    // direct. R-11 cancel applies to the unified path (`parse_wsdl_as_project`),
+    // which builds its own `LoadContext`; here we use a fresh (uncancelled) one.
+    let ctx = LoadContext::new(request.proxy_url.clone());
+    parse_wsdl_ctx(request, &ctx).await
+}
+
+/// Core WSDL parse, driven by a [`LoadContext`] (R-11 cancel + R-12 proxy).
+///
+/// The top-level document and every import fetch share the context's proxy and
+/// cancel flag, so a single cancel aborts the whole load at the next
+/// cooperative check (see `ImportResolver::fetch_document`).
+pub async fn parse_wsdl_ctx(
+    request: ParseWsdlRequest,
+    ctx: &LoadContext,
+) -> Result<ParseWsdlResponse, String> {
     log::info!("Parsing WSDL: {}", request.url);
-    
+
     let resolve_imports = request.resolve_imports.unwrap_or(true);
-    
-    // First, fetch the WSDL XML from the URL
+
+    // First, fetch the WSDL XML from the URL. R-12: route through the app's
+    // proxy when the caller opted in (`proxy_url` set); `None` = direct.
+    // R-11: the resolver shares the context's cancel flag.
     log::info!("Creating import resolver...");
-    let mut resolver = crate::parsers::wsdl::imports::ImportResolver::new()
+    let mut resolver = ctx.resolver()
         .map_err(|e| format!("Failed to create import resolver: {}", e))?;
-    
+
     log::info!("Fetching WSDL from URL...");
     let wsdl_xml = resolver.fetch_document(&request.url, None)
         .await
         .map_err(|e| format!("Failed to fetch WSDL from URL: {}", e))?;
-    
+
     log::info!("Fetched WSDL ({} bytes)", wsdl_xml.len());
-    
+
     // Parse WSDL
     log::info!("Starting parse (resolve_imports={})", resolve_imports);
     let services = if resolve_imports {
-        WsdlParser::parse_with_imports(&request.url, &wsdl_xml, 20)
+        WsdlParser::parse_with_imports_ctx(&request.url, &wsdl_xml, 20, ctx)
             .await
             .map_err(|e| {
                 log::error!("Parse error: {}", e);
@@ -74,12 +99,12 @@ pub async fn parse_wsdl(request: ParseWsdlRequest) -> Result<ParseWsdlResponse, 
                 format!("Failed to parse WSDL: {}", e)
             })?
     };
-    
+
     log::info!("Successfully parsed WSDL: {} services found", services.len());
-    
+
     // Extract target namespace from first service
     let target_namespace = services.first().and_then(|s| s.target_namespace.clone());
-    
+
     Ok(ParseWsdlResponse {
         services,
         target_namespace,
@@ -96,6 +121,7 @@ pub async fn refresh_wsdl(request: RefreshWsdlRequest) -> Result<RefreshWsdlResp
     let parse_result = parse_wsdl(ParseWsdlRequest {
         url: request.url.clone(),
         resolve_imports: Some(true),
+        proxy_url: None,
     }).await?;
     
     // Extract existing operation names from interface
@@ -257,6 +283,7 @@ mod tests {
         let request = ParseWsdlRequest {
             url: "http://example.com/service.wsdl".to_string(),
             resolve_imports: Some(true),
+            proxy_url: None,
         };
         
         // Just verify structure compiles

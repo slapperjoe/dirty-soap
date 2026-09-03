@@ -12,6 +12,8 @@
 /// - Relative URL resolution (handles relative paths)
 /// - Namespace merging (combines type registries)
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use anyhow::{Result, Context, anyhow};
 use async_recursion::async_recursion;
 use quick_xml::Reader;
@@ -37,15 +39,60 @@ pub struct ImportResolver {
 
     /// Merged schema registry (namespace → schema definition)
     schema_registry: HashMap<String, SchemaDefinition>,
+
+    /// R-11 (F-10): cancellation flag for the in-flight fetch. Set by
+    /// `cancel()` (via the shared `Arc`) so a cooperative check in
+    /// `fetch_document` aborts the load as soon as the next fetch is about to
+    /// start. Shared by reference so the caller can flip it from another task.
+    cancel: Arc<AtomicBool>,
 }
 
 impl ImportResolver {
-    /// Create a new import resolver
+    /// Create a new import resolver (no proxy — direct connections).
     pub fn new() -> Result<Self> {
-        let http_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .context("Failed to create HTTP client")?;
+        Self::new_with_proxy(None)
+    }
+
+    /// Create a new import resolver, optionally routing all remote fetches
+    /// through the given proxy URL (e.g. `http://host:port`).
+    ///
+    /// R-12 (F-23): the unified explorer's "Use proxy" toggle on a WSDL load
+    /// routes the fetch through the app's proxy so environments that only
+    /// reach WSDLs via a proxy can still load them. `None` (the default)
+    /// preserves the direct-connection behaviour the legacy path relies on.
+    pub fn new_with_proxy(proxy_url: Option<&str>) -> Result<Self> {
+        Self::build_with(proxy_url, Arc::new(AtomicBool::new(false)))
+    }
+
+    /// Create a resolver that shares the given cancel flag with other
+    /// resolvers in the same load (R-11). The top-level `parse_wsdl` resolver
+    /// and every resolver `WsdlParser::parse_with_imports_ctx` builds all
+    /// share one `Arc<AtomicBool>`, so a single cancel aborts the whole load.
+    pub fn new_shared(
+        proxy_url: Option<&str>,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self> {
+        Self::build_with(proxy_url, cancel)
+    }
+
+    /// Internal constructor: build the HTTP client (proxy-aware) and the
+    /// resolver state, given a shared cancel flag.
+    fn build_with(
+        proxy_url: Option<&str>,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self> {
+        let mut builder = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30));
+
+        if let Some(proxy) = proxy_url
+            .filter(|p| !p.trim().is_empty())
+        {
+            let proxy = reqwest::Proxy::all(proxy)
+                .with_context(|| format!("Invalid proxy URL: {}", proxy))?;
+            builder = builder.proxy(proxy);
+        }
+
+        let http_client = builder.build().context("Failed to create HTTP client")?;
 
         Ok(Self {
             http_client,
@@ -53,7 +100,22 @@ impl ImportResolver {
             visiting: HashSet::new(),
             visited: HashSet::new(),
             schema_registry: HashMap::new(),
+            cancel,
         })
+    }
+
+    /// R-11 (F-10): signal the in-flight load to stop. The fetch path checks
+    /// this flag before each network read (and after it completes), so an
+    /// active load aborts at the next cooperative point with a
+    /// `WsdlLoadCancelled` error. Idempotent and safe to call when nothing is
+    /// in flight.
+    pub fn cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+    }
+
+    /// True once `cancel()` has been called on this resolver.
+    pub fn is_cancelled(&self) -> bool {
+        self.cancel.load(Ordering::SeqCst)
     }
 
     /// Fetch a remote document (WSDL or XSD)
@@ -65,6 +127,13 @@ impl ImportResolver {
     /// # Returns
     /// The XML content of the fetched document
     pub async fn fetch_document(&mut self, url: &str, base_url: Option<&str>) -> Result<String> {
+        // R-11 (F-10): cooperative cancellation — a load cancelled via
+        // `cancel()` (wired to the webview's "cancel load" button through the
+        // command layer) aborts here before starting the fetch.
+        if self.is_cancelled() {
+            return Err(anyhow!("WsdlLoadCancelled"));
+        }
+
         // Resolve URL (handle relative paths)
         let resolved_url = self.resolve_url(url, base_url)?;
 
@@ -97,6 +166,13 @@ impl ImportResolver {
                 .send()
                 .await
                 .with_context(|| format!("Failed to fetch {}", resolved_url))?;
+
+            // R-11 (F-10): check again once the connection has been made, so a
+            // cancel that lands during the handshake is still honored before
+            // we download the (potentially large) body.
+            if self.is_cancelled() {
+                return Err(anyhow!("WsdlLoadCancelled"));
+            }
 
             if !response.status().is_success() {
                 return Err(anyhow!(

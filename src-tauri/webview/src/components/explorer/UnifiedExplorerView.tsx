@@ -39,11 +39,12 @@ const UnifiedExplorerView: React.FC<UnifiedExplorerViewProps> = ({
     onRegisterExecute,
 }) => {
 
-    const handleLoadWsdl = useCallback(async (url: string) => {
+    const handleLoadWsdl = useCallback(async (url: string, opts?: { useProxy?: boolean; loadId?: string }) => {
         try {
             // F-01 — route the load by source format, mirroring the legacy
             // `bridge.ts` LoadWsdl routing. WSDL keeps the dedicated
-            // `parse_wsdl_as_project` command; OpenAPI (`.json/.yaml/.yml`)
+            // `parse_wsdl_as_project` command (R-11 `loadId` + R-12
+            // `useProxy` only apply to this path); OpenAPI (`.json/.yaml/.yml`)
             // and GraphQL (`graphql`/`gql` paths) both build their project
             // via the unified `parse_spec_as_project` command (which ports
             // the legacy bridge routing + adaptive-depth GraphQL introspection
@@ -51,7 +52,11 @@ const UnifiedExplorerView: React.FC<UnifiedExplorerViewProps> = ({
             const format = detectLoadFormat(url);
             const project =
                 format === 'wsdl'
-                    ? await invokeTauriCommand('parse_wsdl_as_project', { url })
+                    ? await invokeTauriCommand('parse_wsdl_as_project', {
+                        url,
+                        useProxy: opts?.useProxy ?? false,
+                        loadId: opts?.loadId,
+                    })
                     : await invokeTauriCommand('parse_spec_as_project', { url });
             if (onWsdlLoaded) {
                 onWsdlLoaded(project);
