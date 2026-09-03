@@ -53,32 +53,6 @@ export interface SidebarProjectProps {
     onImportSoapUI?: () => void;
 }
 
-export interface SidebarExplorerProps {
-    exploredInterfaces: ApiInterface[];
-    explorerExpanded: boolean;
-    toggleExplorerExpand: () => void;
-    addToProject: (iface: ApiInterface) => void;
-    addAllToProject: () => void;
-    clearExplorer: () => void;
-    removeFromExplorer: (iface: ApiInterface) => void;
-    toggleExploredInterface: (iName: string) => void;
-    toggleExploredOperation: (iName: string, oName: string) => void;
-}
-
-export interface SidebarWsdlProps {
-    inputType: 'url' | 'file';
-    setInputType: (type: 'url' | 'file') => void;
-    wsdlUrl: string;
-    setWsdlUrl: (url: string) => void;
-    wsdlUrlHistory?: string[];
-    selectedFile: string | null;
-    loadWsdl: () => void;
-    pickLocalWsdl: () => void;
-    downloadStatus: string[] | null;
-    useProxy?: boolean;
-    setUseProxy?: (useProxy: boolean) => void;
-}
-
 export interface SidebarSelectionProps {
     selectedProjectName: string | null;
     setSelectedProjectName: (name: string | null) => void;
@@ -94,20 +68,6 @@ export interface SidebarSelectionProps {
     onDeleteRequest?: (req: ApiRequest) => void;
     deleteConfirm: string | null;
     setDeleteConfirm: (id: string | null) => void;
-}
-
-export interface SidebarTestRunnerProps {
-    onAddSuite: (projectName: string) => void;
-    onDeleteSuite: (suiteId: string) => void;
-    onRunSuite: (suiteId: string) => void;
-    onAddTestCase: (suiteId: string) => void;
-    onRunCase: (caseId: string) => void;
-    onDeleteTestCase: (caseId: string) => void;
-    onRenameTestCase?: (caseId: string, newName: string) => void;
-    onSelectSuite?: (suiteId: string) => void;
-    onSelectTestCase?: (caseId: string) => void;
-    onToggleSuiteExpand?: (suiteId: string) => void;
-    onToggleCaseExpand?: (caseId: string) => void;
 }
 
 export interface SidebarTestsProps {
@@ -309,23 +269,12 @@ export interface NavigationActions {
     onEditWorkflow?: (workflow: Workflow) => void;
 }
 
-// Explorer State for Main View
-export interface WorkspaceExplorerState {
-    inputType: 'url' | 'file';
-    setInputType: (type: 'url' | 'file') => void;
-    wsdlUrl: string;
-    setWsdlUrl: (url: string) => void;
-    loadWsdl: (url: string, type: 'url' | 'file') => Promise<void>;
-    downloadStatus: 'idle' | 'loading' | 'success' | 'error'; // simplified from string array
-    onClearSelection: () => void;
-}
-
+// Explorer state for the main view is now owned by the unified explorer (F-31)
 export interface WorkspaceLayoutProps extends WorkspacePerformanceActions {
     selectionState: WorkspaceSelectionState;
     requestActions: WorkspaceRequestActions;
     viewState: WorkspaceViewState;
     configState: WorkspaceConfigState;
-    explorerState?: WorkspaceExplorerState;
     stepActions: WorkspaceStepActions;
     toolsActions: WorkspaceToolsActions;
     breakpointState?: WorkspaceBreakpointState;

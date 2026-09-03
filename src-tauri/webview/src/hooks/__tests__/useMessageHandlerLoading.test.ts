@@ -44,12 +44,8 @@ describe('useMessageHandler loading states', () => {
 
         mockState = {
             setProjects: vi.fn(),
-            setExplorerExpanded: vi.fn(),
             setLoading: vi.fn(),
             setResponse: vi.fn(),
-            setDownloadStatus: vi.fn(),
-            setSelectedFile: vi.fn(),
-            setSampleModal: vi.fn(),
             setBackendConnected: vi.fn(),
             setConfig: vi.fn(),
             setRawConfig: vi.fn(),
@@ -60,7 +56,6 @@ describe('useMessageHandler loading states', () => {
             setConfigPath: vi.fn(),
             setConfigDir: vi.fn(),
             setSelectedProjectName: vi.fn(),
-            setWsdlUrl: vi.fn(),
             setWorkspaceDirty: vi.fn(),
             setSavedProjects: vi.fn(),
             setSaveErrors: vi.fn(),
@@ -68,7 +63,6 @@ describe('useMessageHandler loading states', () => {
             setActiveView: vi.fn(),
             setRequestHistory: vi.fn(),
             setWsdlDiff: vi.fn(),
-            wsdlUrl: '',
             projects: [],
             config: {},
             selectedTestCase: null,

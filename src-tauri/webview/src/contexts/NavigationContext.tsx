@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, startTransition, ReactNode } from 'react';
-import { SidebarView, ApiInterface } from '@shared/models';
+import { SidebarView } from '@shared/models';
 import { BackendCommand } from '@shared/messages';
 
 declare const __APP_VERSION__: string;
@@ -21,8 +21,6 @@ interface NavigationContextType {
     sidebarExpanded: boolean;
     setSidebarExpanded: (expanded: boolean) => void;
     toggleSidebar: () => void;
-    exploredInterfaces: ApiInterface[];
-    setExploredInterfaces: React.Dispatch<React.SetStateAction<ApiInterface[]>>;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -37,10 +35,9 @@ export const useNavigation = () => {
 
 export const NavigationProvider = ({ children }: { children: ReactNode }) => {
     const [activeView, _setActiveView] = useState<SidebarView>(
-        () => shouldShowWelcomeOnStartup() ? SidebarView.HOME : SidebarView.EXPLORER
+        () => shouldShowWelcomeOnStartup() ? SidebarView.HOME : SidebarView.UNIFIED_EXPLORER
     );
     const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(true);
-    const [exploredInterfaces, setExploredInterfaces] = useState<ApiInterface[]>([]);
 
     const toggleSidebar = () => setSidebarExpanded(prev => !prev);
 
@@ -66,7 +63,8 @@ export const NavigationProvider = ({ children }: { children: ReactNode }) => {
                         // Map string to SidebarView enum if necessary, or assume direct match
                         // The backend might send string 'explorer', 'tests', etc.
                         const viewMap: Record<string, SidebarView> = {
-                            'explorer': SidebarView.EXPLORER,
+                            'explorer': SidebarView.UNIFIED_EXPLORER,
+                            'unified_explorer': SidebarView.UNIFIED_EXPLORER,
                             'home': SidebarView.HOME,
                             'projects': SidebarView.PROJECTS,
                             'proxy': SidebarView.PROXY,
@@ -93,9 +91,7 @@ export const NavigationProvider = ({ children }: { children: ReactNode }) => {
             setActiveView,
             sidebarExpanded,
             setSidebarExpanded,
-            toggleSidebar,
-            exploredInterfaces,
-            setExploredInterfaces
+            toggleSidebar
         }}>
             {children}
         </NavigationContext.Provider>

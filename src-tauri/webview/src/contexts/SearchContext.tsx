@@ -20,7 +20,6 @@ import {
     SearchResult,
     SearchOptions,
     searchWorkspace,
-    ExploredInterface,
 } from '../utils/workspaceSearch';
 import { DEBOUNCE_MS, TREE_NAV_DELAY_MS } from '../constants';
 
@@ -64,12 +63,10 @@ const SearchContext = createContext<SearchContextValue | undefined>(undefined);
 
 interface SearchProviderProps {
     children: React.ReactNode;
-    exploredInterfaces?: ExploredInterface[];
 }
 
-export const SearchProvider: React.FC<SearchProviderProps> = ({ 
-    children,
-    exploredInterfaces = []
+export const SearchProvider: React.FC<SearchProviderProps> = ({
+    children
 }) => {
     // -------------------------------------------------------------------------
     // STATE
@@ -134,7 +131,6 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
             const results = searchWorkspace(
                 query.trim(),
                 projects,
-                exploredInterfaces,
                 {
                     maxResults: 50,
                     minScore: 0,
@@ -150,7 +146,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
         } finally {
             setIsSearching(false);
         }
-    }, [projects, exploredInterfaces]);
+    }, [projects]);
 
     /**
      * Set search query with debouncing
@@ -252,16 +248,6 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({
                             console.warn(`[SearchContext] Unknown result type: ${type}`);
                     }
                 }, TREE_NAV_DELAY_MS);
-            }, TREE_NAV_DELAY_MS);
-        } else if (view === 'explorer') {
-            setActiveView(SidebarView.EXPLORER);
-            setTimeout(() => {
-                const { operation } = data;
-                if (operation) {
-                    setSelectedOperation(operation);
-                    setSelectedInterface(null);
-                    setSelectedRequest(null);
-                }
             }, TREE_NAV_DELAY_MS);
         } else if (view === 'tests') {
             setActiveView(SidebarView.TESTS);

@@ -12,10 +12,7 @@ import { createContext, useContext } from 'react';
 import type { SidebarView } from '@shared/models';
 import type {
     SidebarProjectProps,
-    SidebarExplorerProps,
-    SidebarWsdlProps,
     SidebarSelectionProps,
-    SidebarTestRunnerProps,
     SidebarTestsProps,
     SidebarWorkflowsProps,
     SidebarPerformanceProps,
@@ -26,12 +23,7 @@ import type {
 export interface SidebarContextValue {
     // ==================== PROP GROUPS (passed to sub-components) ====================
     projectProps: SidebarProjectProps;
-    explorerProps: SidebarExplorerProps;
-    /** Populated but currently consumed only by future WSDL-in-sidebar work */
-    wsdlProps: SidebarWsdlProps;
     selectionProps: SidebarSelectionProps;
-    /** Legacy — tests now use testsProps */
-    testRunnerProps: SidebarTestRunnerProps;
     testsProps: SidebarTestsProps;
     workflowsProps?: SidebarWorkflowsProps;
     performanceProps?: SidebarPerformanceProps;

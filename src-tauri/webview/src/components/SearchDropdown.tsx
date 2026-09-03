@@ -218,8 +218,6 @@ function getViewDisplayName(view: string): string {
     switch (view) {
         case 'projects':
             return 'Projects';
-        case 'explorer':
-            return 'Explorer';
         case 'tests':
             return 'Tests';
         case 'workflows':

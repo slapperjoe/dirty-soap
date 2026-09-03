@@ -123,14 +123,6 @@ pub async fn delete_scrapbook_request(id: String) -> Result<Vec<serde_json::Valu
     Ok(data.requests)
 }
 
-/// Get a specific scrapbook request by ID
-#[tauri::command]
-pub async fn get_scrapbook_request(id: String) -> Result<Option<serde_json::Value>, String> {
-    let scrapbook_path = get_scrapbook_path()?;
-    let data = load_scrapbook(&scrapbook_path);
-    Ok(data.requests.into_iter().find(|r| r.get("id").and_then(|v| v.as_str()) == Some(&id)))
-}
-
 // ============================================================================
 // Tests — scrapbook.json schema round-trip (frozen schema; existing scrapbooks
 // must load unchanged).
@@ -390,22 +382,5 @@ mod tests {
         // Read path never writes the file back.
         let still_corrupt = std::fs::read_to_string(env.scrapbook_path()).unwrap();
         assert_eq!(still_corrupt, "{ this is not valid json ]");
-    }
-
-    /// get_scrapbook_request finds an entry by id (registered command, wired
-    /// per Q10; covered here so the round-trip suite exercises all commands).
-    #[tokio::test]
-    async fn test_get_scrapbook_request_by_id() {
-        let fixture = fixture_scrapbook();
-        let env = ScrapbookTestEnv::new("byid", Some(&serde_json::to_string(&fixture).unwrap()));
-        let found = get_scrapbook_request("scrap-4".to_string())
-            .await
-            .expect("lookup");
-        assert!(found.is_some());
-        assert_eq!(found.unwrap()["name"], "Calculator Add");
-        let missing = get_scrapbook_request("nope".to_string())
-            .await
-            .expect("lookup miss");
-        assert!(missing.is_none());
     }
 }

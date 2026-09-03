@@ -11,7 +11,6 @@ import { debugLog } from '../utils/logger';
 import { generateInitialXmlForOperation } from '../utils/soapUtils';
 import { BackendCommand, FrontendCommand } from '@shared/messages';
 import {
-    ApiInterface,
     ApinoxProject,
     ApiRequest,
     TestStep,
@@ -21,19 +20,14 @@ import {
     RequestAttachment,
     WsdlDiff
 } from '@shared/models';
-import { useNavigation } from '../contexts/NavigationContext';
 
 type SidebarProjectState = ApinoxProject & { loading?: boolean };
 
 export interface MessageHandlerState {
     // Setters for state that the handler modifies
     setProjects: React.Dispatch<React.SetStateAction<ApinoxProject[]>>;
-    setExplorerExpanded: React.Dispatch<React.SetStateAction<boolean>>;
     setLoading: React.Dispatch<React.SetStateAction<boolean>>;
     setResponse: React.Dispatch<React.SetStateAction<any>>;
-    setDownloadStatus: React.Dispatch<React.SetStateAction<string[] | null>>;
-    setSelectedFile: React.Dispatch<React.SetStateAction<string | null>>;
-    setSampleModal: React.Dispatch<React.SetStateAction<{ open: boolean; schema: any; operationName: string }>>;
     setBackendConnected: React.Dispatch<React.SetStateAction<boolean>>;
     setConfig: React.Dispatch<React.SetStateAction<any>>;
     setRawConfig: React.Dispatch<React.SetStateAction<string>>;
@@ -46,7 +40,6 @@ export interface MessageHandlerState {
     setConfigDir: React.Dispatch<React.SetStateAction<string | null>>;
     // setProxyConfig removed — moved to MockProxyContext (proxy features now in APIprox)
     setSelectedProjectName: React.Dispatch<React.SetStateAction<string | null>>;
-    setWsdlUrl: React.Dispatch<React.SetStateAction<string>>;
     setWorkspaceDirty: React.Dispatch<React.SetStateAction<boolean>>;
     setSavedProjects: React.Dispatch<React.SetStateAction<Set<string>>>;
     setSaveErrors: React.Dispatch<React.SetStateAction<Map<string, string>>>;
@@ -56,7 +49,6 @@ export interface MessageHandlerState {
 
 
     // Current values needed for message handling
-    wsdlUrl: string;
     projects: ApinoxProject[];
     config: any;
     selectedTestCase: TestCase | null;
@@ -75,12 +67,8 @@ export interface MessageHandlerState {
 export function useMessageHandler(state: MessageHandlerState) {
     const {
         setProjects,
-        setExplorerExpanded,
         setLoading,
         setResponse,
-        setDownloadStatus,
-        setSelectedFile,
-        setSampleModal,
         setBackendConnected,
         setConfig,
         setRawConfig,
@@ -92,7 +80,6 @@ export function useMessageHandler(state: MessageHandlerState) {
         setConfigDir,
         // setProxyConfig,
         setSelectedProjectName,
-        setWsdlUrl,
         setWorkspaceDirty,
         setSavedProjects,
         setSaveErrors,
@@ -110,7 +97,6 @@ export function useMessageHandler(state: MessageHandlerState) {
         // setPerformanceProgress,
         // setCoordinatorStatus,
         setRequestHistory,
-        wsdlUrl,
         projects,
         config,
         selectedTestCase,
@@ -121,9 +107,6 @@ export function useMessageHandler(state: MessageHandlerState) {
         onAttachmentSelected,
         setWsdlDiff
     } = state;
-
-    // Get exploredInterfaces from NavigationContext
-    const { setExploredInterfaces, setActiveView: setActiveViewFromNav } = useNavigation();
 
     // MockProxyContext removed - proxy/mock features moved to APIprox
     // const { setProxyHistory, setMockHistory, setProxyRunning, setMockRunning } = useMockProxy();
@@ -136,14 +119,12 @@ export function useMessageHandler(state: MessageHandlerState) {
     const selectedRequestRef = useRef(selectedRequest);
     const selectedTestCaseRef = useRef(selectedTestCase);
     const configRef = useRef(config);
-    const wsdlUrlRef = useRef(wsdlUrl);
 
     // Keep refs up to date
     useEffect(() => { projectsRef.current = projects; }, [projects]);
     useEffect(() => { selectedRequestRef.current = selectedRequest; }, [selectedRequest]);
     useEffect(() => { selectedTestCaseRef.current = selectedTestCase; }, [selectedTestCase]);
     useEffect(() => { configRef.current = config; }, [config]);
-    useEffect(() => { wsdlUrlRef.current = wsdlUrl; }, [wsdlUrl]);
 
     useEffect(() => {
         debugLog('[useMessageHandler] Setting up message listener');
@@ -152,86 +133,6 @@ export function useMessageHandler(state: MessageHandlerState) {
             debugLog(`[useMessageHandler] Received: ${message.command}`, { hasData: !!message.data || !!message.result });
 
             switch (message.command) {
-                case BackendCommand.WsdlLoadCancelled:
-                    debugLog('[useMessageHandler] wsdlLoadCancelled');
-                    setDownloadStatus(null);
-                    break;
-
-                case BackendCommand.WsdlParsed:
-                    const data = message.services;
-                    debugLog('[useMessageHandler] wsdlParsed Raw Data', {
-                        isArray: Array.isArray(data),
-                        keys: data ? Object.keys(data) : 'null',
-                        hasInterfaces: !!data?.interfaces,
-                        interfacesLength: data?.interfaces?.length
-                    });
-
-                    const newInterfaces: ApiInterface[] = [];
-
-                    if (Array.isArray(data)) {
-                        // WSDL Handling: Convert SoapService[] to ApiInterface[]
-                        data.forEach((svc: any) => {
-                            // Group operations by Port
-                            const operationsByPort = new Map<string, any[]>();
-                            svc.operations.forEach((op: any) => {
-                                const port = op.portName || 'Default';
-                                if (!operationsByPort.has(port)) {
-                                    operationsByPort.set(port, []);
-                                }
-                                operationsByPort.get(port)!.push(op);
-                            });
-
-                            // Create an Interface for each Port
-                            operationsByPort.forEach((ops, portName) => {
-                                const interfaceName = portName === 'Default' ? svc.name : portName;
-
-                                newInterfaces.push({
-                                    id: crypto.randomUUID(),
-                                    name: interfaceName,
-                                    type: 'wsdl',
-                                    bindingName: portName,
-                                    soapVersion: portName.includes('12') ? '1.2' : '1.1',
-                                    definition: wsdlUrlRef.current,
-                                    expanded: false,
-                                    operations: ops.map((op: any) => ({
-                                        id: crypto.randomUUID(),
-                                        name: op.name,
-                                        action: op.action || '',
-                                        input: op.input,
-                                        fullSchema: op.fullSchema, // Pass through the full schema
-                                        targetNamespace: op.targetNamespace || svc.targetNamespace,
-                                        originalEndpoint: op.originalEndpoint,
-                                        expanded: false,
-                                        requests: [{
-                                            id: crypto.randomUUID(),
-                                            name: 'Sample',
-                                            endpoint: op.originalEndpoint,
-                                            contentType: portName.includes('12') ? 'application/soap+xml' : 'text/xml',
-                                            headers: {
-                                                'Content-Type': portName.includes('12') ? 'application/soap+xml' : 'text/xml'
-                                            },
-                                            request: generateInitialXmlForOperation(op),
-                                            requestType: 'soap', // Explicitly set for WSDL operations
-                                            bodyType: 'xml' // Explicitly set for WSDL operations
-                                        }]
-                                    }))
-                                });
-                            });
-                        });
-                    } else if (data && data.interfaces) {
-                        // OpenAPI Handling: Already correctly formatted
-                        // Ensure IDs are unique if needed, or rely on Parser
-                        newInterfaces.push(...data.interfaces);
-                    }
-
-                    const uniqueInterfaces = newInterfaces.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
-                    debugLog('[useMessageHandler] wsdlParsed complete', { interfaceCount: uniqueInterfaces.length });
-                    setExploredInterfaces(uniqueInterfaces);
-                    setExplorerExpanded(true);
-                    setActiveView(SidebarView.EXPLORER);
-                    setDownloadStatus(null); // Clear loading status
-                    break;
-
                 case BackendCommand.Response:
                     debugLog('[useMessageHandler] response', { hasResult: !!message.result, op: message.operation, request: message.requestName, requestId: message.requestId || null });
                     // H1: remember this execution's id so cancelRequest can target it.
@@ -331,7 +232,6 @@ export function useMessageHandler(state: MessageHandlerState) {
                         requestIdRef.current = message.requestId;
                     }
                     setLoading(false);
-                    setDownloadStatus(null); // Clear loading status on any error
                     
                     // Handle SaveProject errors specially
                     if (message.originalCommand === FrontendCommand.SaveProject && message.projectName) {
@@ -357,22 +257,6 @@ export function useMessageHandler(state: MessageHandlerState) {
                         break;
                     }
                     setResponse({ error: message.message });
-                    break;
-
-                case BackendCommand.DownloadComplete:
-                    debugLog('[useMessageHandler] downloadComplete', { fileCount: message.files?.length });
-                    setDownloadStatus(message.files);
-                    setTimeout(() => setDownloadStatus(null), 5000);
-                    break;
-
-                case BackendCommand.WsdlSelected:
-                    debugLog('[useMessageHandler] wsdlSelected', { path: message.path });
-                    setSelectedFile(message.path);
-                    break;
-
-                case BackendCommand.SampleSchema:
-                    debugLog('[useMessageHandler] sampleSchema', { operationName: message.operationName });
-                    setSampleModal({ open: true, schema: message.schema, operationName: message.operationName });
                     break;
 
                 case BackendCommand.AddStepToCase:
@@ -592,12 +476,6 @@ export function useMessageHandler(state: MessageHandlerState) {
                                 });
                                 return merged;
                             });
-                            setExploredInterfaces(savedState.exploredInterfaces || []);
-                            // setExplorerExpanded(savedState.explorerExpanded ?? true); // Handled in NavigationContext
-                            if (savedState.explorerExpanded !== undefined) {
-                                setExplorerExpanded(savedState.explorerExpanded);
-                            }
-                            setWsdlUrl(savedState.wsdlUrl || '');
                             if (savedState.lastSelectedProject) setSelectedProjectName(savedState.lastSelectedProject);
 
                             // Trigger fresh load from disk for each project to get scriptContent

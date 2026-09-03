@@ -20,8 +20,7 @@ import { DelayStepEditor } from './workspace/DelayStepEditor';
 import { ConditionStepEditor } from './workspace/ConditionStepEditor';
 import { LoopStepEditor } from './workspace/LoopStepEditor';
 import { ScriptStepEditor } from './workspace/ScriptStepEditor';
-import { ApiExplorerMain } from './explorer/ApiExplorerMain';
-import { EmptyFileWatcher, EmptyApiExplorer, EmptyServer, EmptyProject, EmptyHistory } from './workspace/EmptyStates';
+import { EmptyProject, EmptyHistory } from './workspace/EmptyStates';
 import { EmptyState } from './common/EmptyState';
 import { ProjectSummary } from './workspace/ProjectSummary';
 import { InterfaceSummary } from './workspace/InterfaceSummary';
@@ -167,15 +166,6 @@ export const WorkspaceLayout: React.FC = () => {
         performanceProgress,
         coordinatorStatus,
         
-        // EXPLORER STATE
-        inputType,
-        setInputType,
-        wsdlUrl,
-        setWsdlUrl,
-        loadWsdl,
-        downloadStatus,
-        onClearSelection,
-        
         // REQUEST/RESPONSE STATE
         response,
         loading,
@@ -197,17 +187,6 @@ export const WorkspaceLayout: React.FC = () => {
     const selectedProject = React.useMemo(() => {
         return projects.find(p => p.name === selectedProjectName) || null;
     }, [projects, selectedProjectName]);
-
-    // Create explorerState object for backward compatibility with ApiExplorerMain
-    const explorerState = React.useMemo(() => ({
-        inputType,
-        setInputType,
-        wsdlUrl,
-        setWsdlUrl,
-        loadWsdl,
-        downloadStatus,
-        onClearSelection
-    }), [inputType, setInputType, wsdlUrl, setWsdlUrl, loadWsdl, downloadStatus, onClearSelection]);
 
     // Map context actions to existing variable names for minimal disruption
     const onExecute = workspace.executeRequest;
@@ -962,54 +941,6 @@ export const WorkspaceLayout: React.FC = () => {
         );
     }
 
-    // EXPLORER VIEW
-    if (activeView === SidebarView.EXPLORER) {
-        console.log('[WorkspaceLayout] ✅ EXPLORER VIEW HIT');
-        console.log('[WorkspaceLayout] activeRequest:', !!activeRequest);
-        console.log('[WorkspaceLayout] explorerState:', !!explorerState);
-        // If a request is selected, fall through to main render
-        if (!activeRequest && explorerState) {
-            console.log('[WorkspaceLayout] Showing ApiExplorerMain');
-            return (
-                <ApiExplorerMain
-                    inputType={explorerState.inputType}
-                    setInputType={explorerState.setInputType}
-                    wsdlUrl={explorerState.wsdlUrl}
-                    setWsdlUrl={explorerState.setWsdlUrl}
-                    loadWsdl={explorerState.loadWsdl}
-                    downloadStatus={explorerState.downloadStatus}
-                    onClearSelection={explorerState.onClearSelection}
-                    selectedInterface={selectedInterface || undefined}
-                    selectedOperation={selectedOperation || undefined}
-                />
-            );
-        } else if (!activeRequest) {
-            console.log('[WorkspaceLayout] Showing EmptyApiExplorer');
-            return <EmptyApiExplorer />;
-        }
-        console.log('[WorkspaceLayout] EXPLORER: activeRequest exists, falling through to main render');
-    }
-
-    // Watcher/Server views removed - features moved to APIprox
-    /*
-    // WATCHER VIEW
-    if (activeView === SidebarView.WATCHER) {
-        // If an event is selected (it's a request), it will have been handled by activeRequest above?
-        // Wait, activeRequest handles everything. If we are here, it means !activeRequest.
-        if (!activeRequest) {
-            return <EmptyFileWatcher />;
-        }
-    }
-
-    // SERVER VIEW
-    if (activeView === SidebarView.SERVER) {
-        // If a request is selected (from Proxy/Mock history), it falls through to main render
-        if (!activeRequest) {
-            return <EmptyServer />;
-        }
-    }
-    */
-
     // HISTORY VIEW
     if (activeView === SidebarView.HISTORY) {
         if (!activeRequest) {
@@ -1115,18 +1046,8 @@ export const WorkspaceLayout: React.FC = () => {
             /> */}
 
             {/* Back navigation buttons */}
-            {!isHistoryMode && (activeView === SidebarView.EXPLORER || selectedTestCase) && (
+            {!isHistoryMode && selectedTestCase && (
                 <Toolbar>
-                    {/* Explorer view back button */}
-                    {activeView === SidebarView.EXPLORER && !selectedTestCase && navigationActions?.onSelectRequest && (
-                        <>
-                            <ToolbarButton onClick={() => navigationActions.onSelectRequest(null as any)} title="Back to API Explorer">
-                                <ChevronLeft size={14} /> Back
-                            </ToolbarButton>
-                            <ToolbarSeparator />
-                        </>
-                    )}
-
                     {/* Test case back button */}
                     {selectedTestCase && onBackToCase && (
                         <>

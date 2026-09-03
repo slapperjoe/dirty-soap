@@ -18,7 +18,7 @@ import { ApinoxProject, ApiInterface, ApiOperation, ApiRequest, ApinoxFolder, Te
 // =============================================================================
 
 export type SearchResultType = 'request' | 'operation' | 'interface' | 'folder' | 'test-suite' | 'test-case' | 'workflow';
-export type SearchResultView = 'projects' | 'explorer' | 'tests' | 'workflows' | 'history';
+export type SearchResultView = 'projects' | 'tests' | 'workflows' | 'history';
 
 export interface SearchResult {
     /** Unique identifier for this result */
@@ -389,57 +389,6 @@ export function searchProjects(
 }
 
 // =============================================================================
-// EXPLORER SEARCH
-// =============================================================================
-
-export interface ExploredInterface {
-    name: string;
-    definition: string;
-    operations: ApiOperation[];
-    expanded?: boolean;
-}
-
-/**
- * Search within explored interfaces (Explorer view)
- */
-export function searchExplorer(
-    query: string,
-    exploredInterfaces: ExploredInterface[],
-    options: SearchOptions = {}
-): SearchResult[] {
-    const results: SearchResult[] = [];
-
-    if (!query || query.trim().length === 0) {
-        return results;
-    }
-
-    for (const iface of exploredInterfaces) {
-        const ifaceBreadcrumb = `Explorer > ${iface.name}`;
-
-        // Search operations
-        for (const operation of iface.operations || []) {
-            const opScore = calculateMatchScore(query, operation.name);
-            if (opScore > 0) {
-                results.push({
-                    id: `explorer-op-${operation.name}`,
-                    type: 'operation',
-                    name: operation.name,
-                    breadcrumb: ifaceBreadcrumb,
-                    view: 'explorer',
-                    score: calculateScore(opScore, 'operation'),
-                    data: {
-                        operation,
-                    },
-                });
-            }
-        }
-    }
-
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, options.maxResults || 50);
-}
-
-// =============================================================================
 // TESTS SEARCH
 // =============================================================================
 
@@ -514,19 +463,14 @@ export function searchTests(
 export function searchWorkspace(
     query: string,
     projects: ApinoxProject[],
-    exploredInterfaces: ExploredInterface[],
     options: SearchOptions = {}
 ): SearchResult[] {
     const allResults: SearchResult[] = [];
 
-    const views = options.views || ['projects', 'explorer', 'tests'];
+    const views = options.views || ['projects', 'tests'];
 
     if (views.includes('projects')) {
         allResults.push(...searchProjects(query, projects, options));
-    }
-
-    if (views.includes('explorer')) {
-        allResults.push(...searchExplorer(query, exploredInterfaces, options));
     }
 
     if (views.includes('tests')) {

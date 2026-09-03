@@ -78,7 +78,7 @@ export const TestRunnerProvider = ({ children }: { children: ReactNode }) => {
 
     // Note: TestRunnerProvider must be inside UIProvider, NavigationProvider, and ScrapbookProvider
     const { config, setConfig } = useUI();
-    const { setActiveView, exploredInterfaces, setExploredInterfaces } = useNavigation();
+    const { setActiveView } = useNavigation();
     
     // Scrapbook auto-save callback
     const scrapbookAutoSave = useScrapbookAutoSave(
@@ -245,8 +245,6 @@ export const TestRunnerProvider = ({ children }: { children: ReactNode }) => {
         selectedPerformanceSuiteId,
         config,
         setConfig,
-        exploredInterfaces,
-        setExploredInterfaces,
         onScrapbookAutoSave: scrapbookAutoSave
     });
 

@@ -130,10 +130,6 @@ interface UseRequestExecutionParams {
     config?: any;
     setConfig?: React.Dispatch<React.SetStateAction<any>>;
 
-    // Explorer Support
-    exploredInterfaces?: ApiInterface[];
-    setExploredInterfaces?: React.Dispatch<React.SetStateAction<ApiInterface[]>>;
-
     // Scrapbook auto-save callback
     onScrapbookAutoSave?: (updated: ApiRequest) => Promise<boolean>;
 }
@@ -165,8 +161,6 @@ export function useRequestExecution({
     selectedPerformanceSuiteId,
     config,
     setConfig,
-    exploredInterfaces,
-    setExploredInterfaces,
     onScrapbookAutoSave
 }: UseRequestExecutionParams): UseRequestExecutionReturn {
 
@@ -409,23 +403,6 @@ export function useRequestExecution({
 
         projectUpdateTimer.current = setTimeout(() => {
 
-            // EXPLORER PATH: Update exploredInterfaces if viewing Explorer (no project selected)
-            if (!selectedProjectName && setExploredInterfaces && exploredInterfaces) {
-                setExploredInterfaces(prev => prev.map(i => {
-                    if (i.name !== selectedInterface?.name) return i;
-                    return {
-                        ...i,
-                        operations: i.operations.map(o => {
-                            if (o.name !== selectedOperation?.name) return o;
-                            return {
-                                ...o,
-                                requests: o.requests.map(r => r.id === updated.id ? dirtyUpdated : r)
-                            };
-                        })
-                    };
-                }));
-            }
-
             setProjects(prev => {
 
                 const updatedProjects = prev.map(p => {
@@ -507,7 +484,7 @@ export function useRequestExecution({
             });
         }, DEBOUNCE_MS);
 
-    }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setSelectedRequest, setWorkspaceDirty, selectedPerformanceSuiteId, config, setConfig, exploredInterfaces, setExploredInterfaces]);
+    }, [selectedProjectName, selectedTestCase, selectedInterface, selectedOperation, selectedRequest, setProjects, setSelectedRequest, setWorkspaceDirty, selectedPerformanceSuiteId, config, setConfig]);
 
     const handleResetRequest = useCallback(() => {
         if (selectedRequest && selectedOperation) {

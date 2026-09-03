@@ -37,8 +37,8 @@ static LOAD_REGISTRY: Lazy<Mutex<HashMap<String, Arc<LoadContext>>>> =
 /// Cancel an in-flight unified WSDL load by `loadId` (R-11 / F-10).
 ///
 /// Returns `{ cancelled: true, found: true }` when a matching load is in
-/// flight and was signalled to abort (it will surface a `WsdlLoadCancelled`
-/// error to the caller at its next cooperative check), or
+/// flight and was signalled to abort (it surfaces a "cancelled" error to the
+/// caller at its next cooperative check), or
 /// `{ cancelled: false, found: false }` when the load already finished (or no
 /// such `loadId` was registered). Mirrors the SOAP `cancel_request` command's
 /// result shape.

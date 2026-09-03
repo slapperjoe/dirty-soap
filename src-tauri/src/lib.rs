@@ -553,7 +553,6 @@ pub fn run() {
             scrapbook_storage::add_scrapbook_request,
             scrapbook_storage::update_scrapbook_request,
             scrapbook_storage::delete_scrapbook_request,
-            scrapbook_storage::get_scrapbook_request,
             notes_storage::load_notes_index,
             notes_storage::load_note_content,
             notes_storage::load_note_bytes,

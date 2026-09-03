@@ -78,22 +78,6 @@ interface WorkspaceContextValue {
     /** Currently active view in the sidebar */
     activeView: SidebarView;
 
-    // ==================== EXPLORER STATE ====================
-    /** Input type for WSDL loading: 'url' or 'file' */
-    inputType: 'url' | 'file';
-    /** Set input type for WSDL loading */
-    setInputType: (type: 'url' | 'file') => void;
-    /** Current WSDL URL or file path */
-    wsdlUrl: string;
-    /** Set WSDL URL or file path */
-    setWsdlUrl: (url: string) => void;
-    /** Load WSDL from URL or file */
-    loadWsdl: (url: string, type: 'url' | 'file') => Promise<void>;
-    /** Download status: 'idle' | 'loading' | 'success' | 'error' */
-    downloadStatus: 'idle' | 'loading' | 'success' | 'error';
-    /** Clear selection in explorer */
-    onClearSelection: () => void;
-
     // ==================== REQUEST/RESPONSE STATE ====================
     /** Current HTTP response data */
     response: any;

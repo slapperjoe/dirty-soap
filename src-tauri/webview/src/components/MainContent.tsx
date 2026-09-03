@@ -24,7 +24,6 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { usePerformance } from '../contexts/PerformanceContext';
 import { useTestRunner } from '../contexts/TestRunnerContext';
 import { useScrapbook } from '../contexts/ScrapbookContext';
-import { useExplorer } from '../hooks/useExplorer';
 import { useContextMenu } from '../hooks/useContextMenu';
 import { useSidebarCallbacks } from '../hooks/useSidebarCallbacks';
 import { useWorkspaceCallbacks } from '../hooks/useWorkspaceCallbacks';
@@ -83,9 +82,6 @@ const SettingsEditorModal = React.lazy(() =>
 );
 const AddToDevOpsModal = React.lazy(() =>
     import('./modals/AddToDevOpsModal').then(module => ({ default: module.AddToDevOpsModal }))
-);
-const AddToProjectModal = React.lazy(() =>
-    import('./modals/AddToProjectModal').then(module => ({ default: module.AddToProjectModal }))
 );
 const WsdlSyncModal = React.lazy(() =>
     import('./modals/WsdlSyncModal').then(module => ({ default: module.WsdlSyncModal }))
@@ -201,24 +197,37 @@ const MainContent: React.FC = () => {
     }, []);
 
     // ==========================================================================
-    // EXPLORER - from useExplorer hook
+    // WSDL -> project (shared by Bulk Import; legacy EXPLORER staging retired)
     // ==========================================================================
-    const {
-        exploredInterfaces,
-        setExploredInterfaces,
-        explorerExpanded,
-        setExplorerExpanded,
-        pendingAddInterface,
-        setPendingAddInterface,
-        addToProject,
-        addInterfaceToNamedProject,
-        addAllToProject,
-        clearExplorer,
-        removeFromExplorer,
-        toggleExplorerExpand,
-        toggleExploredInterface,
-        toggleExploredOperation
-    } = useExplorer({ projects, setProjects, setWorkspaceDirty, saveProject });
+    const addInterfaceToNamedProject = useCallback((iface: ApiInterface, projectName: string, isNew: boolean) => {
+        const normalizedIface = {
+            ...iface,
+            expanded: false,
+            operations: (iface.operations || []).map(op => ({
+                ...op,
+                expanded: false,
+                requests: op.requests.filter(req => req.name !== 'Sample')
+            }))
+        };
+        if (isNew) {
+            const newProject: ApinoxProject = {
+                name: projectName,
+                interfaces: [normalizedIface],
+                expanded: true,
+                dirty: true,
+                id: Date.now().toString()
+            };
+            setProjects(prev => [...prev, newProject]);
+            saveProject(newProject);
+        } else {
+            setProjects(prev => prev.map(p =>
+                p.name === projectName
+                    ? { ...p, interfaces: [...(p.interfaces || []), normalizedIface], dirty: true }
+                    : p
+            ));
+        }
+        setWorkspaceDirty(true);
+    }, [setProjects, saveProject, setWorkspaceDirty]);
 
     // ==========================================================================
     // LOCAL STATE - Remaining state that stays in App
@@ -645,7 +654,7 @@ const MainContent: React.FC = () => {
     // Keyboard shortcut: Ctrl+Shift+D to open debug modal
     useEffect(() => {
         // If we switch TO Projects/Explorer view, and have a perf request selected -> Clear it
-        if ((activeView === SidebarView.PROJECTS || activeView === SidebarView.EXPLORER) && selectedRequest?.id && selectedRequest.id.startsWith(PERF_REQUEST_ID_PREFIX)) {
+        if (activeView === SidebarView.PROJECTS && selectedRequest?.id && selectedRequest.id.startsWith(PERF_REQUEST_ID_PREFIX)) {
             setSelectedRequest(null);
         }
 
@@ -670,15 +679,7 @@ const MainContent: React.FC = () => {
         }
     }, [config?.performanceSuites, selectedPerformanceSuiteId, setSelectedPerformanceSuiteId]);
 
-    // Local State (remaining)
-    const [selectedFile, setSelectedFile] = useState<string | null>(null);
-
-    // inputType, wsdlUrl were in original.
-    const [inputType, setInputType] = useState<'url' | 'file'>('url');
-    const [wsdlUrl, setWsdlUrl] = useState<string>('');
-    const [wsdlUrlHistory, setWsdlUrlHistory] = useState<string[]>([]);
-    const [downloadStatus, setDownloadStatus] = useState<string[] | null>(null);
-    const [wsdlUseProxy, setWsdlUseProxy] = useState<boolean>(false);
+    // WSDL sync-diff state (Projects view "refresh WSDL")
     const [wsdlDiff, setWsdlDiff] = useState<WsdlDiff | null>(null);
 
     // ==========================================================================
@@ -814,7 +815,6 @@ const MainContent: React.FC = () => {
         handleAddRequest,
         handleDeleteInterface: _handleDeleteInterface,
         handleDeleteOperation: _handleDeleteOperation,
-        handleViewSample,
         handleExportNative,
         handleCopyUrl,
         handleCopyRequestXml,
@@ -1183,7 +1183,6 @@ const MainContent: React.FC = () => {
     const [addToTestCaseModal, setAddToTestCaseModal] = React.useState<{ open: boolean, request: ApiRequest | null }>({ open: false, request: null });
     const [pickRequestModal, setPickRequestModal] = React.useState<{ open: boolean, mode: 'testcase' | 'performance', caseId: string | null, suiteId: string | null }>({ open: false, mode: 'testcase', caseId: null, suiteId: null });
     const [importToPerformanceModal, setImportToPerformanceModal] = React.useState<{ open: boolean, suiteId: string | null }>({ open: false, suiteId: null });
-    const [sampleModal, setSampleModal] = React.useState<{ open: boolean, schema: any | null, operationName: string }>({ open: false, schema: null, operationName: '' });
     const [exportWorkspaceModal, setExportWorkspaceModal] = React.useState(false);
     // const [codeSnippetModal, setCodeSnippetModal] = React.useState<{ open: boolean, request: ApiRequest | null }>({ open: false, request: null });
 
@@ -1397,12 +1396,8 @@ const MainContent: React.FC = () => {
     });
     useMessageHandler({
         setProjects,
-        setExplorerExpanded, // Passed via alias
         setLoading,
         setResponse,
-        setDownloadStatus,
-        setSelectedFile,
-        setSampleModal,
         setBackendConnected,
         setConfig,
         setRawConfig,
@@ -1414,7 +1409,6 @@ const MainContent: React.FC = () => {
         setConfigDir,
         // setProxyConfig, // Handled in MockProxyContext
         setSelectedProjectName,
-        setWsdlUrl,
         setWorkspaceDirty,
         setSavedProjects,
         setSaveErrors,
@@ -1424,7 +1418,6 @@ const MainContent: React.FC = () => {
         setRequestHistory,
 
         // Current values
-        wsdlUrl,
         projects,
         config,
         selectedTestCase,
@@ -1442,12 +1435,8 @@ const MainContent: React.FC = () => {
     // ==========================================================================
     useAppLifecycle({
         projects,
-        explorerExpanded,
-        wsdlUrl,
         selectedProjectName,
         saveProject,
-        setExplorerExpanded,
-        setWsdlUrl,
         setSelectedProjectName,
         setRequestHistory
     });
@@ -1546,22 +1535,6 @@ const MainContent: React.FC = () => {
 
 
     // Handlers
-    const loadWsdl = () => {
-        if (inputType === 'url' && wsdlUrl) {
-            bridge.sendMessage({ command: 'loadWsdl', url: wsdlUrl, isLocal: false, useProxy: wsdlUseProxy });
-            // Add to history if not already present
-            if (!wsdlUrlHistory.includes(wsdlUrl)) {
-                setWsdlUrlHistory(prev => [wsdlUrl, ...prev].slice(0, 10)); // Keep last 10
-            }
-        } else if (inputType === 'file' && selectedFile) {
-            bridge.sendMessage({ command: 'loadWsdl', url: selectedFile, isLocal: true, useProxy: false });
-        }
-    };
-
-    const pickLocalWsdl = () => {
-        bridge.sendMessage({ command: 'selectLocalWsdl' });
-    };
-
 
 
 
@@ -1604,31 +1577,6 @@ const MainContent: React.FC = () => {
         coordinatorStatus,
         // NAVIGATION
         activeView,
-        // EXPLORER STATE
-        inputType,
-        setInputType,
-        wsdlUrl,
-        setWsdlUrl,
-        loadWsdl: async (url: string, type: 'url' | 'file') => {
-            setDownloadStatus(['Loading...']);
-            if (type === 'url' && url) {
-                bridge.sendMessage({ command: 'loadWsdl', url, isLocal: false, useProxy: wsdlUseProxy });
-                if (!wsdlUrlHistory.includes(url)) {
-                    setWsdlUrlHistory(prev => [url, ...prev].slice(0, 10));
-                }
-            } else if (type === 'file') {
-                bridge.sendMessage({ command: 'loadWsdl', url, isLocal: true, useProxy: false });
-            }
-        },
-        downloadStatus: !downloadStatus ? 'idle' as const
-            : downloadStatus.some(s => s.toLowerCase().includes('error')) ? 'error' as const
-            : downloadStatus.some(s => s.toLowerCase().includes('loading') || s.includes('Downloading')) ? 'loading' as const
-            : 'success' as const,
-        onClearSelection: () => {
-            setSelectedInterface(null);
-            setSelectedOperation(null);
-            setSelectedRequest(null);
-        },
         // REQUEST/RESPONSE STATE
         response,
         loading,
@@ -1686,7 +1634,7 @@ const MainContent: React.FC = () => {
         moveTestStep: handleMoveStep,
         addTestStep: handleAddStep,
         backToTestCase: () => { setSelectedStep(null); setSelectedRequest(null); },
-        openStepRequest: (req: ApiRequest) => { setSelectedRequest(req); setActiveView(SidebarView.EXPLORER); },
+        openStepRequest: (req: ApiRequest) => { setSelectedRequest(req); setActiveView(SidebarView.PROJECTS); },
         // PERFORMANCE
         handleAddPerformanceSuite,
         handleDeletePerformanceSuite,
@@ -1714,7 +1662,7 @@ const MainContent: React.FC = () => {
         projects, selectedProjectName, selectedInterface, selectedOperation, selectedRequest,
         selectedTestSuite, selectedTestCase, selectedStep, selectedWorkflowStep,
         selectedPerformanceSuiteId, config, performanceProgress, coordinatorStatus,
-        activeView, inputType, wsdlUrl, downloadStatus, wsdlUseProxy, wsdlUrlHistory,
+        activeView,
         response, loading, layoutMode, showLineNumbers, splitRatio, isResizing,
         inlineElementValues, hideCausalityData, backendConnected, testExecution,
         handleUpdateProject, handleCloseProject, handleSelectStep, handleToggleLayout,
@@ -1730,7 +1678,7 @@ const MainContent: React.FC = () => {
         setSelectedTestCase, setSelectedWorkflowStep, setLayoutMode, setShowLineNumbers,
         setSplitRatio, startResizing, setInlineElementValues, setHideCausalityData,
         addProject, saveProject, setProjects, setSelectedStep, setActiveView,
-        setDownloadStatus, setWsdlUrlHistory, handleAddExtractor, handleAddExistenceAssertion,
+        handleAddExtractor, handleAddExistenceAssertion,
         handleUpdateWorkflow, handleUpdateWorkflowStep, setImportToPerformanceModal,
     ]);
 
@@ -1780,30 +1728,6 @@ const MainContent: React.FC = () => {
                 }
             },
         },
-        explorerProps: {
-            exploredInterfaces,
-            explorerExpanded,
-            toggleExplorerExpand,
-            addToProject,
-            addAllToProject,
-            clearExplorer,
-            removeFromExplorer,
-            toggleExploredInterface,
-            toggleExploredOperation,
-        },
-        wsdlProps: {
-            inputType,
-            setInputType,
-            wsdlUrl,
-            setWsdlUrl,
-            wsdlUrlHistory,
-            selectedFile,
-            loadWsdl,
-            pickLocalWsdl,
-            downloadStatus,
-            useProxy: wsdlUseProxy,
-            setUseProxy: setWsdlUseProxy,
-        },
         selectionProps: {
             selectedProjectName,
             setSelectedProjectName,
@@ -1822,19 +1746,6 @@ const MainContent: React.FC = () => {
             onDeleteRequest: handleDeleteRequest,
             deleteConfirm,
             setDeleteConfirm,
-        },
-        testRunnerProps: {
-            onAddSuite: handleAddSuite,
-            onDeleteSuite: handleDeleteSuite,
-            onRunSuite: handleRunTestSuiteWrapper,
-            onAddTestCase: handleAddTestCase,
-            onRunCase: handleRunTestCaseWrapper,
-            onDeleteTestCase: handleDeleteTestCase,
-            onRenameTestCase: handleRenameTestCase,
-            onSelectSuite: handleSelectTestSuite,
-            onSelectTestCase: handleSelectTestCase,
-            onToggleSuiteExpand: handleToggleSuiteExpand,
-            onToggleCaseExpand: handleToggleCaseExpand,
         },
         testsProps: {
             projects,
@@ -1940,11 +1851,6 @@ const MainContent: React.FC = () => {
         handleDeleteInterface, handleDeleteOperation,
         handleAddFolder, handleAddRequestToFolder, handleDeleteFolder, handleToggleFolderExpand,
         handleRefreshWsdl, setExportWorkspaceModal, setShowBulkImportModal,
-        exploredInterfaces, explorerExpanded, toggleExplorerExpand,
-        addToProject, addAllToProject, clearExplorer, removeFromExplorer,
-        toggleExploredInterface, toggleExploredOperation,
-        inputType, setInputType, wsdlUrl, setWsdlUrl, wsdlUrlHistory,
-        selectedFile, loadWsdl, pickLocalWsdl, downloadStatus, wsdlUseProxy, setWsdlUseProxy,
         selectedProjectName, setSelectedProjectName,
         selectedInterface, setSelectedInterface,
         selectedOperation, setSelectedOperation,
@@ -2233,70 +2139,9 @@ const MainContent: React.FC = () => {
                                 <ContextMenuItem onClick={handleCopyRequestXml}>Copy Request XML</ContextMenuItem>
                                 <ContextMenuItem onClick={() => handleGenerateTestSuite(contextMenu.data)}>Generate Test Suite</ContextMenuItem>
                                 <ContextMenuItem onClick={() => handleAddRequest()}>Add Request</ContextMenuItem>
-                                <ContextMenuItem onClick={handleViewSample}>View Sample Schema</ContextMenuItem>
                             </>
                         )}
-                        {(contextMenu.type === 'request') && contextMenu.isExplorer && (
-                            <>
-                                <ContextMenuItem
-                                    onClick={() => {
-                                        const req = contextMenu.data as ApiRequest;
-                                        // Find parent interface and operation from exploredInterfaces
-                                        let parentIface: ApiInterface | null = null;
-                                        let parentOp: ApiOperation | null = null;
-                                        for (const iface of exploredInterfaces) {
-                                            for (const op of iface.operations) {
-                                                if (op.requests.includes(req)) {
-                                                    parentIface = iface;
-                                                    parentOp = op;
-                                                    break;
-                                                }
-                                            }
-                                            if (parentIface && parentOp) break;
-                                        }
-                                        if (parentIface) setSelectedInterface(parentIface);
-                                        if (parentOp) setSelectedOperation(parentOp);
-                                        setSelectedRequest(req);
-                                        setResponse(null);
-                                        bridge.sendMessage({
-                                            command: FrontendCommand.ExecuteRequest,
-                                            url: req.endpoint,
-                                            operation: req.name,
-                                            xml: req.request,
-                                            contentType: req.contentType || 'application/xml',
-                                            headers: req.headers,
-                                            requestType: req.requestType || 'soap',
-                                            method: req.method || 'POST',
-                                            bodyType: req.bodyType || 'xml'
-                                        });
-                                        closeContextMenu();
-                                    }}
-                                >Execute</ContextMenuItem>
-                                <ContextMenuItem onClick={handleCopyUrl}>Copy URL</ContextMenuItem>
-                                <ContextMenuItem onClick={handleCopyRequestXml}>Copy Request XML</ContextMenuItem>
-                                <ContextMenuItem onClick={handleCopyResponseXml}>Copy Response XML</ContextMenuItem>
-                                <DangerMenuItem
-                                    onClick={() => {
-                                        const req = contextMenu.data as ApiRequest;
-                                        setExploredInterfaces(prev => prev.map(iface => ({
-                                            ...iface,
-                                            operations: iface.operations.map(op => ({
-                                                ...op,
-                                                requests: op.requests.filter(r => r !== req)
-                                            }))
-                                        })));
-                                        closeContextMenu();
-                                    }}
-                                >Delete</DangerMenuItem>
-                            </>
-                        )}
-                        {(contextMenu.type === 'interface') && contextMenu.isExplorer && (
-                            <>
-                                <ContextMenuItem onClick={() => { addToProject(contextMenu.data as ApiInterface); closeContextMenu(); }}>Add to Project</ContextMenuItem>
-                                <DangerMenuItem onClick={() => { removeFromExplorer(contextMenu.data as ApiInterface); closeContextMenu(); }}>Remove from Explorer</DangerMenuItem>
-                            </>
-                        )}
-                        {(contextMenu.type === 'interface') && !contextMenu.isExplorer && (
+                        {(contextMenu.type === 'interface') && (
                             <>
                                 <ContextMenuItem onClick={handleRename}>Rename</ContextMenuItem>
                                 <ContextMenuItem onClick={() => handleGenerateTestSuite(contextMenu.data)}>Generate Test Suite</ContextMenuItem>
@@ -2350,15 +2195,6 @@ const MainContent: React.FC = () => {
                     />
                 </Suspense>
             )}
-
-            {/* Sample Schema Modal - temporarily disabled
-            <SampleModal
-                isOpen={sampleModal.open}
-                operationName={sampleModal.operationName}
-                schema={sampleModal.schema}
-                onClose={() => setSampleModal({ open: false, schema: null, operationName: '' })}
-            />
-            */}
 
             {/* Add to Test Case Modal */}
             {
@@ -2486,49 +2322,6 @@ const MainContent: React.FC = () => {
                         onSave={(data) => {
                             handleSaveExtractor(data);
                             setExtractorModal(null);
-                        }}
-                    />
-                </Suspense>
-            )}
-
-            {/* Add to Project Modal */}
-            {pendingAddInterface && (
-                <Suspense fallback={null}>
-                    <AddToProjectModal
-                        open={!!pendingAddInterface}
-                        onClose={() => setPendingAddInterface(null)}
-                        existingProjects={projects.map(p => p.name)}
-                        interfaceName={(pendingAddInterface as any)?._addAll ? `All ${exploredInterfaces.length} interfaces` : pendingAddInterface?.name}
-                        onSelectProject={(projectName) => {
-                            if (pendingAddInterface) {
-                                const isAddAll = (pendingAddInterface as any)._addAll;
-                                if (isAddAll) {
-                                    // Add all explored interfaces to existing project
-                                    exploredInterfaces.forEach(iface => {
-                                        addInterfaceToNamedProject(iface, projectName, false);
-                                    });
-                                } else {
-                                    addInterfaceToNamedProject(pendingAddInterface, projectName, false);
-                                }
-                                // Switch to workspace tab after adding
-                                setActiveView(SidebarView.PROJECTS);
-                            }
-                        }}
-                        onCreateProject={(projectName) => {
-                            if (pendingAddInterface) {
-                                const isAddAll = (pendingAddInterface as any)._addAll;
-                                if (isAddAll) {
-                                    // Create new project with all explored interfaces
-                                    // First interface creates the project, rest are added
-                                    exploredInterfaces.forEach((iface, i) => {
-                                        addInterfaceToNamedProject(iface, projectName, i === 0);
-                                    });
-                                } else {
-                                    addInterfaceToNamedProject(pendingAddInterface, projectName, true);
-                                }
-                                // Switch to workspace tab after adding
-                                setActiveView(SidebarView.PROJECTS);
-                            }
                         }}
                     />
                 </Suspense>

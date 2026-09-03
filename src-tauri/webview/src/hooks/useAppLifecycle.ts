@@ -1,34 +1,22 @@
 import { useEffect } from 'react';
 import { bridge, isTauri } from '../utils/bridge';
 import { ApinoxProject } from '@shared/models';
-import { useNavigation } from '../contexts/NavigationContext';
 
 interface UseAppLifecycleProps {
     projects: ApinoxProject[];
-    explorerExpanded: boolean;
-    wsdlUrl: string;
     selectedProjectName: string | null;
     saveProject: (project: ApinoxProject) => void;
-    setExplorerExpanded: (expanded: boolean) => void;
-    setWsdlUrl: (url: string) => void;
     setSelectedProjectName: (name: string | null) => void;
     setRequestHistory: (history: any[]) => void;
 }
 
 export const useAppLifecycle = ({
     projects,
-    explorerExpanded,
-    wsdlUrl,
     selectedProjectName,
     saveProject,
-    setExplorerExpanded,
-    setWsdlUrl,
     setSelectedProjectName,
     setRequestHistory
 }: UseAppLifecycleProps) => {
-
-    // Get exploredInterfaces from NavigationContext
-    const { exploredInterfaces, setExploredInterfaces } = useNavigation();
 
     // Initial Load & Backend Sync
     useEffect(() => {
@@ -56,9 +44,6 @@ export const useAppLifecycle = ({
         // Retrieve initial state from bridge
         const state = bridge.getState();
         if (state) {
-            setExploredInterfaces(state.exploredInterfaces || []);
-            setExplorerExpanded(state.explorerExpanded ?? true);
-            setWsdlUrl(state.wsdlUrl || '');
             if (state.lastSelectedProject) setSelectedProjectName(state.lastSelectedProject);
         }
     }, []); // Run once on mount
@@ -155,13 +140,10 @@ export const useAppLifecycle = ({
     useEffect(() => {
         const state = {
             projects,
-            exploredInterfaces,
-            explorerExpanded,
-            wsdlUrl,
             lastSelectedProject: selectedProjectName
         };
         bridge.setState(state);
-    }, [projects, exploredInterfaces, explorerExpanded, wsdlUrl, selectedProjectName]);
+    }, [projects, selectedProjectName]);
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {

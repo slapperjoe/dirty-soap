@@ -53,7 +53,6 @@ interface UseContextMenuReturn {
     handleAddRequest: (targetOp?: ApiOperation) => void;
     handleDeleteInterface: (iface: ApiInterface) => void;
     handleDeleteOperation: (op: ApiOperation, iface: ApiInterface) => void;
-    handleViewSample: () => void;
     handleExportNative: (project: ApinoxProject) => void;
     handleCopyUrl: () => void;
     handleCopyRequestXml: () => void;
@@ -292,15 +291,6 @@ export function useContextMenu({
         }
     }, [setProjects, saveProject, setWorkspaceDirty, selectedInterface, selectedOperation, setSelectedOperation, setSelectedRequest, setResponse]);
 
-    const handleViewSample = useCallback(() => {
-        if (contextMenu && (contextMenu.type === 'operation' || contextMenu.type === 'request')) {
-            if (contextMenu.type === 'operation') {
-                bridge.sendMessage({ command: 'getSampleSchema', operationName: contextMenu.data.name });
-            }
-            closeContextMenu();
-        }
-    }, [contextMenu, closeContextMenu]);
-
     const handleExportNative = useCallback((project: ApinoxProject) => {
         bridge.sendMessage({ command: 'exportNative', project });
         closeContextMenu();
@@ -357,7 +347,6 @@ export function useContextMenu({
         handleAddRequest,
         handleDeleteInterface,
         handleDeleteOperation,
-        handleViewSample,
         handleExportNative,
         handleCopyUrl,
         handleCopyRequestXml,

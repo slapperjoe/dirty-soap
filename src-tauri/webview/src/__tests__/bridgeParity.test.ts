@@ -38,10 +38,7 @@ const PRODUCT_DIRS = [
  */
 const DEFERRED_COMMANDS = new Set<string>([
   'log',
-  'getSampleSchema',
   'setActiveEnvironment',
-  'cancelWsdlLoad',
-  'selectLocalWsdl',
   'adoAddComment',
   'pickOperationForTestCase',
   'pickOperationForPerformance',

@@ -4,7 +4,6 @@ import { SidebarView } from '@shared/models';
 
 // Components
 import { ProjectList } from './sidebar/ProjectList';
-import { ApiExplorerSidebar } from './sidebar/ApiExplorerSidebar';
 import { TestsUi } from './sidebar/TestsUi';
 import { WorkflowsUi } from './sidebar/WorkflowsUi';
 import { PerformanceUi } from './sidebar/PerformanceUi';
@@ -74,7 +73,6 @@ export const Sidebar: React.FC = () => {
     };
     const {
         projectProps,
-        explorerProps,
         selectionProps,
         testsProps,
         workflowsProps,
@@ -97,7 +95,6 @@ export const Sidebar: React.FC = () => {
 
     // Destructure for passing to legacy children (can be cleaned up later by moving groups down)
     const { projects, savedProjects, loadProject, saveProject, onUpdateProject, closeProject, onAddProject, toggleProjectExpand, toggleInterfaceExpand, toggleOperationExpand, expandAll, collapseAll, reorderItems, reorderOperations, reorderRequests, onDeleteInterface, onDeleteOperation, onAddFolder, onAddRequestToFolder, onDeleteFolder, onToggleFolderExpand, onRefreshInterface, onExportWorkspace, onBulkImport, onImportSoapUI } = projectProps;
-    const { exploredInterfaces, addToProject, addAllToProject, clearExplorer, removeFromExplorer, toggleExploredInterface, toggleExploredOperation } = explorerProps;
 
     const {
         selectedProjectName, setSelectedProjectName,
@@ -170,30 +167,6 @@ export const Sidebar: React.FC = () => {
                 {activeView === SidebarView.HISTORY && historyProps && (
                     <HistorySidebar
                         {...historyProps}
-                    />
-                )}
-
-                {activeView === SidebarView.EXPLORER && (
-                    <ApiExplorerSidebar
-                        exploredInterfaces={exploredInterfaces}
-
-                        addToProject={addToProject}
-                        addAllToProject={addAllToProject}
-                        clearExplorer={clearExplorer}
-                        removeFromExplorer={removeFromExplorer}
-                        toggleExploredInterface={toggleExploredInterface}
-                        toggleExploredOperation={toggleExploredOperation}
-
-                        selectedInterface={selectedInterface}
-                        setSelectedInterface={setSelectedInterface}
-                        selectedOperation={selectedOperation}
-                        setSelectedOperation={setSelectedOperation}
-                        selectedRequest={selectedRequest}
-                        setSelectedRequest={setSelectedRequest}
-                        setSelectedProjectName={setSelectedProjectName}
-                        setResponse={setResponse}
-
-                        handleContextMenu={handleContextMenu}
                     />
                 )}
 

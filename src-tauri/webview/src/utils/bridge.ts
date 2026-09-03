@@ -1107,13 +1107,6 @@ async function invokeRustCommand(message: BridgeMessage): Promise<any> {
 function mapResponseToBackendEvent(command: string, data: any): BackendMessage | null {
     // Map frontend commands to their corresponding backend response events
     const commandToEventMap: Record<string, (data: any) => BackendMessage | null> = {
-        [FrontendCommand.LoadWsdl]: (data) => ({
-            command: BackendCommand.WsdlParsed,
-            // Backend returns array of services directly from parseWsdl
-            services: Array.isArray(data) ? data : (data?.services || data || []),
-            wsdlUrl: data?.wsdlUrl || '',
-            targetProjectId: data?.targetProjectId
-        }),
         [FrontendCommand.ExecuteRequest]: (data) => ({
             command: BackendCommand.Response,
             // Frontend expects response data in 'result' property
@@ -1198,7 +1191,6 @@ function mapResponseToBackendEvent(command: string, data: any): BackendMessage |
 // - GetScrapbook, AddScrapbookRequest, UpdateScrapbookRequest
 // 
 // Commands That Should Stay in Bridge (async/events):
-// - LoadWsdl (emits WsdlParsed event)
 // - ExecuteRequest (emits Response + HistoryUpdate events)
 // - RunTestCase, RunTestSuite (emit TestRunnerUpdate events)
 // - ExecuteWorkflow (emits progress events)

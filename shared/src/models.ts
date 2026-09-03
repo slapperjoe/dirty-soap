@@ -508,9 +508,7 @@ export interface WatcherEvent {
 export enum SidebarView {
     HOME = 'home',
     PROJECTS = 'projects',
-    COLLECTIONS = 'collections', // REST/GraphQL collections
-    EXPLORER = 'explorer',
-    UNIFIED_EXPLORER = 'unified_explorer', // Merged projects + explorer
+    UNIFIED_EXPLORER = 'unified_explorer', // Merged projects + explorer (primary explorer surface)
     TESTS = 'tests',
     WORKFLOWS = 'workflows', // NEW: Request chaining workflows
     PERFORMANCE = 'performance',

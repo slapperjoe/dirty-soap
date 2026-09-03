@@ -18,21 +18,18 @@ vi.mock('../../utils/bridge', () => ({
     }
 }));
 
-// The WsdlParsed handler sources setExploredInterfaces from useNavigation()
-// (NavigationContext), not from the injected state, so the test observes it
-// here. Only the hooks the handler uses are replaced; the provider still
-// renders and satisfies useNavigation's "must be inside provider" check.
-const mockNavSetExploredInterfaces = vi.fn();
+// The legacy WSDL-parsed -> explorer-staging pipeline (F-19) was retired;
+// useMessageHandler no longer sources setExploredInterfaces from
+// useNavigation(). Only the hooks the remaining handlers use are replaced;
+// the provider still renders and satisfies useNavigation's
+// "must be inside provider" check.
 const mockNavSetActiveView = vi.fn();
-const mockNavSetExplorerExpanded = vi.fn();
 vi.mock('../../contexts/NavigationContext', async () => {
     const actual = await vi.importActual('../../contexts/NavigationContext');
     return {
         ...actual,
         useNavigation: () => ({
-            setExploredInterfaces: mockNavSetExploredInterfaces,
-            setActiveView: mockNavSetActiveView,
-            setExplorerExpanded: mockNavSetExplorerExpanded
+            setActiveView: mockNavSetActiveView
         })
     };
 });
@@ -70,13 +67,8 @@ describe('useMessageHandler', () => {
         // Initialize mock state with vitest functions
         mockState = {
             setProjects: vi.fn(),
-            setExploredInterfaces: vi.fn(),
-            setExplorerExpanded: vi.fn(),
             setLoading: vi.fn(),
             setResponse: vi.fn(),
-            setDownloadStatus: vi.fn(),
-            setSelectedFile: vi.fn(),
-            setSampleModal: vi.fn(),
             setBackendConnected: vi.fn(),
             setConfig: vi.fn(),
             setRawConfig: vi.fn(),
@@ -86,7 +78,6 @@ describe('useMessageHandler', () => {
             setInlineElementValues: vi.fn(),
             setConfigPath: vi.fn(),
             setSelectedProjectName: vi.fn(),
-            setWsdlUrl: vi.fn(),
             setWorkspaceDirty: vi.fn(),
             setSavedProjects: vi.fn(),
             setChangelog: vi.fn(),
@@ -96,7 +87,6 @@ describe('useMessageHandler', () => {
             setRequestHistory: vi.fn(),
             setWsdlDiff: vi.fn(),
 
-            wsdlUrl: '',
             projects: [],
             config: {},
             selectedTestCase: null,
@@ -109,35 +99,6 @@ describe('useMessageHandler', () => {
     it('should register message listener on mount', () => {
         renderHook(() => useMessageHandler(mockState), { wrapper: Wrapper });
         expect(bridge.onMessage).toHaveBeenCalled();
-    });
-
-    it('should handle WsdlParsed message', () => {
-        renderHook(() => useMessageHandler(mockState), { wrapper: Wrapper });
-
-        const wsdlData = [
-            {
-                name: 'TestService',
-                operations: [
-                    { name: 'GetTest', portName: 'Default', originalEndpoint: 'http://test' }
-                ]
-            }
-        ];
-
-        messageHandlerCallback({
-            command: BackendCommand.WsdlParsed,
-            services: wsdlData
-        });
-
-        // setExploredInterfaces is now sourced from useNavigation() (see the
-        // NavigationContext mock above), not from the injected mockState.
-        expect(mockNavSetExploredInterfaces).toHaveBeenCalled();
-        // The interface is derived from the service's default port.
-        const calledInterfaces = mockNavSetExploredInterfaces.mock.calls[0][0];
-        expect(Array.isArray(calledInterfaces)).toBe(true);
-        expect(calledInterfaces).toHaveLength(1);
-        expect(calledInterfaces[0].name).toBe('TestService');
-        expect(calledInterfaces[0].type).toBe('wsdl');
-        expect(mockState.setExplorerExpanded).toHaveBeenCalledWith(true);
     });
 
     it('should handle EchoResponse message', () => {
