@@ -1,6 +1,6 @@
 # Maintainer: Your Name <your@email.com>
 pkgname=apinox
-pkgver=0.16.116
+pkgver=0.43.357
 pkgrel=1
 pkgdesc="A visual SOAP client desktop application"
 arch=('x86_64')
