@@ -3,6 +3,7 @@ import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'reac
 import styled from 'styled-components';
 import { Container } from '../styles/App.styles';
 import { bridge, isTauri } from '../utils/bridge';
+import { saveImportedProjectsAsUnified } from '../utils/importUnifiedStore';
 import { captureLog } from '../utils/logger';
 import { generateInitialXmlForOperation, soapDefault, rewriteRequestsForContentTypeChange } from '../utils/soapUtils';
 import { Sidebar } from './Sidebar';
@@ -145,7 +146,6 @@ const MainContent: React.FC = () => {
         setDeleteConfirm,
         addProject,
         closeProject,
-        loadProject,
         saveProject,
         toggleProjectExpand,
         toggleInterfaceExpand,
@@ -239,6 +239,9 @@ const MainContent: React.FC = () => {
         // saveProject (save_unified_project) is distinct from the legacy one
         // (save_project) that the rest of the workspace still uses.
         saveProject: saveUnifiedProject,
+        // t_b2eae8b0: refresh() reloads the unified list after an import lands
+        // directly in the canonical unified store (no migration/refresh round).
+        refresh: refreshUnifiedProjects,
         // Phase B (t_86c34d38): unified-explorer node selection is lifted into
         // the context so the search deep-link can drive it.
         selectedNode: unifiedSelectedNode,
@@ -1707,8 +1710,44 @@ const MainContent: React.FC = () => {
                         filters: [{ name: 'SoapUI Workspace or Project', extensions: ['xml'] }],
                         title: 'Import SoapUI Workspace or Project',
                     });
-                    if (selected) {
-                        await loadProject(selected as string);
+                    if (!selected) return;
+                    const targetPath = selected as string;
+                    // t_b2eae8b0: SoapUI import now writes the canonical UNIFIED
+                    // store directly (flat operations via
+                    // save_imported_project_as_unified) instead of the legacy
+                    // nested save_project. importWorkspace still parses the
+                    // SoapUI XML (and .apinox/.json/dir sources) to nested
+                    // projects; we persist each to the unified store.
+                    const response: any = await bridge.sendMessageAsync({
+                        command: 'importWorkspace',
+                        filePath: targetPath,
+                    });
+                    const imported: any[] =
+                        response?.projects && Array.isArray(response.projects)
+                            ? response.projects
+                            : [];
+                    if (imported.length > 0) {
+                        // Persist each imported project to the canonical unified
+                        // store (idempotent merge; additive nested write for
+                        // PROXY/WORKFLOWS).
+                        await saveImportedProjectsAsUnified(imported);
+                        // In-session legacy list: PROXY (AddToProjectDialog) and
+                        // WORKFLOWS (request-picker) read the nested model and
+                        // read from useProject().projects IN THIS SESSION (they
+                        // do not re-load from disk on demand), so publish each
+                        // nested value now to keep it visible without a restart.
+                        for (const project of imported) {
+                            if (!project?.name) continue;
+                            (project as any).fileName = targetPath;
+                            bridge.emit({
+                                command: BackendCommand.ProjectLoaded,
+                                project,
+                                filename: targetPath,
+                            });
+                        }
+                        // The unified store now owns these projects — reload the
+                        // unified list so the explorer shows them immediately.
+                        await refreshUnifiedProjects();
                     }
                 }
             },
@@ -1747,7 +1786,10 @@ const MainContent: React.FC = () => {
         // were removed with the deleted PROJECTS view; the remaining deps cover
         // testsProps / workflowsProps / performanceProps / historyProps /
         // unifiedProps and the view-state fields.
-        loadProject, saveProject,
+        // t_b2eae8b0: SoapUI import writes the unified store directly, so the
+        // memoized onImportSoapUI depends on refreshUnifiedProjects (no longer
+        // on the legacy loadProject). saveProject stays (other handlers).
+        saveProject, refreshUnifiedProjects,
         deleteConfirm, setDeleteConfirm, setExportWorkspaceModal, setShowBulkImportModal,
         handleAddSuite, handleDeleteSuite, handleRunTestSuiteWrapper,
         handleAddTestCase, handleDeleteTestCase, handleRenameTestCase,
@@ -1766,7 +1808,7 @@ const MainContent: React.FC = () => {
         handleUnifiedRenameProject, handleUnifiedRenameOperation, handleUnifiedRenameRequest,
         handleUnifiedProjectContentTypeChange,
         handleUnifiedExport, handleUnifiedReorderOperation, handleUnifiedReorderRequest,
-        loadProject, handleGenerateTestSuite,
+        handleGenerateTestSuite,
         scrapbookRequests, selectedScrapbookRequest, scrapbookLoading,
         handleUnifiedScrapbookCreate, handleUnifiedScrapbookSelect,
         handleUnifiedScrapbookDelete, handleUnifiedScrapbookExecute,
@@ -2143,7 +2185,7 @@ const MainContent: React.FC = () => {
                         open={showBulkImportModal}
                         onClose={() => setShowBulkImportModal(false)}
                         existingProjects={projects.filter(p => !p.readOnly).map(p => p.name)}
-                        onImportComplete={(results: BulkImportResult[], projectName: string, isNew: boolean) => {
+                        onImportComplete={async (results: BulkImportResult[], projectName: string, isNew: boolean) => {
                             // Collect all successful interfaces
                             const successfulInterfaces = results
                                 .filter(r => r.success && r.interfaces)
@@ -2151,17 +2193,45 @@ const MainContent: React.FC = () => {
 
                             if (successfulInterfaces.length === 0) return;
 
-                            // Add all interfaces to the project
+                            // t_b2eae8b0: Bulk Import now writes the canonical
+                            // UNIFIED store directly. The WSDL-derived nested
+                            // interfaces are grouped into ONE nested project
+                            // (the legacy "one project = the service" shape) and
+                            // persisted via save_imported_project_as_unified,
+                            // which flattens them into operations[] (reusing the
+                            // migration's transform) and merges idempotently
+                            // into the unified store. The additive nested write
+                            // keeps PROXY/WORKFLOWS (nested-model readers)
+                            // working on the imported project. Awaited FIRST so
+                            // the canonical unified dir exists before any legacy
+                            // in-session write (which would otherwise race and
+                            // create a legacy dir, triggering an unwanted rename).
+                            const nestedProject: ApinoxProject = {
+                                name: projectName,
+                                id: Date.now().toString(),
+                                interfaces: successfulInterfaces,
+                            };
+                            const savedProjects = await saveImportedProjectsAsUnified([nestedProject]);
+                            const saved = savedProjects[0];
+                            const finalName = saved?.name ? String(saved.name) : projectName;
+
+                            // In-session legacy list: PROXY (AddToProjectDialog)
+                            // and WORKFLOWS (request-picker) read the nested
+                            // model from useProject().projects IN THIS SESSION
+                            // (they do not re-load from disk on demand), so add
+                            // the interfaces there too. `isNew && i === 0`
+                            // mirrors the original: only the first interface
+                            // creates the (legacy-list) project; the rest append.
                             successfulInterfaces.forEach((iface, i) => {
-                                addInterfaceToNamedProject(iface, projectName, isNew && i === 0);
+                                addInterfaceToNamedProject(iface, finalName, isNew && i === 0);
                             });
 
-                            // Phase B (t_86c34d38): the PROJECTS view is deleted.
-                            // Bulk import still writes the legacy nested model
-                            // (follow-up card converts it to unified-native),
-                            // which the unified store reads after the next
-                            // migration/refresh. Navigate to the sole explorer
-                            // entry point (the PROJECTS view no longer exists).
+                            // The unified store now owns the project — reload the
+                            // list so the explorer shows it immediately.
+                            await refreshUnifiedProjects();
+
+                            // Navigate to the sole explorer entry point (the
+                            // PROJECTS view no longer exists).
                             setActiveView(SidebarView.UNIFIED_EXPLORER);
                         }}
                         onParseUrl={async (url: string) => {

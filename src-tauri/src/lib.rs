@@ -540,6 +540,7 @@ pub fn run() {
             project_storage::list_projects,
             project_storage::list_unified_projects,
             project_storage::migrate_legacy_projects,
+            project_storage::save_imported_project_as_unified,
             project_storage::delete_project,
             history_storage::get_history,
             history_storage::add_history_entry,

@@ -828,24 +828,26 @@ pub async fn close_project(_project_id: String) -> Result<serde_json::Value, Str
 //
 // Idempotent: dirs already in unified format are skipped.
 
-/// Migrate one legacy project dir to the unified layout, in place.
-/// Returns true if a migration happened, false if the dir was already unified.
-pub(crate) async fn migrate_legacy_project_dir(dir: &Path) -> Result<bool, String> {
-    if is_unified_format_path(dir) {
-        return Ok(false);
-    }
-
-    // Full legacy project value (interfaces[], testSuites[], folders[]).
-    let legacy = load_project_internal(&dir.to_string_lossy()).await?;
+/// Convert a legacy NESTED project (with `interfaces[].operations[]`) into the
+/// flat UNIFIED project shape (`operations[]`), as an in-memory `Value`.
+///
+/// This is the canonical nested→unified transform. It is shared by:
+///   * the on-disk legacy→unified migration ([`migrate_legacy_project_dir`]), and
+///   * the import write paths (Bulk Import / SoapUI import,
+///     [`save_imported_project_as_unified`]),
+/// so there is exactly one place that flattens the nested model and no
+/// divergent copies of the logic.
+///
+/// The per-operation field shape (OperationMeta) is identical between the
+/// legacy and unified on-disk formats, so `save_unified_operation` can write
+/// the flattened operations verbatim. Operations with colliding names (from
+/// different interfaces) get an `"(Interface)"` suffix to stay unique on disk.
+pub(crate) fn nested_project_to_unified(legacy: &serde_json::Value) -> Result<serde_json::Value, String> {
     let name = legacy["name"]
         .as_str()
-        .ok_or_else(|| format!("Legacy project in {} has no name", dir.display()))?;
+        .ok_or_else(|| "Legacy project has no name".to_string())?;
 
     // Flatten nested interfaces[].operations[] into a single flat operations[].
-    // The per-operation field shape (OperationMeta) is identical between the
-    // legacy and unified on-disk formats, so save_unified_operation can write
-    // them verbatim. Operations with colliding names (from different
-    // interfaces) get an "(Interface)" suffix to stay unique on disk.
     let mut operations: Vec<JsonValue> = Vec::new();
     let mut used_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut first_iface: Option<JsonValue> = None;
@@ -896,7 +898,7 @@ pub(crate) async fn migrate_legacy_project_dir(dir: &Path) -> Result<bool, Strin
         .and_then(|d| d.as_str())
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
-    let unified = serde_json::json!({
+    Ok(serde_json::json!({
         "name": name,
         "description": legacy["description"],
         "id": legacy["id"],
@@ -910,7 +912,23 @@ pub(crate) async fn migrate_legacy_project_dir(dir: &Path) -> Result<bool, Strin
         // migration loses no test data or user folders.
         "testSuites": legacy.get("testSuites").cloned().unwrap_or(JsonValue::Array(vec![])),
         "folders": legacy.get("folders").cloned().unwrap_or(JsonValue::Array(vec![])),
-    });
+    }))
+}
+
+/// Migrate one legacy project dir to the unified layout, in place.
+/// Returns true if a migration happened, false if the dir was already unified.
+pub(crate) async fn migrate_legacy_project_dir(dir: &Path) -> Result<bool, String> {
+    if is_unified_format_path(dir) {
+        return Ok(false);
+    }
+
+    // Full legacy project value (interfaces[], testSuites[], folders[]).
+    let legacy = load_project_internal(&dir.to_string_lossy()).await?;
+    let name = legacy["name"]
+        .as_str()
+        .ok_or_else(|| format!("Legacy project in {} has no name", dir.display()))?;
+
+    let unified = nested_project_to_unified(&legacy)?;
 
     // Write the unified layout (properties.json + flat operation dirs + tests/ + folders/).
     save_unified_project(dir.to_string_lossy().into(), unified)?;
@@ -963,6 +981,169 @@ pub async fn migrate_legacy_projects() -> Result<Vec<String>, String> {
     }
 
     Ok(migrated)
+}
+
+// ============================================================================
+// t_b2eae8b0: import write paths (Bulk Import / SoapUI) → unified store
+// ============================================================================
+//
+// Before this, the two import flows (Bulk Import `onImportComplete` and the
+// SoapUI `loadProject` `.xml` branch) wrote the LEGACY nested model
+// (`save_project` → `interfaces/`), relying on the non-destructive
+// legacy→unified migration (above) to surface them in the unified store.
+// This command re-points those write paths at the canonical UNIFIED store
+// directly: it flattens the nested project (reusing
+// [`nested_project_to_unified`]) and persists it via `save_unified_project`.
+
+/// Persist an imported NESTED project (Bulk Import / SoapUI) directly into the
+/// canonical UNIFIED store (`APInox-unified-v1` + flat operations layout), so
+/// the import lands in the canonical store without relying on the
+/// legacy-format fallback.
+///
+/// The nested→flat transform reuses the canonical migration logic
+/// ([`nested_project_to_unified`]).
+///
+/// Non-destructive + idempotent guarantees:
+///   * A same-named NON-UNIFIED (legacy) dir is never clobbered — the import
+///     is written to a suffixed, unique name so both co-exist.
+///   * An existing UNIFIED project dir of the same name is MERGED: operations
+///     already on disk (by name) are kept, and only new operations are added
+///     (re-importing the same WSDL/SoapUI file is a no-op). The existing
+///     project's test suites and folders are preserved, so a re-import never
+///     drops test data or user folders.
+///
+/// Returns the unified project as persisted on disk (the merged result).
+#[tauri::command]
+pub async fn save_imported_project_as_unified(project: serde_json::Value) -> Result<serde_json::Value, String> {
+    let base = projects_dir()?;
+    let name = project["name"]
+        .as_str()
+        .ok_or("Missing project name")?
+        .to_string();
+    let mut dir = base.join(sanitize_name(&name));
+
+    // Never clobber a same-named non-unified (legacy) dir: write the import
+    // under a suffixed, unique name so both co-exist.
+    if dir.exists() && !is_unified_format_path(&dir) {
+        let mut i = 2usize;
+        let mut candidate_name = format!("{} ({})", name, i);
+        loop {
+            let candidate_dir = base.join(sanitize_name(&candidate_name));
+            if !candidate_dir.exists() {
+                dir = candidate_dir;
+                break;
+            }
+            i += 1;
+            candidate_name = format!("{} ({})", name, i);
+        }
+        let mut renamed = project;
+        renamed["name"] = serde_json::Value::String(candidate_name.clone());
+        let unified = nested_project_to_unified(&renamed)?;
+        save_unified_project(dir.to_string_lossy().into(), unified)?;
+        // Additive nested write (fresh dir) so PROXY / WORKFLOWS — which still
+        // read the nested legacy model — can see the imported operations too,
+        // mirroring the non-destructive migration that keeps interfaces/.
+        save_nested_interfaces_if_absent(&dir, &renamed)?;
+        log::info!(
+            "save_imported_project_as_unified: '{}' renamed to '{}' to avoid clobbering a non-unified dir",
+            name,
+            candidate_name
+        );
+        return Ok(load_unified_project(dir.to_string_lossy().into())?);
+    }
+
+    let unified = nested_project_to_unified(&project)?;
+
+    // Merge policy for an existing unified dir: keep the operations already
+    // on disk (existing wins) and append only the operations the import brings
+    // in that don't exist yet. This keeps re-imports idempotent and never
+    // clobbers user edits.
+    let existing = if is_unified_format_path(&dir) {
+        load_unified_project(dir.to_string_lossy().into()).ok()
+    } else {
+        None
+    };
+
+    let final_project = match existing {
+        Some(existing) => {
+            let mut merged_ops: Vec<JsonValue> = existing
+                .get("operations")
+                .and_then(|o| o.as_array())
+                .cloned()
+                .unwrap_or_default();
+            let existing_names: std::collections::HashSet<String> = merged_ops
+                .iter()
+                .filter_map(|o| o["name"].as_str())
+                .map(sanitize_name)
+                .collect();
+            let incoming = unified
+                .get("operations")
+                .and_then(|o| o.as_array())
+                .cloned()
+                .unwrap_or_default();
+            for op in incoming {
+                let op_name = op["name"].as_str().unwrap_or("");
+                if !existing_names.contains(&sanitize_name(op_name)) {
+                    merged_ops.push(op);
+                }
+            }
+            // Carry over the existing project's suites/folders so a re-import
+            // into an existing project never drops test data or folders.
+            serde_json::json!({
+                "name": existing["name"],
+                "description": existing.get("description").cloned(),
+                "id": existing.get("id").cloned(),
+                "source": existing.get("source").cloned().unwrap_or_else(|| unified["source"].clone()),
+                "sourceUrl": existing.get("sourceUrl").cloned().or_else(|| unified.get("sourceUrl").cloned()),
+                "parsedAt": existing.get("parsedAt").cloned().unwrap_or_else(|| unified["parsedAt"].clone()),
+                "lastRefreshedAt": existing.get("lastRefreshedAt").cloned(),
+                "soapVersion": existing.get("soapVersion").cloned().or_else(|| unified.get("soapVersion").cloned()),
+                "bindingName": existing.get("bindingName").cloned().or_else(|| unified.get("bindingName").cloned()),
+                // User-set via the unified explorer (content-type override,
+                // display-only rename) — preserve across a re-import.
+                "contentType": existing.get("contentType").cloned(),
+                "displayName": existing.get("displayName").cloned(),
+                "operations": merged_ops,
+                "testSuites": existing.get("testSuites").cloned().unwrap_or(JsonValue::Array(vec![])),
+                "folders": existing.get("folders").cloned().unwrap_or(JsonValue::Array(vec![])),
+            })
+        }
+        None => unified,
+    };
+
+    save_unified_project(dir.to_string_lossy().into(), final_project.clone())?;
+    // Additive nested write so PROXY / WORKFLOWS — which still read the nested
+    // legacy model (out of scope to decouple; see t_86c34d38) — can see the
+    // imported operations, mirroring the non-destructive migration that keeps
+    // the interfaces/ tree. Only writes when absent, so a merge into an
+    // existing project never clobbers interfaces PROXY has already added.
+    save_nested_interfaces_if_absent(&dir, &project)?;
+    log::info!("save_imported_project_as_unified: persisted '{}' to {}", final_project["name"].as_str().unwrap_or(&name), dir.display());
+    Ok(load_unified_project(dir.to_string_lossy().into())?)
+}
+
+/// Write the nested legacy `interfaces/` tree for `project` under `dir`, ONLY
+/// if the tree does not already exist (additive).
+///
+/// This keeps an imported project visible to the legacy-model features (PROXY
+/// "Add to APInox Project" and WORKFLOWS request-picker), which read the
+/// nested `interfaces[]` — the same non-destructive guarantee the legacy→
+/// unified migration provides (it keeps `interfaces/` so those features keep
+/// working on migrated projects). Guarding on absence means a re-import (merge)
+/// into an existing project never overwrites interfaces PROXY has since added.
+fn save_nested_interfaces_if_absent(dir: &Path, project: &serde_json::Value) -> Result<(), String> {
+    let interfaces_dir = dir.join("interfaces");
+    if interfaces_dir.exists() {
+        return Ok(());
+    }
+    let interfaces = project["interfaces"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if interfaces.is_empty() {
+        return Ok(());
+    }
+    save_interfaces(dir, project)
 }
 
 // ============================================================================
@@ -1990,6 +2171,254 @@ mod tests {
             listed.iter().all(|p| p["name"] != "OnlyLegacy"),
             "legacy dir must be excluded from the unified list"
         );
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    // ------------------------------------------------------------------
+    // t_b2eae8b0: import write paths → unified store
+    // ------------------------------------------------------------------
+
+    /// A nested legacy `ApinoxProject` as the import flows produce it
+    /// (SoapUI / Bulk Import shape): one WSDL interface, operations with
+    /// request copies.
+    fn sample_imported_project(name: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": "import-1",
+            "name": name,
+            "interfaces": [
+                {
+                    "name": "SvcPort",
+                    "type": "wsdl",
+                    "bindingName": "SvcPortSoap",
+                    "soapVersion": "1.1",
+                    "definition": "http://example.com/svc.wsdl",
+                    "operations": [
+                        {
+                            "name": "DoWork",
+                            "action": "http://example.com/DoWork",
+                            "input": null,
+                            "targetNamespace": "http://example.com",
+                            "originalEndpoint": "http://example.com/svc",
+                            "fullSchema": null,
+                            "output": null,
+                            "requests": [
+                                {
+                                    "name": "DoWork sample",
+                                    "endpoint": "http://example.com/svc",
+                                    "method": "POST",
+                                    "request": "<doWork/>",
+                                    "id": "imp-req-1"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "testSuites": [],
+            "folders": []
+        })
+    }
+
+    /// Direct unit test of the extracted canonical transform (shared by the
+    /// migration and the import write path): flatten + collision suffixing +
+    /// primary sourceUrl.
+    #[test]
+    fn nested_project_to_unified_flattens_and_dedupes_ops() {
+        let unified = nested_project_to_unified(&sample_legacy_project()).expect("transform");
+        assert_eq!(unified["name"], "LegacySvc");
+        assert_eq!(unified["source"], "wsdl");
+        // sourceUrl = the FIRST (sorted) interface's definition.
+        assert_eq!(unified["sourceUrl"], "http://example.com/s1.wsdl");
+        // Two interfaces each contribute their op; the colliding "Ping" from
+        // the second interface is suffixed with its interface name.
+        let ops = unified["operations"].as_array().unwrap();
+        assert_eq!(ops.len(), 2);
+        let names: Vec<String> = ops.iter().map(|o| o["name"].as_str().unwrap().to_string()).collect();
+        assert!(names.iter().any(|n| n == "Ping"), "first Ping verbatim: {:?}", names);
+        assert!(names.iter().any(|n| n == "Ping (S2)"), "colliding Ping suffixed: {:?}", names);
+        // Request bodies survive the transform.
+        let ping = ops.iter().find(|o| o["name"] == "Ping").unwrap();
+        assert_eq!(ping["requests"][0]["request"], "<a/>");
+    }
+
+    /// New import → a fresh unified-format dir with flat operations, listed by
+    /// `list_unified_projects` (the canonical store).
+    #[tokio::test]
+    async fn import_new_project_lands_in_unified_store() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        let imported = save_imported_project_as_unified(sample_imported_project("ImportedSvc"))
+            .await
+            .expect("import new");
+
+        // Canonical unified store: listed, unified format, flat ops.
+        let listed = list_unified_projects().expect("list unified");
+        assert!(listed.iter().any(|p| p["name"] == "ImportedSvc"), "imported project must be unified-listed");
+        let dir = base.join("ImportedSvc");
+        assert!(is_unified_format_path(&dir), "imported dir must be APInox-unified-v1");
+        let props: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(dir.join("properties.json")).expect("props"),
+        )
+        .expect("parse props");
+        assert_eq!(props["format"], "APInox-unified-v1");
+
+        // Flat layout: the operation dir sits at the top level (the canonical
+        // unified writer). The nested interfaces/ tree is ALSO written
+        // additively so PROXY/WORKFLOWS (nested-model readers) keep working.
+        assert!(dir.join("DoWork").join("operation.json").exists(), "flat op dir created");
+        assert!(dir.join("interfaces").exists(), "additive nested interfaces/ written for PROXY/WORKFLOWS");
+        // The nested model is readable back through the legacy loader (what
+        // PROXY "Add to APInox Project" / WORKFLOWS request-picker read).
+        let legacy_loaded = load_project(dir.to_string_lossy().into()).await.expect("load legacy");
+        assert_eq!(legacy_loaded["interfaces"].as_array().unwrap().len(), 1, "nested iface readable");
+        assert_eq!(legacy_loaded["interfaces"][0]["operations"][0]["name"], "DoWork");
+
+        // The returned value round-trips through the unified loader.
+        assert_eq!(imported["name"], "ImportedSvc");
+        assert_eq!(imported["source"], "wsdl");
+        assert_eq!(imported["operations"].as_array().unwrap().len(), 1);
+        assert_eq!(imported["operations"][0]["name"], "DoWork");
+        assert_eq!(imported["operations"][0]["requests"][0]["request"], "<doWork/>");
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    /// Re-importing the same source is idempotent: no duplicate operations,
+    /// and the existing project's test suites are preserved.
+    #[tokio::test]
+    async fn import_is_idempotent_and_preserves_existing_data() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        // First import creates the project (one op).
+        save_imported_project_as_unified(sample_imported_project("ReimportSvc"))
+            .await
+            .expect("first import");
+
+        // The user adds a test suite to the imported project (via the
+        // unified store, the canonical writer for migrated projects).
+        let dir = base.join("ReimportSvc");
+        let with_suite = {
+            let loaded = load_unified_project(dir.to_string_lossy().into()).expect("load");
+            let mut p = loaded;
+            p["testSuites"] = serde_json::json!([
+                { "id": "s-1", "name": "UserSuite", "testCases": [] }
+            ]);
+            p
+        };
+        save_unified_project(dir.to_string_lossy().into(), with_suite).expect("save suite");
+
+        // Re-import the SAME source: must merge (not duplicate ops) and
+        // keep the suite.
+        let reimported = save_imported_project_as_unified(sample_imported_project("ReimportSvc"))
+            .await
+            .expect("re-import");
+        assert_eq!(reimported["operations"].as_array().unwrap().len(), 1, "re-import must not duplicate ops");
+        assert_eq!(reimported["operations"][0]["name"], "DoWork");
+        let suites = reimported["testSuites"].as_array().unwrap();
+        assert_eq!(suites.len(), 1, "re-import must preserve the user's suite");
+        assert_eq!(suites[0]["name"], "UserSuite");
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    /// Importing a source that introduces a NEW operation into an existing
+    /// unified project appends it, leaves the existing op (and its request)
+    /// untouched, and preserves suites/folders.
+    #[tokio::test]
+    async fn import_merges_new_operations_into_existing_project() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        save_imported_project_as_unified(sample_imported_project("MergeSvc"))
+            .await
+            .expect("seed");
+
+        // An import of a second interface (a different op, same project
+        // name) must merge in alongside the existing op.
+        let second = serde_json::json!({
+            "id": "import-2",
+            "name": "MergeSvc",
+            "interfaces": [
+                {
+                    "name": "SvcPort",
+                    "type": "wsdl",
+                    "bindingName": "SvcPortSoap",
+                    "soapVersion": "1.1",
+                    "definition": "http://example.com/svc.wsdl",
+                    "operations": [
+                        {
+                            "name": "OtherOp",
+                            "action": "http://example.com/OtherOp",
+                            "input": null,
+                            "targetNamespace": "http://example.com",
+                            "originalEndpoint": "http://example.com/svc",
+                            "fullSchema": null,
+                            "output": null,
+                            "requests": [ { "name": "other sample", "endpoint": "http://example.com/svc", "request": "<other/>" } ]
+                        }
+                    ]
+                }
+            ],
+            "testSuites": [],
+            "folders": []
+        });
+        let merged = save_imported_project_as_unified(second).await.expect("merge import");
+        let names: Vec<String> = merged["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o["name"].as_str().unwrap().to_string())
+            .collect();
+        assert!(names.iter().any(|n| n == "DoWork"), "existing op kept: {:?}", names);
+        assert!(names.iter().any(|n| n == "OtherOp"), "new op merged: {:?}", names);
+        assert_eq!(merged["operations"].as_array().unwrap().len(), 2);
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    /// A same-named NON-unified (legacy) dir is never clobbered: the import is
+    /// written under a suffixed name and the legacy dir stays intact.
+    #[tokio::test]
+    async fn import_renames_when_legacy_dir_name_collides() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        // Pre-existing legacy-format dir with the same name.
+        let legacy = sample_legacy_project();
+        let legacy_dir = write_legacy_project(&base, "LegacySvc", &legacy);
+        let legacy_props_before = std::fs::read_to_string(legacy_dir.join("properties.json")).expect("read legacy props");
+
+        // Import a project named "LegacySvc" — must not clobber the legacy dir.
+        let imported = save_imported_project_as_unified(sample_imported_project("LegacySvc"))
+            .await
+            .expect("import with collision");
+
+        // The legacy dir is byte-identical (untouched) and still legacy format.
+        let legacy_props_after = std::fs::read_to_string(legacy_dir.join("properties.json")).expect("re-read legacy props");
+        assert_eq!(legacy_props_before, legacy_props_after, "legacy dir must be untouched");
+        assert!(!is_unified_format_path(&legacy_dir), "legacy dir must stay legacy");
+
+        // The import landed under a suffixed name, in unified format.
+        assert_ne!(imported["name"].as_str().unwrap(), "LegacySvc");
+        let imported_dir = base.join(
+            imported["name"].as_str().unwrap().replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_"),
+        );
+        assert!(is_unified_format_path(&imported_dir), "imported (suffixed) dir must be unified");
+        assert_eq!(imported["operations"].as_array().unwrap().len(), 1);
+
         std::env::remove_var("APINOX_CONFIG_DIR");
     }
 }
