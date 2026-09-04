@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { Play, Plus, Trash2, ChevronDown, ChevronRight, FlaskConical, FolderOpen, ListChecks, Clock, FileCode, ArrowRight, FileText } from 'lucide-react';
 import { UnifiedProject, TestSuite } from '@shared/models';
@@ -27,15 +27,17 @@ const HeaderActions = styled.div`
     position: relative;
 `;
 
+// t_894bcad3 (diagnosis t_8de3fefc): the menu must escape the sidebar panel's
+// overflow:hidden clipping box, so it is positioned in viewport coordinates
+// (position: fixed) computed from the trigger button's rect — same pattern as
+// SidebarContextMenu. z-index 1001 sits above the mobile drawer (1000); the
+// desktop drawer has no z-index of its own.
 const AddSuiteMenu = styled.div`
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: ${SPACING_XS};
+    position: fixed;
+    z-index: 1001;
     background: var(--apinox-dropdown-background);
     border: 1px solid var(--apinox-dropdown-border);
     border-radius: 4px;
-    z-index: 100;
     min-width: 180px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 `;
@@ -53,12 +55,19 @@ const AddSuiteMenuEmpty = styled.div`
     opacity: 0.6;
 `;
 
-const AddSuiteMenuItem = styled.div<{ $disabled?: boolean }>`
-    padding: ${SPACING_SM} 12px;
-    cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+// A real <button> so menu items are keyboard-operable (Tab/Enter/Space).
+const AddSuiteMenuItem = styled.button<{ $disabled?: boolean }>`
+    width: 100%;
     display: flex;
     align-items: center;
     gap: ${SPACING_XS};
+    padding: ${SPACING_SM} 12px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
     opacity: ${props => props.$disabled ? 0.5 : 1};
 
     &:hover {
@@ -181,6 +190,11 @@ export const TestsUi: React.FC<TestsUiProps> = ({
     deleteConfirm
 }) => {
     const [showAddSuiteMenu, setShowAddSuiteMenu] = useState(false);
+    // t_894bcad3: viewport coordinates for the fixed-positioned AddSuiteMenu,
+    // computed from the trigger button's rect when the menu opens.
+    const addSuiteBtnRef = useRef<HTMLButtonElement>(null);
+    const addSuiteMenuRef = useRef<HTMLDivElement>(null);
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
     const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
     const [renameId, setRenameId] = useState<string | null>(null);
     const [renameType, setRenameType] = useState<'case' | 'step' | 'suite' | null>(null);
@@ -194,6 +208,56 @@ export const TestsUi: React.FC<TestsUiProps> = ({
 
     // Context menu state
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; caseId: string; stepId?: string; name: string; type: 'case' | 'step' } | null>(null);
+
+    // t_894bcad3: place the Add Suite menu below the trigger button, right-aligned
+    // to it, using viewport (fixed) coordinates so it escapes the sidebar panel's
+    // overflow:hidden clipping box (see docs/MENU_SIDEBAR_STACKING_DIAGNOSIS.md).
+    const openAddSuiteMenu = () => {
+        if (!showAddSuiteMenu) {
+            const rect = addSuiteBtnRef.current?.getBoundingClientRect();
+            if (rect) {
+                // Estimated menu width: min-width 180px + long project names may
+                // grow it; the inline-style left keeps the right edge aligned to
+                // the button and clamps the left edge to at least 8px from the
+                // viewport edge.
+                const estimatedWidth = 200;
+                const left = Math.max(8, rect.right - estimatedWidth);
+                const top = rect.bottom + 4;
+                setMenuPos({ top, left });
+            }
+        }
+        setShowAddSuiteMenu(v => !v);
+    };
+
+    const closeAddSuiteMenu = () => {
+        setShowAddSuiteMenu(false);
+        setMenuPos(null);
+    };
+
+    // Close the Add Suite menu on outside click and Escape (the menu previously
+    // had no close affordance at all — DropdownMenu.tsx outside-click pattern).
+    useEffect(() => {
+        if (!showAddSuiteMenu) return;
+
+        const handleMouseDown = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (addSuiteMenuRef.current?.contains(target)) return;
+            if (addSuiteBtnRef.current?.contains(target)) return;
+            closeAddSuiteMenu();
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                closeAddSuiteMenu();
+            }
+        };
+
+        document.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showAddSuiteMenu]);
 
     const handleContextMenu = (e: React.MouseEvent, caseId: string, name: string, type: 'case' | 'step', stepId?: string) => {
         e.preventDefault();
@@ -288,15 +352,22 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                     <SidebarHeaderActions>
                         <HeaderActions>
                             <HeaderButton
-                                onClick={() => setShowAddSuiteMenu(!showAddSuiteMenu)}
+                                ref={addSuiteBtnRef}
+                                onClick={openAddSuiteMenu}
                                 title="Add Test Suite"
                             >
                                 <Plus size={16} />
                             </HeaderButton>
 
-                            {/* Project Selection Dropdown */}
+                            {/* Project Selection Dropdown (t_894bcad3: viewport-fixed
+                                placement so the menu renders above the sidebar rail
+                                instead of being clipped by the panel's overflow) */}
                             {showAddSuiteMenu && (
-                                <AddSuiteMenu>
+                                <AddSuiteMenu
+                                    ref={addSuiteMenuRef}
+                                    style={menuPos ? { top: menuPos.top, left: menuPos.left } : undefined}
+                                    onMouseDown={e => e.stopPropagation()}
+                                >
                                     <AddSuiteMenuTitle>
                                         Add suite to project:
                                     </AddSuiteMenuTitle>
@@ -308,12 +379,13 @@ export const TestsUi: React.FC<TestsUiProps> = ({
                                         projects.map(p => (
                                             <AddSuiteMenuItem
                                                 key={p.name}
-                                                onClick={() => {
-                                                    if (p.readOnly) return; // Disable for read-only projects
-                                                    handleProjectSelect(p.name);
-                                                }}
+                                                type="button"
+                                                disabled={p.readOnly}
                                                 $disabled={p.readOnly}
                                                 title={p.readOnly ? 'Workspace is read-only; cannot add suites.' : undefined}
+                                                onClick={() => {
+                                                    handleProjectSelect(p.name);
+                                                }}
                                             >
                                                 <FolderOpen size={14} />
                                                 {p.name}
