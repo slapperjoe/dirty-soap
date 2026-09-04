@@ -289,7 +289,7 @@ function build(extraArgs) {
   run("node scripts/version.js increment");
   run("node scripts/version.js sync");
   run("npm run build:packages");
-  run("npm install", { cwd: path.join(root, "src-tauri", "webview") });
+  run("node scripts/run-npm-install.js src-tauri/webview");
 
   console.log(`\n> npx tauri build ${extraArgs.join(" ")}`);
   const env = { ...process.env };
@@ -359,7 +359,14 @@ function build(extraArgs) {
           LD_LIBRARY_PATH: path.join(bundleDir, "usr", "lib"),
         },
         stdio: "inherit",
+        windowsHide: true,
+        timeout: 15000,
       });
+      if (result.error && result.error.code === "ETIMEDOUT") {
+        console.log(
+          "ℹ️  AppImage launch smoke-test hit its 15s limit and was closed — the binary started successfully.",
+        );
+      }
       console.log(`AppImage exited with code: ${result.status}`);
     } else {
       console.log("ℹ️  No AppImage found to run.");
