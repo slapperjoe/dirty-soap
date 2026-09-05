@@ -23,12 +23,17 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 DRY=0 MERGE=0 PUSH=0 FORCE=0
+PUSH_REMOTE="local"   # local bare repo on this machine — nothing leaves the box
+if ! git remote get-url "$PUSH_REMOTE" >/dev/null 2>&1; then
+  PUSH_REMOTE="origin"
+fi
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1;;
     --merge)   MERGE=1;;
     --push)    PUSH=1;;
     --force)   FORCE=1;;
+    --remote=*) PUSH_REMOTE="${a#--remote=}";;
     *) echo "Unknown flag: $a" >&2; exit 2;;
   esac
 done
@@ -135,11 +140,11 @@ fi
 # ---------------------------------------------------------------------------
 if [ "$PUSH" = 1 ]; then
   echo
-  echo "=== Phase 3: push $ACTIVE_BRANCH ==="
-  run "git push -u origin $ACTIVE_BRANCH"
-  echo "Note: pushing makes the core's completion-time worktree cleanup"
-  echo "eligible for future wt/* branches (they count as pushed once their"
-  echo "commits land on a ref under refs/remotes/*)."
+  echo "=== Phase 3: push $ACTIVE_BRANCH to $PUSH_REMOTE ==="
+  run "git push $PUSH_REMOTE $ACTIVE_BRANCH"
+  echo "Note: pushing (even to the local bare repo) makes the core's"
+  echo "completion-time worktree cleanup eligible for future wt/* branches"
+  echo "(they count as pushed once their commits land on a refs/remotes/*)."
 fi
 
 echo
