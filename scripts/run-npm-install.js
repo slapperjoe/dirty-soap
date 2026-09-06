@@ -30,10 +30,15 @@ const dir = dirArg ? path.resolve(repoRoot, dirArg) : process.cwd();
 
 function attempt(n) {
   console.log(`> npm install (attempt ${n}/${maxAttempts}) in ${dir}`);
+  // shell: true is required on Windows — npm is installed there as an
+  // `npm.cmd` shim, and spawnSync without a shell cannot resolve .cmd
+  // executables (it fails with no status/signal, surfacing as
+  // "exit code unknown"). On Unix the shell resolves the bare `npm` path
+  // as before.
   const r = spawnSync(
     "npm",
     ["install", "--prefer-offline", "--no-audit", "--no-fund", ...npmArgs],
-    { cwd: dir, stdio: "inherit", timeout: attemptMs },
+    { cwd: dir, stdio: "inherit", timeout: attemptMs, shell: true },
   );
   if (r.status === 0) {
     return true;
