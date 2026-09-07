@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, CheckCircle, Download, ExternalLink, AlertTriangle } from 'lucide-react';
+import { RefreshCw, CheckCircle, Download, ExternalLink, AlertTriangle, Square } from 'lucide-react';
 import { listen } from '@tauri-apps/api/event';
 import { invokeTauriCommand } from '../../../utils/bridge';
 import { ScrollableForm, SectionHeader } from './SettingsTypes';
@@ -47,6 +47,38 @@ const btnStyle = (primary: boolean): React.CSSProperties => ({
         : 'var(--apinox-button-secondaryForeground, var(--apinox-editor-foreground))',
 });
 
+// ── Stop-proxy affordance ──────────────────────────────────────────────────
+//
+// When APInox's own MITM proxy is running (e.g. in sniffer mode, with the OS
+// system proxy pointed at it), the updater's two attempts can both fail: the
+// direct dial is MITM'd by the transparent proxy and the proxy-aware route
+// loops back into APInox's own listener. The error surfaces as "Direct request
+// failed (…) and the proxy-aware request also failed (error sending request
+// for url …)" (or the bare "error sending request for url …" form). Offer a
+// "Stop proxy" button in that case — but ONLY when the proxy is actually
+// running and the failure looks proxy-related, so the button never appears
+// for an unrelated network error or when there is nothing to stop.
+
+interface ProxyStatus {
+    running: boolean;
+    port: number | null;
+    mode: string;
+    targetUrl: string;
+}
+
+const PROXY_RELATED_ERROR =
+    /error sending request for url|proxy-aware request|proxy.*(refused|timeout|timed out|not reach)/i;
+
+/**
+ * True when an update-check error looks like it was caused by a proxy route —
+ * i.e. a failed "error sending request for url …" / proxy-aware retry — as
+ * opposed to, say, a GitHub 404 or a plain connection timeout.
+ */
+export function isProxyRelatedUpdateError(message: string | null | undefined): boolean {
+    if (!message) return false;
+    return PROXY_RELATED_ERROR.test(message);
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export const UpdatesTab: React.FC = () => {
@@ -59,6 +91,26 @@ export const UpdatesTab: React.FC = () => {
     const [downloadState, setDownloadState] = useState<DownloadState>('idle');
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [downloadedPath, setDownloadedPath] = useState<string | null>(null);
+
+    // ── Proxy status — drives the conditional "Stop proxy" button ──────────
+    const [proxyStatus, setProxyStatus] = useState<ProxyStatus | null>(null);
+    const [stoppingProxy, setStoppingProxy] = useState(false);
+
+    const loadProxyStatus = useCallback(async () => {
+        try {
+            const s = await invokeTauriCommand<ProxyStatus>('get_proxy_status');
+            setProxyStatus(s);
+        } catch {
+            // If we can't read proxy status we simply never offer the button.
+            setProxyStatus(null);
+        }
+    }, []);
+
+    // Refresh proxy state after a check completes (a proxy may have been
+    // started since mount) and so the button reflects live state.
+    useEffect(() => {
+        loadProxyStatus();
+    }, [checkState, loadProxyStatus]);
 
     const unlistenRef = useRef<(() => void) | null>(null);
 
@@ -76,6 +128,32 @@ export const UpdatesTab: React.FC = () => {
             setCheckState('error');
         }
     }, []);
+
+    // Show the "Stop proxy" affordance ONLY when the proxy is actually
+    // running AND the failure looks proxy-related — never for unrelated
+    // errors, and never when there is nothing to stop.
+    const showStopProxy =
+        checkState === 'done' &&
+        !!result?.check_error &&
+        isProxyRelatedUpdateError(result.check_error) &&
+        proxyStatus?.running === true;
+
+    const handleStopProxy = useCallback(async () => {
+        if (stoppingProxy) return;
+        setStoppingProxy(true);
+        setError(null);
+        try {
+            await invokeTauriCommand('stop_proxy');
+            // Reflect the stopped state immediately — the check_error message
+            // stays on screen (with the button now gone: the proxy is no
+            // longer running) and the user re-checks with "Check now".
+            setProxyStatus((s) => (s ? { ...s, running: false } : s));
+        } catch (e) {
+            setError(String(e));
+        } finally {
+            setStoppingProxy(false);
+        }
+    }, [stoppingProxy]);
 
     // Auto-check on mount.
     useEffect(() => {
@@ -181,11 +259,32 @@ export const UpdatesTab: React.FC = () => {
                 )}
 
                 {checkState === 'done' && result?.check_error && (
-                    <StatusRow icon={<AlertTriangle size={14} color="var(--apinox-descriptionForeground, #888)" />}>
-                        <span style={{ color: 'var(--apinox-descriptionForeground, #888)' }}>
-                            {result.check_error}
-                        </span>
-                    </StatusRow>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <StatusRow icon={<AlertTriangle size={14} color="var(--apinox-descriptionForeground, #888)" />}>
+                            <span style={{ color: 'var(--apinox-descriptionForeground, #888)', flex: 1, minWidth: 0 }}>
+                                {result.check_error}
+                            </span>
+                        </StatusRow>
+
+                        {/*
+                            Offer to stop the proxy — but ONLY when the proxy is
+                            actually running AND the failure looks proxy-related
+                            (a failed proxy-aware retry / "error sending request
+                            for url …"). Never shown for unrelated errors, and
+                            never when there is no running proxy to stop.
+                        */}
+                        {showStopProxy && (
+                            <button
+                                style={btnStyle(false)}
+                                onClick={handleStopProxy}
+                                disabled={stoppingProxy}
+                                title="APInox's own proxy is running and is likely interfering with this request. Stop it, then use Check now."
+                            >
+                                <Square size={13} />
+                                {stoppingProxy ? 'Stopping…' : 'Stop proxy'}
+                            </button>
+                        )}
+                    </div>
                 )}
 
                 {checkState === 'error' && (
