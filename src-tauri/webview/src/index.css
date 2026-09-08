@@ -33,6 +33,17 @@
     --apinox-font-family: 'Fira Code', "Segoe UI", system-ui, sans-serif;
     --apinox-font-size: 13px;
     --apinox-font-weight: 400;
+
+    /* Font-size scale — shared UI tokens (quick-request baseline).
+     * Fixed px values (not em) so every surface renders at the same size
+     * regardless of nesting depth. Theme-independent: these are NOT part of
+     * the per-theme variable sets in shared/src/styles/themes.ts.
+     * Usage + application guidance: docs/FONT_SIZE_TOKENS.md */
+    --apinox-fs-xs: 10px;  /* badges, counters */
+    --apinox-fs-sm: 11px;  /* section labels (uppercase 700), dense tree/list rows */
+    --apinox-fs-md: 12px;  /* meta / secondary text, tabs, buttons, table labels */
+    --apinox-fs-base: var(--apinox-font-size); /* body / inputs — tracks the 13px app base */
+    --apinox-fs-title: 15px; /* panel / section titles, quick-request name */
     /* Set by fontLoader.ts when a UI font is selected — overrides --apinox-font-family everywhere */
     --apinox-ui-font-family: ;
 
