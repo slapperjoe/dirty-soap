@@ -61,16 +61,14 @@ export function ProxySettingsPanel({ ignoreRules, onRemoveIgnoreRule, onAddIgnor
 
   const sectionHeadStyle: React.CSSProperties = {
     margin: '0 0 16px 0',
-    fontSize: '14px',
-    fontWeight: 600,
-    textTransform: 'uppercase',
+    ...tokens.sectionTitle, // 11px uppercase 700 — shared quick-request baseline (--apinox-fs-sm)
     color: tokens.text.muted,
     letterSpacing: '0.05em',
   };
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 500 }}>Proxy Settings</h2>
+      <h2 style={{ margin: '0 0 20px 0', fontSize: 'var(--apinox-fs-title)', fontWeight: 500 }}>Proxy Settings</h2>
 
       {/* Row 1: About + Default Port side by side */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
