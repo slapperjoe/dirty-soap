@@ -109,11 +109,20 @@ export const tokens = {
     error: '#f48771',
   },
 
-  /** Font size scale */
+  /**
+   * Font size scale.
+   *
+   * The first three steps map to the shared quick-request baseline tokens
+   * defined on :root in src/index.css (docs/FONT_SIZE_TOKENS.md):
+   * section labels 11px, meta/tabs/buttons 12px, body/inputs 13px.
+   * The larger steps (md and up) are used only by sibling settings pages
+   * (Mock/Breakpoints dialogs) that are not part of this baseline and keep
+   * their legacy values for now.
+   */
   fontSize: {
-    xs:   '11px',
-    sm:   '12px',
-    base: '13px',
+    xs:   'var(--apinox-fs-sm)',   // 11px section labels / dense rows
+    sm:   'var(--apinox-fs-md)',   // 12px meta / tabs / buttons
+    base: 'var(--apinox-fs-base)', // 13px body / inputs (aliases --apinox-font-size)
     md:   '14px',
     lg:   '16px',
     xl:   '18px',

@@ -120,6 +120,15 @@ export function CertificateManager() {
 
   const expired = isExpired(certInfo?.validTo);
 
+  // Section heading — shared quick-request baseline (tokens.sectionTitle:
+  // 11px uppercase 700, --apinox-fs-sm) so it matches the settings Proxy page.
+  const sectionHeadStyle: React.CSSProperties = {
+    margin: '0 0 16px 0',
+    ...tokens.sectionTitle,
+    color: tokens.text.muted,
+    letterSpacing: '0.05em',
+  };
+
   return (
     <>
       {/* Two-column: Status (left) | Actions (right) */}
@@ -127,7 +136,7 @@ export function CertificateManager() {
 
         {/* Status */}
         <div style={{ background: tokens.surface.panel, borderRadius: tokens.radius.lg, padding: '20px' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', color: tokens.text.muted, letterSpacing: '0.05em' }}>
+          <h3 style={sectionHeadStyle}>
             CA Certificate Status
           </h3>
 
@@ -200,7 +209,7 @@ export function CertificateManager() {
 
         {/* Actions */}
         <div style={{ background: tokens.surface.panel, borderRadius: tokens.radius.lg, padding: '20px' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', color: tokens.text.muted, letterSpacing: '0.05em' }}>
+          <h3 style={sectionHeadStyle}>
             Actions
           </h3>
 
@@ -263,7 +272,7 @@ export function CertificateManager() {
       {/* Trust result — full width, conditional */}
       {trustResult && (
         <div style={{ background: tokens.surface.panel, borderRadius: tokens.radius.lg, padding: '20px', marginTop: '16px' }}>
-          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', color: tokens.text.muted, letterSpacing: '0.05em' }}>
+          <h3 style={{ ...sectionHeadStyle, marginBottom: '12px' }}>
             Trust Installation Result
           </h3>
 
