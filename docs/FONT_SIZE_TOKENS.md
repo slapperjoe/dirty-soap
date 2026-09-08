@@ -105,3 +105,19 @@ Token definition + documentation only (kanban task `t_5986b56b`). Component
 markup and rendered styles are intentionally unchanged; the application work
 is tracked in `t_d19eeb2d` (settings proxy page) and `t_8f2b97a4`
 (explorer sidebar).
+
+## Applied status (verified t_afee7e99)
+
+- **Settings → Proxy page** — applied in `t_d19eeb2d` (commit `39a84c7`):
+  page title 18px → 15px, section/CertificateManager heads 14px → 11px
+  uppercase 700, proxy `tokens.fontSize` xs/sm/base re-pointed at the
+  shared tokens.
+- **Unified explorer sidebar** — applied in `t_8f2b97a4` (commit
+  `a078143`): `TreeItem` rows pinned to `--apinox-fs-md` (project) and
+  `--apinox-fs-sm` (operation/request), with a regression suite in
+  `components/explorer/__tests__/unified_explorer_font_tokens.test.tsx`.
+
+The 19-line sidebar-only revision of this file from `t_8f2b97a4` (which
+listed `--apinox-fs-title` as 16px and omitted the token definitions) was
+superseded by this revision during the t_afee7e99 verification merge —
+the merged `index.css` defines `--apinox-fs-title: 15px`.

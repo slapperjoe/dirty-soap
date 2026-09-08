@@ -77,7 +77,7 @@ export interface TreeItemProps {
     dataDropParent?: string;
 }
 
-const TreeItem: React.FC<TreeItemProps> = ({
+export const TreeItem: React.FC<TreeItemProps> = ({
     label,
     type,
     expanded = false,
@@ -150,6 +150,10 @@ const TreeItem: React.FC<TreeItemProps> = ({
                     cursor: 'pointer',
                     backgroundColor: selected ? 'var(--apinox-list-activeSelectionBackground)' : 'transparent',
                     color: selected ? 'var(--apinox-list-activeSelectionForeground)' : 'inherit',
+                    fontSize:
+                        type === 'project'
+                            ? 'var(--apinox-fs-md)'
+                            : 'var(--apinox-fs-sm)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
