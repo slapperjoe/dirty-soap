@@ -6,7 +6,6 @@ import {
     FileCode,
     File,
     Server,
-    Upload as UploadIcon,
     FlaskConical as FlaskConicalIcon,
 } from 'lucide-react';
 import { UnifiedProject, ApiOperation, ApiRequest, ScrapbookRequest } from '@shared/models';
@@ -336,7 +335,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
             // (ProjectList "Import & Export" header menu).
             if (onExportWorkspace) {
                 items.push({
-                    icon: UploadIcon,
+                    icon: DownloadIcon,
                     label: 'Export Workspace',
                     sub: 'Workspace layout & state',
                     tooltip: 'Export the workspace layout and state (pick which projects to include)',
