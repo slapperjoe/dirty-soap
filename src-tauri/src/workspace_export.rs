@@ -228,7 +228,7 @@ pub async fn export_unified_project(
 ) -> Result<ExportResult, String> {
     log::info!("export_unified_project: Exporting '{}' to {}", project_name, file_path);
 
-    let projects = crate::project_storage::list_unified_projects()?;
+    let projects = crate::project_storage::list_unified_projects().await?;
     let project = projects
         .into_iter()
         .find(|p| p["name"].as_str() == Some(&project_name))

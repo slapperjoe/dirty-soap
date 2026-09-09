@@ -126,6 +126,7 @@ pub async fn parse_wsdl_as_project(
     let use_proxy = use_proxy.unwrap_or(false);
     // List existing projects and check for duplicate sourceUrl
     let projects = project_storage::list_unified_projects()
+        .await
         .map_err(|e| format!("Failed to list projects: {}", e))?;
 
     for p in &projects {
@@ -398,6 +399,7 @@ pub async fn refresh_project_wsdl(params: serde_json::Value) -> Result<serde_jso
 
     // Find the project with this sourceUrl
     let projects = project_storage::list_unified_projects()
+        .await
         .map_err(|e| format!("Failed to list projects: {}", e))?;
 
     let existing_project = projects
@@ -562,7 +564,7 @@ fn looks_like_inline_spec(s: &str) -> bool {
 
 /// Find a stored unified project whose `sourceUrl` matches, if any.
 async fn find_project_by_source_url(url: &str) -> Result<Option<serde_json::Value>, String> {
-    let projects = project_storage::list_unified_projects()?;
+    let projects = project_storage::list_unified_projects().await?;
     Ok(projects
         .into_iter()
         .find(|p| p.get("sourceUrl").and_then(|v| v.as_str()) == Some(url)))

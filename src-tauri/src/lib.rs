@@ -539,6 +539,8 @@ pub fn run() {
             project_storage::load_project,
             project_storage::list_projects,
             project_storage::list_unified_projects,
+            project_storage::list_unified_projects_skeleton,
+            project_storage::load_unified_project_detail,
             project_storage::migrate_legacy_projects,
             project_storage::save_imported_project_as_unified,
             project_storage::delete_project,

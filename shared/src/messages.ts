@@ -182,4 +182,18 @@ export enum BackendCommand {
     // Unified Explorer
     UnifiedProjectParsed = 'unifiedProjectParsed',
     UnifiedProjectRefreshed = 'unifiedProjectRefreshed',
+
+    // Unified Explorer background loader (t_aafaf92b — contract §3.2).
+    // Emitted by Rust (`project_storage::emit_unified_load_event`) on the
+    // Tauri event bus while the sidebar tree loads in the background:
+    // - UnifiedLoadProgress: { loaded, total, name? } — one per project as the
+    //   background loader finishes it (full/async list path).
+    // - UnifiedLoadProject:  { project } — incremental arrival of a project.
+    // - UnifiedLoadDone:     { total, errors: [{ name, message }] } — terminal.
+    // - UnifiedLoadRefresh:  { reason: 'migration' | 'external' } — the context
+    //   re-snapshots the skeleton (e.g. after a legacy migration landed).
+    UnifiedLoadProgress = 'unified-load-progress',
+    UnifiedLoadProject = 'unified-load-project',
+    UnifiedLoadDone = 'unified-load-done',
+    UnifiedLoadRefresh = 'unified-load-refresh',
 }

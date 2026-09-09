@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::Emitter;
 use uuid::Uuid;
 use crate::utils::resolve_config_dir;
 
@@ -1536,9 +1537,18 @@ fn load_unified_operation(op_dir: &Path) -> Result<serde_json::Value, String> {
     }))
 }
 
-/// List all unified projects in ~/.apinox/projects/
+/// List all unified projects in ~/.apinox/projects/.
+///
+/// `async` (t_aafaf92b — first-start lockup fix, contract §3.1.1): a SYNC
+/// `#[tauri::command]` executes inline on Tauri's main event-loop thread (the
+/// one that renders the window), so the full-disk load of every project used
+/// to freeze the UI on first start (~1.9 s for 30 projects × 100 ops,
+/// measured in `bench_startup_load_costs`). As `async` it runs on the tokio
+/// runtime instead. The webview startup path prefers
+/// `list_unified_projects_skeleton` (fast) + `load_unified_project_detail`
+/// (on demand); this remains the full-load fallback / refresh path.
 #[tauri::command]
-pub fn list_unified_projects() -> Result<Vec<serde_json::Value>, String> {
+pub async fn list_unified_projects() -> Result<Vec<serde_json::Value>, String> {
     let dir = projects_dir()?;
     let mut projects = Vec::new();
 
@@ -1564,6 +1574,155 @@ pub fn list_unified_projects() -> Result<Vec<serde_json::Value>, String> {
         a["name"].as_str().cmp(&b["name"].as_str())
     });
     Ok(projects)
+}
+
+/// First-paint skeleton for ONE unified project (t_aafaf92b — contract
+/// §3.1.2). Single pass over `properties.json` + each `operation.json`
+/// (names/displayName only) + a scan of each op dir's request metadata
+/// file NAMES. It deliberately SKIPS: request `*.xml` bodies,
+/// `fullSchema`/input/output payloads (only their keys are touched on
+/// parse), test suites and folders — the deferrable ~99.5% of the full
+/// payload (contract §2). Returns `None` for unreadable/malformed projects
+/// (they are simply absent from the tree, same as the full list skips them).
+fn load_unified_project_skeleton(dir: &Path) -> Option<serde_json::Value> {
+    let props_path = dir.join("properties.json");
+    let props: UnifiedProperties = fs::read_to_string(&props_path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())?;
+
+    let mut operations = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            // operation.json: extract ONLY name + displayName (the fullSchema
+            // in the same file is parsed but never serialized into the
+            // skeleton).
+            let op_json = match fs::read_to_string(path.join("operation.json"))
+                .ok()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            {
+                Some(v) => v,
+                None => continue,
+            };
+            let name = match op_json["name"].as_str() {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            // Request names: read the SMALL `*.json` metadata (name +
+            // displayName only); the `*.xml` bodies are skipped entirely —
+            // that is where 15.9% of the full payload lives (contract §2).
+            let mut request_names: Vec<serde_json::Value> = Vec::new();
+            if let Ok(req_entries) = fs::read_dir(&path) {
+                let mut metas: Vec<String> = req_entries
+                    .flatten()
+                    .filter_map(|e| {
+                        let f = e.file_name().to_str()?.to_string();
+                        (f.ends_with(".json") && f != "operation.json")
+                            .then(|| f.trim_end_matches(".json").to_string())
+                    })
+                    .collect();
+                metas.sort();
+                for base in metas {
+                    let meta = match fs::read_to_string(path.join(format!("{base}.json")))
+                        .ok()
+                        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                    {
+                        Some(v) => v,
+                        None => continue,
+                    };
+                    let req_name = meta["name"].as_str().unwrap_or(&base).to_string();
+                    request_names.push(serde_json::json!({
+                        "name": req_name,
+                        "displayName": meta.get("displayName").cloned().filter(|v| !v.is_null()),
+                    }));
+                }
+            }
+            operations.push(serde_json::json!({
+                "name": name,
+                "displayName": op_json.get("displayName").cloned().filter(|v| !v.is_null()),
+                "requestNames": request_names,
+            }));
+        }
+    }
+
+    Some(serde_json::json!({
+        "name": props.name,
+        "displayName": props.display_name,
+        "description": props.description,
+        "source": props.source,
+        "sourceUrl": props.source_url,
+        "parsedAt": props.parsed_at,
+        "lastRefreshedAt": props.last_refreshed_at,
+        "id": props.id,
+        "soapVersion": props.soap_version,
+        "contentType": props.content_type,
+        "bindingName": props.binding_name,
+        "operations": operations,
+    }))
+}
+
+/// First-paint skeleton list (t_aafaf92b — contract §3.1.2).
+///
+/// The webview startup path calls THIS (not the full list): it is ~1/20th
+/// the IPC payload and skips every request-body read, so first paint is
+/// single-digit-to-low-double-digit ms even for thousands of operations.
+/// Full data (fullSchema + bodies) arrives per-project on demand via
+/// `load_unified_project_detail`.
+#[tauri::command]
+pub async fn list_unified_projects_skeleton() -> Result<Vec<serde_json::Value>, String> {
+    let dir = projects_dir()?;
+    let mut skeletons = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && path.join("properties.json").exists() {
+                // Same legacy-dir filter as the full list (Phase B, t_86c34d38).
+                if !is_unified_format_path(&path) {
+                    continue;
+                }
+                if let Some(skel) = load_unified_project_skeleton(&path) {
+                    skeletons.push(skel);
+                }
+            }
+        }
+    }
+    skeletons.sort_by(|a, b| {
+        a["name"].as_str().cmp(&b["name"].as_str())
+    });
+    Ok(skeletons)
+}
+
+/// On-demand full project load (t_aafaf92b — contract §3.1.3).
+///
+/// `async` wrapper over `load_unified_project`: called by the webview the
+/// first time a project's details are needed (operation selected / request
+/// opened / TESTS view reads the suites). The context caches the result, so
+/// subsequent opens of the same project never hit disk.
+#[tauri::command]
+pub async fn load_unified_project_detail(dir_path: String) -> Result<serde_json::Value, String> {
+    load_unified_project(dir_path)
+}
+
+/// Emit a `unified-load-*` progress event to the webview (t_aafaf92b —
+/// contract §3.2). Payload shape per event name:
+/// - `unified-load-progress`: `{ loaded, total, name? }`
+/// - `unified-load-project`:  `{ project }` (skeleton or full project)
+/// - `unified-load-done`:     `{ total, errors: [{ name, message }] }`
+/// - `unified-load-refresh`:  `{ reason: 'migration' | 'external' }`
+///
+/// Emission is best-effort (`let _ =`) — a missing/failed listener must never
+/// break the load itself. `AppHandle` is injected by Tauri in commands;
+/// direct calls in tests pass it explicitly.
+pub fn emit_unified_load_event(
+    app: &tauri::AppHandle,
+    event_name: &str,
+    payload: &serde_json::Value,
+) {
+    let _ = app.emit(event_name, payload);
 }
 
 /// True if `dir/properties.json` declares the unified project format.
@@ -1973,7 +2132,7 @@ mod tests {
 
         // Precondition: it is a legacy-format project (not listed as unified).
         assert!(!is_unified_format_path(&dir));
-        let listed = list_unified_projects().expect("list unified");
+        let listed = list_unified_projects().await.expect("list unified");
         assert!(
             listed.iter().all(|p| p["name"] != "LegacySvc"),
             "legacy project must not leak into the unified list pre-migration"
@@ -2016,7 +2175,7 @@ mod tests {
         assert_eq!(loaded["folders"][0]["requests"][0]["name"], "manual_req");
 
         // It now shows up in the unified list.
-        let listed = list_unified_projects().expect("list unified post-migration");
+        let listed = list_unified_projects().await.expect("list unified post-migration");
         assert!(listed.iter().any(|p| p["name"] == "LegacySvc"), "migrated project listed as unified");
 
         std::env::remove_var("APINOX_CONFIG_DIR");
@@ -2154,8 +2313,8 @@ mod tests {
         std::env::remove_var("APINOX_CONFIG_DIR");
     }
 
-    #[test]
-    fn list_unified_projects_excludes_legacy_format_dirs() {
+    #[tokio::test]
+    async fn list_unified_projects_excludes_legacy_format_dirs() {
         // A legacy dir colocating in the projects dir must not surface as a
         // (broken, empty-operations) unified project.
         use crate::utils::config::CONFIG_DIR_TEST_LOCK;
@@ -2166,7 +2325,7 @@ mod tests {
         let legacy = sample_legacy_project();
         let _dir = write_legacy_project(&base, "OnlyLegacy", &legacy);
 
-        let listed = list_unified_projects().expect("list unified");
+        let listed = list_unified_projects().await.expect("list unified");
         assert!(
             listed.iter().all(|p| p["name"] != "OnlyLegacy"),
             "legacy dir must be excluded from the unified list"
@@ -2256,7 +2415,7 @@ mod tests {
             .expect("import new");
 
         // Canonical unified store: listed, unified format, flat ops.
-        let listed = list_unified_projects().expect("list unified");
+        let listed = list_unified_projects().await.expect("list unified");
         assert!(listed.iter().any(|p| p["name"] == "ImportedSvc"), "imported project must be unified-listed");
         let dir = base.join("ImportedSvc");
         assert!(is_unified_format_path(&dir), "imported dir must be APInox-unified-v1");
@@ -2418,6 +2577,327 @@ mod tests {
         );
         assert!(is_unified_format_path(&imported_dir), "imported (suffixed) dir must be unified");
         assert_eq!(imported["operations"].as_array().unwrap().len(), 1);
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    // ------------------------------------------------------------------
+    // Background loader (t_aafaf92b — contract §3.1.2 / §3.1.3)
+    // ------------------------------------------------------------------
+
+    /// Fixture: a unified project with one operation carrying a sizeable
+    /// `fullSchema`, a request with a sizeable XML body, plus a displayName
+    /// override — everything the skeleton must strip and the detail must keep.
+    fn fixture_project_with_payloads() -> serde_json::Value {
+        serde_json::json!({
+            "name": "SkeletonSvc",
+            "description": "skeleton test service",
+            "source": "wsdl",
+            "sourceUrl": "http://example.com/skeleton.wsdl",
+            "parsedAt": "2026-09-09T00:00:00+00:00",
+            "id": "skeleton-id",
+            "soapVersion": "1.2",
+            "bindingName": "SkeletonSoap12",
+            "contentType": "application/soap+xml",
+            "displayName": "Skeleton (display)",
+            "operations": [
+                {
+                    "name": "BigOp",
+                    "displayName": "Big Op (display)",
+                    "action": "http://example.com/BigOp",
+                    "input": { "name": "BigOpInput", "children": [] },
+                    "targetNamespace": "http://example.com/ns",
+                    "originalEndpoint": "http://example.com/svc",
+                    "fullSchema": {
+                        "name": "BigOpInput",
+                        "type": "object",
+                        "children": (0..50)
+                            .map(|i| serde_json::json!({
+                                "name": format!("Elem{i}"),
+                                "type": "string",
+                                "children": [
+                                    { "name": format!("Child{i}_a"), "type": "int", "children": [] },
+                                    { "name": format!("Child{i}_b"), "type": "string", "children": [] }
+                                ]
+                            }))
+                            .collect::<Vec<_>>(),
+                    },
+                    "output": { "name": "BigOpResult" },
+                    "requests": [
+                        {
+                            "name": "BigReq",
+                            "endpoint": "http://example.com/svc",
+                            "method": "POST",
+                            "contentType": "application/soap+xml; charset=utf-8",
+                            "request": format!("<soap:Envelope><body>{}</body></soap:Envelope>", "x".repeat(2000))
+                        }
+                    ]
+                }
+            ]
+        })
+    }
+
+    /// The skeleton keeps the first-paint tree (project/operation/request
+    /// names + displayNames + source metadata) and strips every deferrable
+    /// payload (fullSchema, request bodies, input/output, testSuites/folders).
+    /// This is the ~0.5%-critical column the webview sidebar renders
+    /// (contract §2) — the whole point of the background loader.
+    #[tokio::test]
+    async fn skeleton_keeps_names_and_strips_deferrable_payloads() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        save_unified_project(
+            "SkeletonSvc".to_string(),
+            fixture_project_with_payloads(),
+        )
+        .expect("save fixture project");
+
+        let full = list_unified_projects().await.expect("list full");
+        let skel = list_unified_projects_skeleton().await.expect("list skeleton");
+        assert_eq!(full.len(), 1, "one project saved, one listed");
+        assert_eq!(skel.len(), 1, "one project saved, one skeleton");
+
+        let f = &full[0];
+        let s = &skel[0];
+
+        // First-paint data must survive intact.
+        assert_eq!(s["name"], "SkeletonSvc");
+        assert_eq!(s["displayName"], "Skeleton (display)");
+        assert_eq!(s["sourceUrl"], "http://example.com/skeleton.wsdl");
+        assert_eq!(s["id"], "skeleton-id");
+        assert_eq!(s["soapVersion"], "1.2");
+        assert_eq!(s["contentType"], "application/soap+xml");
+        assert_eq!(s["bindingName"], "SkeletonSoap12");
+        assert_eq!(s["operations"].as_array().unwrap().len(), 1);
+        let sop = &s["operations"][0];
+        assert_eq!(sop["name"], "BigOp");
+        assert_eq!(sop["displayName"], "Big Op (display)");
+        assert_eq!(
+            sop["requestNames"][0]["name"], "BigReq",
+            "request NAMES are the only per-request data the skeleton keeps"
+        );
+
+        // Deferrable payloads must be stripped.
+        assert!(sop.get("fullSchema").is_none(), "fullSchema stripped from skeleton");
+        assert!(sop.get("input").is_none(), "input schema stripped from skeleton");
+        assert!(sop.get("output").is_none(), "output schema stripped from skeleton");
+        assert!(sop.get("requests").is_none(), "request metadata (incl. bodies) stripped from skeleton");
+        assert!(s.get("testSuites").is_none(), "test suites stripped from skeleton");
+        assert!(s.get("folders").is_none(), "folders stripped from skeleton");
+
+        // The skeleton must be DRAMATICALLY smaller than the full payload
+        // (the measured ~0.5% first-paint column): 50-node schema + 2 KB body
+        // vs. a ~200-byte name tree.
+        let full_bytes = serde_json::to_string(f).unwrap().len();
+        let skel_bytes = serde_json::to_string(s).unwrap().len();
+        assert!(
+            skel_bytes * 20 < full_bytes,
+            "skeleton ({skel_bytes} B) must be <5% of full payload ({full_bytes} B)"
+        );
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    /// `load_unified_project_detail` is the on-demand full load: it must
+    /// return the complete project (fullSchema, request bodies) exactly as
+    /// the (kept) `load_unified_project` does — so the webview's cached
+    /// detail is a drop-in replacement for the old bulk list.
+    #[tokio::test]
+    async fn load_unified_project_detail_round_trips_full_project() {
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        save_unified_project(
+            "SkeletonSvc".to_string(),
+            fixture_project_with_payloads(),
+        )
+        .expect("save fixture project");
+
+        let detail = load_unified_project_detail("SkeletonSvc".to_string())
+            .await
+            .expect("detail load");
+        let direct = load_unified_project("SkeletonSvc".to_string()).expect("direct load");
+
+        assert_eq!(
+            serde_json::to_string(&detail).unwrap(),
+            serde_json::to_string(&direct).unwrap(),
+            "detail load must equal the canonical full load"
+        );
+
+        let op = &detail["operations"][0];
+        assert!(
+            op["fullSchema"]["children"].as_array().unwrap().len() == 50,
+            "fullSchema round-trips through the detail load"
+        );
+        assert_eq!(
+            op["requests"][0]["request"].as_str().unwrap().len(),
+            2000 + "<soap:Envelope><body>".len() + "</body></soap:Envelope>".len(),
+            "request body round-trips through the detail load"
+        );
+        assert_eq!(detail["name"], "SkeletonSvc");
+        assert_eq!(detail["displayName"], "Skeleton (display)");
+
+        std::env::remove_var("APINOX_CONFIG_DIR");
+    }
+
+    /// Startup-cost bench (t_d55a5ff6 — first-start lockup diagnosis; ported
+    /// for t_aafaf92b's skeleton path).
+    ///
+    /// Opt-in: runs ONLY when `APINOX_STARTUP_BENCH=1`, so normal `cargo test`
+    /// runs are unaffected. It builds a synthetic multi-project store with the
+    /// REAL `save_unified_project` writer (+ a few legacy-format dirs via
+    /// `write_legacy_project`) and times the startup commands:
+    /// `migrate_legacy_projects` (awaited, tokio), `list_unified_projects`
+    /// (now `async` — off the main thread; kept as the full/fallback path)
+    /// AND `list_unified_projects_skeleton` (the new first-paint path).
+    /// Prints per-phase timings, store size, and the IPC JSON payload bytes
+    /// the webview receives.
+    #[tokio::test]
+    async fn bench_startup_load_costs_when_opted_in() {
+        if std::env::var("APINOX_STARTUP_BENCH").ok().as_deref() != Some("1") {
+            eprintln!("[bench] skipped (set APINOX_STARTUP_BENCH=1 to run)");
+            return;
+        }
+        use crate::utils::config::CONFIG_DIR_TEST_LOCK;
+        let _guard = CONFIG_DIR_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("projects");
+        std::env::set_var("APINOX_CONFIG_DIR", tmp.path());
+
+        // Scale knobs (env-overridable): projects x ops per project.
+        let n_projects: usize = std::env::var("BENCH_PROJECTS").ok().and_then(|v| v.parse().ok()).unwrap_or(12);
+        let n_ops: usize = std::env::var("BENCH_OPS").ok().and_then(|v| v.parse().ok()).unwrap_or(60);
+
+        // ~2.5KB of nested schema nodes — a realistic fullSchema for a large
+        // WSDL (CountryInfoService-style services have 20+ ops each with
+        // nested request/response types).
+        let schema_nodes: Vec<serde_json::Value> = (0..50)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("Elem{i}"),
+                    "type": "string",
+                    "children": [
+                        { "name": format!("Child{i}_a"), "type": "int", "children": [] },
+                        { "name": format!("Child{i}_b"), "type": "string", "children": [] }
+                    ],
+                    "required": i % 3 == 0
+                })
+            })
+            .collect();
+
+        // Phase 1: write the store with the REAL writer.
+        let mut t = std::time::Instant::now();
+        let mut ops_written = 0usize;
+        for p in 0..n_projects {
+            let ops: Vec<serde_json::Value> = (0..n_ops)
+                .map(|o| {
+                    ops_written += 1;
+                    serde_json::json!({
+                        "name": format!("Op{p}_{o}"),
+                        "action": format!("http://example.com/Op{p}_{o}"),
+                        "input": { "name": format!("Req{p}_{o}"), "children": [] },
+                        "targetNamespace": "http://example.com/ns",
+                        "originalEndpoint": format!("http://example.com/service{p}"),
+                        "fullSchema": serde_json::json!({
+                            "name": format!("Input{p}_{o}"),
+                            "type": "object",
+                            "children": schema_nodes.clone()
+                        }),
+                        "output": { "name": format!("Res{p}_{o}") },
+                        "description": "synthetic benchmark operation",
+                        "portName": format!("Port{p}"),
+                        "requests": [
+                            {
+                                "name": format!("Request{p}_{o}"),
+                                "endpoint": format!("http://example.com/service{p}"),
+                                "method": "POST",
+                                "contentType": "application/soap+xml; charset=utf-8",
+                                "request": format!(
+                                    "<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\"><soap:Body><Request{p}_{o} id=\"req-{p}-{o}\"/><Nested><Field>{}</Field></Nested></soap:Body></soap:Envelope>",
+                                    "x".repeat(1500)
+                                )
+                            }
+                        ]
+                    })
+                })
+                .collect();
+            let project = serde_json::json!({
+                "name": format!("BenchService{p}"),
+                "description": "benchmark service",
+                "source": "wsdl",
+                "sourceUrl": format!("http://example.com/service{p}.wsdl"),
+                "parsedAt": "2026-09-09T00:00:00+00:00",
+                "id": format!("bench-{p}"),
+                "soapVersion": "1.2",
+                "bindingName": format!("BenchBinding{p}"),
+                "contentType": "application/soap+xml",
+                "operations": ops
+            });
+            save_unified_project(format!("BenchService{p}"), project).expect("save bench project");
+        }
+        // A handful of legacy-format dirs to cost the migration scan (each is
+        // a full read/parse of properties.json + interfaces to decide it is
+        // already unified or to actually migrate it).
+        for l in 0..4 {
+            let legacy = sample_legacy_project();
+            write_legacy_project(&base, &format!("LegacyBench{l}"), &legacy);
+        }
+        let write_ms = t.elapsed().as_millis();
+
+        let store_bytes = std::fs::read_dir(&base)
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .map(|e| {
+                        std::fs::read_dir(e.path())
+                            .map(|files| {
+                                files
+                                    .flatten()
+                                    .filter(|f| f.path().is_file())
+                                    .map(|f| f.metadata().map(|m| m.len()).unwrap_or(0))
+                                    .sum::<u64>()
+                            })
+                            .unwrap_or(0)
+                    })
+                    .sum::<u64>()
+            })
+            .unwrap_or(0);
+
+        // Phase 2: the startup commands, exactly as UnifiedProjectContext
+        // runs them on mount — migration NO LONGER gates the list (it runs
+        // concurrently, off-main), and first paint uses the SKELETON.
+        let t_mig = std::time::Instant::now();
+        let migrated = migrate_legacy_projects().await.expect("migrate");
+        let migrate_ms = t_mig.elapsed().as_millis();
+
+        let t_skel = std::time::Instant::now();
+        let skel = list_unified_projects_skeleton().await.expect("skeleton");
+        let skel_ms = t_skel.elapsed().as_millis();
+
+        let t_list = std::time::Instant::now();
+        let listed = list_unified_projects().await.expect("list");
+        let list_ms = t_list.elapsed().as_millis();
+
+        let full_payload = serde_json::to_string(&listed).expect("serialize full");
+        let skel_payload = serde_json::to_string(&skel).expect("serialize skeleton");
+
+        println!("=== apinox first-start bench (REAL commands) ===");
+        println!("store: {n_projects} projects x {n_ops} ops (+4 legacy dirs), {ops_written} ops");
+        println!("store size on disk      : {store_bytes:>10} bytes (top-level only)");
+        println!("write synthetic store   : {write_ms:>10} ms (setup, not app cost)");
+        println!("migrate_legacy_projects : {migrate_ms:>10} ms (async, off-main; no longer gates the list)");
+        println!("  migrated dirs         : {migrated:?}");
+        println!("skeleton (first paint)  : {skel_ms:>10} ms (async — NEW webview startup path)");
+        println!("  skeleton payload      : {:>10} bytes ({:.2} KB) to webview", skel_payload.len() as u64, skel_payload.len() as f64 / 1024.0);
+        println!("full list (fallback)    : {list_ms:>10} ms (now async — off the main thread)");
+        println!("  full payload          : {:>10} bytes ({:.2} MB) to webview", full_payload.len() as u64, full_payload.len() as f64 / 1e6);
+        println!("skeleton share of full  : {:.2}%", skel_payload.len() as f64 / full_payload.len() as f64 * 100.0);
+        println!("total first-paint window: {skel_ms} ms (was {list_ms} ms SYNC on the main thread)");
 
         std::env::remove_var("APINOX_CONFIG_DIR");
     }
