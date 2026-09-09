@@ -22,6 +22,7 @@ import {
 } from '../sidebar/shared/SidebarContextMenu';
 import { ScrapbookPanel } from '../sidebar/ScrapbookPanel';
 import { RenameModal } from '../modals/RenameModal';
+import { useUnifiedProjectsSafe } from '../../contexts/UnifiedProjectContext';
 
 // Drag-and-drop helper functions (extracted to avoid TS1005 JSX brace ambiguity)
 const makeDragData = (data: { type: string; projectName: string; fromIndex: number; operationName?: string }): string => {
@@ -264,6 +265,12 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
     const closeCtxMenu = () => setCtxMenu(null);
 
+    // Contract §4: loading-state indicator — reads the single source of truth
+    // from the context (idle | loading(loaded,total,current) | ready(loaded,
+    // total,errors[]) | error(message)). The UI must not couple to the
+    // worker/IPC implementation.
+    const { load, refresh } = useUnifiedProjectsSafe();
+
     // R-10 (F-17): rename state — the modal edits a display-only `displayName`
     // override; the stable `name` (directory / WSDL binding / selection
     // identity) never changes, so selection survives a rename.
@@ -446,7 +453,88 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
                 }
             }}
         >
-            {projects.length === 0 && (
+            {/* Contract §4: loading-state rendering.
+                - phase === 'loading': fixed-height indicator row (≈24 px,
+                  matching a TreeItem row) with spinner + progress counter.
+                  Reserved height when absent → no layout shift.
+                - phase === 'ready' with errors: single muted warning row
+                  that does not hide the tree.
+                - phase === 'error': replace the tree area with message +
+                  Retry button (calls context refresh(); no full app reload).
+                - phase === 'ready' with total === 0: existing "No projects
+                  yet" empty-state markup renders as-is.
+                - Partial rendering: projects already in state render
+                  normally beneath the indicator; the UI is fully interactive
+                  during the load. */}
+            {load.phase === 'loading' && (
+                <>
+                    <style>{`@keyframes apinox-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                    <div
+                        style={{
+                            height: 24,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '0 8px 0 16px',
+                            color: 'var(--apinox-foreground)',
+                            opacity: 0.7,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {/* Spinner */}
+                        <div
+                            style={{
+                                width: 14,
+                                height: 14,
+                                border: '2px solid var(--apinox-border)',
+                                borderTopColor: 'var(--apinox-icon-primary, #6e7681)',
+                                borderRadius: '50%',
+                                animation: 'apinox-spin 0.8s linear infinite',
+                            }}
+                        />
+                        <span style={{ fontSize: 'var(--apinox-fs-sm)' }}>
+                            Loading interfaces…
+                            {load.total > 0 ? ` (${load.loaded}/${load.total})` : ''}
+                        </span>
+                    </div>
+                </>
+            )}
+
+            {load.phase === 'error' && (
+                <div style={{ padding: 16, textAlign: 'center', color: 'var(--apinox-foreground)' }}>
+                    <p style={{ margin: 0 }}>{load.message}</p>
+                    <button
+                        onClick={() => refresh()}
+                        style={{
+                            marginTop: 8,
+                            padding: '4px 12px',
+                            background: 'var(--apinox-button, #4a9eff)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
+
+            {load.phase === 'ready' && load.errors.length > 0 && (
+                <div
+                    style={{
+                        padding: '4px 8px',
+                        fontSize: 'var(--apinox-fs-sm)',
+                        color: 'var(--apinox-foreground)',
+                        opacity: 0.6,
+                        flexShrink: 0,
+                    }}
+                >
+                    {load.errors.length} project{load.errors.length > 1 ? 's' : ''} failed to load — right-click the project to retry
+                </div>
+            )}
+
+            {projects.length === 0 && load.phase !== 'error' && (
                 <div style={{ padding: 16, textAlign: 'center', color: 'var(--apinox-foreground)', opacity: 0.7 }}>
                     <p style={{ margin: 0 }}>No projects yet</p>
                     <p style={{ fontSize: 12, marginTop: 4 }}>Load a WSDL to create one</p>

@@ -125,6 +125,31 @@ export function useUnifiedProjects(): UnifiedProjectContextValue {
     return ctx;
 }
 
+/**
+ * Safe variant for components that may be rendered outside the provider
+ * (e.g. in isolated unit tests). Returns a no-op default load state
+ * when no provider is present, so the component renders gracefully.
+ */
+export function useUnifiedProjectsSafe(): UnifiedProjectContextValue {
+    const ctx = useContext(UnifiedProjectContext);
+    if (!ctx) {
+        return {
+            projects: [],
+            setProjects: () => {},
+            selectedNode: null,
+            setSelectedNode: () => {},
+            load: { phase: 'idle' },
+            refresh: async () => {},
+            ensureProjectFull: async () => {},
+            saveProject: async () => {},
+            updateProject: async () => {},
+            findSuiteById: () => null,
+            findCaseById: () => null,
+        } as unknown as UnifiedProjectContextValue;
+    }
+    return ctx;
+}
+
 /** True for a project already carrying full detail (fullSchema + non-empty
  *  request bodies). Skeleton rows carry placeholder EMPTY bodies (and no
  *  fullSchema), so they are NOT full — the check must be content-based, not
