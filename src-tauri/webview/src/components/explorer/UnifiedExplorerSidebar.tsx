@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import {
     ChevronRight,
     ChevronDown,
@@ -65,6 +65,33 @@ export const QUICK_REQUESTS_MIN_HEIGHT = 64;
 export const clampQuickRequestsHeight = (h: number): number => {
     if (!Number.isFinite(h)) return QUICK_REQUESTS_DEFAULT_HEIGHT;
     return Math.min(600, Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.round(h)));
+};
+
+// ── Quick Requests subwindow height persistence (t_c0116422) ────────────────
+// The height the user last dragged is stored in localStorage so it survives
+// an app restart. Reads are clamped with clampQuickRequestsHeight, so a
+// corrupt or out-of-range saved value can never break the layout (it falls
+// back to the default or clamps to the UI min/max). Writes are guarded:
+// storage can be unavailable (private mode, quota) and persistence is a
+// best-effort nicety — the UI keeps working if a write is skipped.
+export const QUICK_REQUESTS_HEIGHT_STORAGE_KEY = 'apinox_quick_requests_height';
+
+export const loadQuickRequestsHeight = (): number => {
+    try {
+        const raw = window.localStorage.getItem(QUICK_REQUESTS_HEIGHT_STORAGE_KEY);
+        if (raw === null || raw.trim() === '') return QUICK_REQUESTS_DEFAULT_HEIGHT;
+        return clampQuickRequestsHeight(Number(raw));
+    } catch {
+        return QUICK_REQUESTS_DEFAULT_HEIGHT;
+    }
+};
+
+export const saveQuickRequestsHeight = (height: number): void => {
+    try {
+        window.localStorage.setItem(QUICK_REQUESTS_HEIGHT_STORAGE_KEY, String(clampQuickRequestsHeight(height)));
+    } catch {
+        // Storage unavailable: skip persistence, the UI is unaffected.
+    }
 };
 
 export interface TreeItemProps {
@@ -320,10 +347,15 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     const clearDropGap = useCallback(() => setDropGap(null), []);
 
     // Quick Requests subwindow height (vertical resize via the handle above
-    // the section). Starts at the default; the persistence lane (t_c0116422)
-    // will seed/restore a saved value — the clamp keeps any restored value
-    // inside the UI min/max.
-    const [quickRequestsHeight, setQuickRequestsHeight] = useState<number>(QUICK_REQUESTS_DEFAULT_HEIGHT);
+    // the section). Seeded synchronously from localStorage during the first
+    // render (lazy initializer), so the saved height is applied before first
+    // paint — no default→saved flicker. The clamp keeps any saved value
+    // inside the UI min/max; without a saved value the default is used.
+    const [quickRequestsHeight, setQuickRequestsHeight] = useState<number>(() => loadQuickRequestsHeight());
+    // The drag listeners are created once at mousedown, so they read the
+    // latest height from this ref (kept in sync where the state is written)
+    // to persist it on resize end without a stale closure.
+    const quickRequestsHeightRef = useRef(quickRequestsHeight);
     const [handleHovered, setHandleHovered] = useState(false);
     const isResizingQuickRequests = useRef(false);
 
@@ -346,7 +378,9 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
             // the project tree visible (it needs at least the min height).
             const max = Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.floor(containerHeight - QUICK_REQUESTS_MIN_HEIGHT));
             const next = ev.clientY - containerTop;
-            setQuickRequestsHeight(Math.min(max, Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.round(next))));
+            const clamped = Math.min(max, Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.round(next)));
+            quickRequestsHeightRef.current = clamped;
+            setQuickRequestsHeight(clamped);
         };
         const handleEnd = () => {
             isResizingQuickRequests.current = false;
@@ -354,6 +388,9 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
             document.removeEventListener('mouseup', handleEnd);
             document.body.style.userSelect = '';
             document.body.style.cursor = '';
+            // Persist once per gesture, at resize end — the final clamped
+            // value. A single write needs no debounce.
+            saveQuickRequestsHeight(quickRequestsHeightRef.current);
         };
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'row-resize';
@@ -362,14 +399,39 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     }, []);
 
     // Release the pointer-drag affordance if the mouseup happens off-window.
+    // If the blur ends a drag that never got its mouseup, persist the
+    // reached height — otherwise that last resize would be lost.
     useEffect(() => {
         const reset = () => {
+            if (isResizingQuickRequests.current) {
+                saveQuickRequestsHeight(quickRequestsHeightRef.current);
+            }
             isResizingQuickRequests.current = false;
             document.body.style.userSelect = '';
             document.body.style.cursor = '';
         };
         window.addEventListener('blur', reset);
         return () => window.removeEventListener('blur', reset);
+    }, []);
+
+    // On startup the saved height is clamped against the live container once
+    // layout is known: a value saved while the window was large must not
+    // overflow a smaller one (which would push the subwindow out of the
+    // sidebar). useLayoutEffect so the correction lands before paint; in
+    // non-layout environments (jsdom) the rect height is 0 and this is a
+    // no-op. The stored value is deliberately NOT rewritten — only the
+    // displayed height is clamped, so a later, larger window restores the
+    // original saved height.
+    useLayoutEffect(() => {
+        const container = quickRequestsContainerRef.current;
+        if (!container) return;
+        const containerHeight = container.getBoundingClientRect().height;
+        if (containerHeight <= 0) return;
+        const max = Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.floor(containerHeight - QUICK_REQUESTS_MIN_HEIGHT));
+        if (quickRequestsHeightRef.current > max) {
+            quickRequestsHeightRef.current = max;
+            setQuickRequestsHeight(max);
+        }
     }, []);
 
     const buildSections = (state: CtxMenuState): CtxMenuSection[] => {
