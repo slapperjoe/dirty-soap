@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     ChevronRight,
     ChevronDown,
@@ -50,6 +50,21 @@ const findClosestDropRow = (x: number, y: number): HTMLElement | null => {
         }
     }
     return null;
+};
+
+// ── Quick Requests subwindow resize constants ───────────────────────────────
+// The Quick Requests section is the bottom subwindow of the unified explorer
+// sidebar. The handle between the project tree and the subwindow lets the user
+// drag its height; the value is clamped to the min/max below while dragging.
+// Default = current visible height: section header (~36px incl. border) +
+// four request rows (~24px each) ≈ 132px — preserves the legacy "4 rows" view.
+export const QUICK_REQUESTS_DEFAULT_HEIGHT = 132;
+// Section header (36px) + at least one request row (~24px) so the subwindow
+// always shows its header and a full row.
+export const QUICK_REQUESTS_MIN_HEIGHT = 64;
+export const clampQuickRequestsHeight = (h: number): number => {
+    if (!Number.isFinite(h)) return QUICK_REQUESTS_DEFAULT_HEIGHT;
+    return Math.min(600, Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.round(h)));
 };
 
 export interface TreeItemProps {
@@ -304,6 +319,59 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
     const [dropGap, setDropGap] = useState<DropGap | null>(null);
     const clearDropGap = useCallback(() => setDropGap(null), []);
 
+    // Quick Requests subwindow height (vertical resize via the handle above
+    // the section). Starts at the default; the persistence lane (t_c0116422)
+    // will seed/restore a saved value — the clamp keeps any restored value
+    // inside the UI min/max.
+    const [quickRequestsHeight, setQuickRequestsHeight] = useState<number>(QUICK_REQUESTS_DEFAULT_HEIGHT);
+    const [handleHovered, setHandleHovered] = useState(false);
+    const isResizingQuickRequests = useRef(false);
+
+    // The drag handler reads the container's current height on each move, so
+    // an ancestor window resize mid-drag cannot break the clamp.
+    const quickRequestsContainerRef = useRef<HTMLDivElement | null>(null);
+
+    const handleQuickRequestsResizeStart = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        const container = quickRequestsContainerRef.current;
+        if (!container) return;
+        isResizingQuickRequests.current = true;
+        const containerTop = container.getBoundingClientRect().top;
+
+        const handleMove = (ev: MouseEvent) => {
+            if (!isResizingQuickRequests.current) return;
+            const containerHeight = container.getBoundingClientRect().height;
+            // New subwindow height = distance from the pointer down to the
+            // container's top edge, clamped to [min, max]; the max also keeps
+            // the project tree visible (it needs at least the min height).
+            const max = Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.floor(containerHeight - QUICK_REQUESTS_MIN_HEIGHT));
+            const next = ev.clientY - containerTop;
+            setQuickRequestsHeight(Math.min(max, Math.max(QUICK_REQUESTS_MIN_HEIGHT, Math.round(next))));
+        };
+        const handleEnd = () => {
+            isResizingQuickRequests.current = false;
+            document.removeEventListener('mousemove', handleMove);
+            document.removeEventListener('mouseup', handleEnd);
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+        };
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'row-resize';
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('mouseup', handleEnd);
+    }, []);
+
+    // Release the pointer-drag affordance if the mouseup happens off-window.
+    useEffect(() => {
+        const reset = () => {
+            isResizingQuickRequests.current = false;
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+        };
+        window.addEventListener('blur', reset);
+        return () => window.removeEventListener('blur', reset);
+    }, []);
+
     const buildSections = (state: CtxMenuState): CtxMenuSection[] => {
         const items: CtxMenuItem[] = [];
 
@@ -404,6 +472,7 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
 
     return (
         <div
+            ref={quickRequestsContainerRef}
             style={{
                 flex: 1,
                 display: 'flex',
@@ -702,30 +771,54 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
 
         {/* F-01 / R-05 — Quick Requests (scrapbook) bottom section.
             Q1(a): rendered below the project tree, mirroring the legacy
-            placement in ApiExplorerSidebar. The tree scrolls in the flex
-            area above; this section keeps its own (short) scroll area so a
-            long scrapbook list never pushes the tree out of view. */}
+            placement in ApiExplorerSidebar. The subwindow is vertically
+            resizable via the handle above it; the project tree scrolls in the
+            flex area above, and the request list scrolls inside the
+            subwindow so a tall scrapbook never pushes the tree out of view. */}
         {scrapbook && (
-            <div
-                data-testid="unified-quick-requests"
-                style={{
-                    flexShrink: 0,
-                    borderTop: '1px solid var(--apinox-border)',
-                    maxHeight: '40%',
-                    minHeight: 80,
-                    overflowY: 'auto',
-                }}
-            >
-                <ScrapbookPanel
-                    requests={scrapbook.requests}
-                    selectedRequest={scrapbook.selectedRequest}
-                    loading={scrapbook.loading}
-                    onCreateRequest={scrapbook.onCreateRequest}
-                    onSelectRequest={scrapbook.onSelectRequest}
-                    onDeleteRequest={scrapbook.onDeleteRequest}
-                    onExecuteRequest={scrapbook.onExecuteRequest}
+            <>
+                {/* Vertical resize handle between the project tree and the
+                    Quick Requests subwindow. */}
+                <div
+                    data-testid="unified-quick-requests-resize-handle"
+                    onMouseDown={handleQuickRequestsResizeStart}
+                    onMouseEnter={() => setHandleHovered(true)}
+                    onMouseLeave={() => setHandleHovered(false)}
+                    style={{
+                        flexShrink: 0,
+                        height: 4,
+                        cursor: 'row-resize',
+                        background: handleHovered
+                            ? 'var(--apinox-tab-active-border, var(--apinox-border, #3c3c3c))'
+                            : 'transparent',
+                        transition: 'background 0.2s',
+                    }}
                 />
-            </div>
+
+                <div
+                    data-testid="unified-quick-requests"
+                    style={{
+                        flexShrink: 0,
+                        borderTop: '1px solid var(--apinox-border)',
+                        height: quickRequestsHeight,
+                        minHeight: QUICK_REQUESTS_MIN_HEIGHT,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <ScrapbookPanel
+                        fill
+                        requests={scrapbook.requests}
+                        selectedRequest={scrapbook.selectedRequest}
+                        loading={scrapbook.loading}
+                        onCreateRequest={scrapbook.onCreateRequest}
+                        onSelectRequest={scrapbook.onSelectRequest}
+                        onDeleteRequest={scrapbook.onDeleteRequest}
+                        onExecuteRequest={scrapbook.onExecuteRequest}
+                    />
+                </div>
+            </>
         )}
     </div>
     );
