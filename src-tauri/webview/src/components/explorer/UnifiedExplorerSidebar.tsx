@@ -325,11 +325,23 @@ export const UnifiedExplorerSidebar: React.FC<UnifiedExplorerSidebarProps> = ({
         if (state.type === 'project') {
             const project = state.data as UnifiedProject;
             items.push({ icon: RefreshCwIcon, label: 'Refresh WSDL', sub: project.sourceUrl || 'Reload operations', onClick: () => { onRefreshProject(project.name); closeCtxMenu(); } });
-            items.push({ icon: DownloadIcon, label: 'Export Project', onClick: () => { onExportProject(project.name); closeCtxMenu(); } });
+            items.push({
+                icon: DownloadIcon,
+                label: 'Export Project',
+                sub: 'Project files & configuration',
+                tooltip: 'Export this project\'s files and configuration to a single .apinox file',
+                onClick: () => { onExportProject(project.name); closeCtxMenu(); },
+            });
             // Phase B (t_86c34d38): relocated from the deleted PROJECTS view
             // (ProjectList "Import & Export" header menu).
             if (onExportWorkspace) {
-                items.push({ icon: UploadIcon, label: 'Export Workspace', onClick: () => { onExportWorkspace(); closeCtxMenu(); } });
+                items.push({
+                    icon: UploadIcon,
+                    label: 'Export Workspace',
+                    sub: 'Workspace layout & state',
+                    tooltip: 'Export the workspace layout and state (pick which projects to include)',
+                    onClick: () => { onExportWorkspace(); closeCtxMenu(); },
+                });
             }
             if (onBulkImport) {
                 items.push({ icon: DownloadIcon, label: 'Bulk Import', onClick: () => { onBulkImport(); closeCtxMenu(); } });
