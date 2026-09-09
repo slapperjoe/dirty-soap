@@ -37,6 +37,8 @@ export interface CtxMenuItem {
   label: string;
   /** Optional sub-label (pattern, URL, etc.) */
   sub?: string;
+  /** Optional hover tooltip (rendered as the native `title` attribute) */
+  tooltip?: string;
   /** Click handler — called when item is clicked */
   onClick?: () => void;
   /** If set, this text is copied to clipboard on click (triggers toast + close) */
@@ -267,6 +269,7 @@ function MenuItemRow({ item, onCopy }: { item: CtxMenuItem; onCopy: (text: strin
           ref={menuItemRef}
           $danger={item.danger}
           $hover={hover || false}
+          title={item.tooltip}
           onClick={hasSubItems ? undefined : handleClick}
         >
           <IconWrapper>
