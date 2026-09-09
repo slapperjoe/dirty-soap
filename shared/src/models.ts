@@ -438,6 +438,68 @@ export interface UnifiedProject {
     readOnly?: boolean;
 }
 
+// ============================================================================
+// UNIFIED EXPLORER — BACKGROUND LOADER (t_aafaf92b, contract §3 / §4)
+// docs/FIRST_START_EXPLORER_LOADING_CONTRACT.md
+// ============================================================================
+
+/**
+ * First-paint skeleton for one unified project (t_aafaf92b — contract §3.1.2).
+ *
+ * Returned by `list_unified_projects_skeleton`: everything the sidebar tree
+ * renders (project/operation/request NAMES + displayNames + source metadata)
+ * and NOTHING the editor needs (no fullSchema, no request bodies, no
+ * input/output schemas, no testSuites/folders) — ~0.5% of the full payload
+ * (contract §2). The webview replaces a skeleton with the full project (from
+ * `load_unified_project_detail`) the first time the project is opened.
+ */
+export interface UnifiedProjectSkeletonOperation {
+    name: string;
+    displayName?: string;
+    /** Request names only (no bodies, no metadata). */
+    requestNames: { name: string }[];
+}
+
+export interface UnifiedProjectSkeleton {
+    name: string;
+    displayName?: string;
+    description?: string;
+    source?: string;
+    sourceUrl?: string;
+    parsedAt?: string;
+    lastRefreshedAt?: string;
+    id?: string;
+    soapVersion?: string;
+    contentType?: string;
+    bindingName?: string;
+    operations: UnifiedProjectSkeletonOperation[];
+}
+
+/**
+ * Per-project non-fatal load error (contract §4 `ready.errors`).
+ * The failing project is absent from the tree until fixed/retried.
+ */
+export interface ExplorerLoadError {
+    name: string;
+    message: string;
+}
+
+/**
+ * Sidebar loading-state contract (t_aafaf92b — contract §4, single source of
+ * truth on `useUnifiedProjects().load`). The UI must not couple to the
+ * worker/IPC implementation — only to this state machine.
+ *
+ * `loading` → `ready` is guaranteed (terminal) even when individual projects
+ * fail: failures land in `ready.errors`, never in `error`. An empty store is
+ * `ready` with `total === 0` (the existing "No projects yet" markup applies).
+ * `error` is reserved for fatal failures (e.g. the projects dir unreadable).
+ */
+export type ExplorerLoadState =
+    | { phase: 'idle' }
+    | { phase: 'loading'; loaded: number; total: number; current?: string }
+    | { phase: 'ready'; loaded: number; total: number; errors: ExplorerLoadError[] }
+    | { phase: 'error'; message: string };
+
 // Test Runner Types
 export type TestStepType = 'request' | 'delay' | 'transfer' | 'script' | 'workflow';
 
